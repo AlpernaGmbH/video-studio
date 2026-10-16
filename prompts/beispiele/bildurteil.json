@@ -1,0 +1,8 @@
+{
+  "urteile": [
+    { "t": 0.65, "ok": true, "probleme": [] },
+    { "t": 1.3, "ok": false, "probleme": ["Der Endwert wird am rechten Kartenrand angeschnitten"] },
+    { "t": 2.08, "ok": true, "probleme": [] }
+  ],
+  "gesamt": "Eine Stelle ist angeschnitten, sonst sauber."
+}

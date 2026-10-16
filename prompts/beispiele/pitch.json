@@ -1,0 +1,13 @@
+{
+  "pitch": {
+    "text": "Ein Wert verändert sich über mehrere Messungen. Das lässt sich in Worten schlecht fassen, als Linie sieht man es sofort.",
+    "zeigt": "Eine Linie, die über die Messungen vom ersten zum letzten Wert läuft, mit beschriftetem Anfangs- und Endpunkt.",
+    "parameter": ["Werte der Reihe", "Titel", "Einheit"],
+    "wiederverwendung": [
+      "Website-Score über mehrere Messungen vor und nach einem Relaunch",
+      "Anfragen pro Monat über ein Quartal"
+    ],
+    "aufwand": "mittel",
+    "ausgabe": "overlay"
+  }
+}

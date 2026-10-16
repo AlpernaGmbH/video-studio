@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "id": "zahl-zaehler",
+  "name": "Zahl-Zähler",
+  "version": "1.0.0",
+  "status": "geprueft",
+  "welle": 1,
+  "herkunft": {
+    "notiz": "Welle 1 des Bauplans v2 (Kap. 3.6). Datenblatt-Beispiel A3, Storyboard-Beispiel A1. Referenzstück für das Stück-Format."
+  },
+  "zweck": "Hebt eine einzelne Kennzahl hervor: Die Zahl läuft hoch, ein Label sagt, was sie bedeutet.",
+  "ausloeser": {
+    "typen": [
+      "zahl",
+      "anteil"
+    ],
+    "beschreibung": "Eine Zahl im Satz, ein Anteil wie «7 von 10», ein Prozentwert oder ein Betrag. Nicht für Entwicklungen über mehrere Messwerte."
+  },
+  "parameter": [
+    {
+      "id": "wert",
+      "label": "Endwert",
+      "beschreibung": "Die Kennzahl, auf die der Zähler hinläuft. Vorschauwert für Check und Snapshot ist 7.",
+      "pflicht": true,
+      "rolle": "inhalt",
+      "typ": "number",
+      "default": 7,
+      "min": -999999,
+      "max": 999999
+    },
+    {
+      "id": "startwert",
+      "label": "Startwert",
+      "beschreibung": "Wert, bei dem der Zähler beginnt. Fast immer 0.",
+      "pflicht": false,
+      "rolle": "inhalt",
+      "typ": "number",
+      "default": 0,
+      "min": -999999,
+      "max": 999999
+    },
+    {
+      "id": "praefix",
+      "label": "Präfix",
+      "beschreibung": "Text vor der Zahl, zum Beispiel «CHF » für einen Betrag.",
+      "pflicht": false,
+      "rolle": "inhalt",
+      "typ": "string",
+      "default": "",
+      "maxLaenge": 5
+    },
+    {
+      "id": "suffix",
+      "label": "Suffix",
+      "beschreibung": "Text nach der Zahl, zum Beispiel « von 10» oder « %».",
+      "pflicht": false,
+      "rolle": "inhalt",
+      "typ": "string",
+      "default": " von 10",
+      "maxLaenge": 10
+    },
+    {
+      "id": "label",
+      "label": "Beschriftung",
+      "beschreibung": "Sagt in einer kurzen Zeile, was die Zahl bedeutet. Leer lassen, wenn die Zahl für sich spricht.",
+      "pflicht": false,
+      "rolle": "inhalt",
+      "typ": "string",
+      "default": "laden zu langsam",
+      "maxLaenge": 40
+    },
+    {
+      "id": "dezimalstellen",
+      "label": "Dezimalstellen",
+      "beschreibung": "Anzahl Nachkommastellen, 0 bis 2. Schweizer Schreibweise mit Komma, Tausender mit Apostroph.",
+      "pflicht": false,
+      "rolle": "layout",
+      "typ": "number",
+      "default": 0,
+      "min": 0,
+      "max": 2
+    },
+    {
+      "id": "position",
+      "label": "Position",
+      "beschreibung": "Wo die Karte steht. «mitte» ist Standard, «oben» für Szenen, in denen das Gesicht in der Bildmitte bleiben soll.",
+      "pflicht": false,
+      "rolle": "layout",
+      "typ": "enum",
+      "optionen": [
+        {
+          "wert": "mitte",
+          "label": "Mitte"
+        },
+        {
+          "wert": "oben",
+          "label": "Oben"
+        }
+      ],
+      "default": "mitte"
+    }
+  ],
+  "dauer": {
+    "standard": 2.6,
+    "min": 1.4,
+    "max": 5
+  },
+  "ausgabe": "overlay",
+  "markenvariablen": [
+    "markeBg",
+    "markeText",
+    "markeAkzent1",
+    "markeFontTitel",
+    "markeFontText",
+    "markeRadius",
+    "markeTempo"
+  ],
+  "passtZu": [
+    "erklaervideo",
+    "talking-head",
+    "projektvideo"
+  ],
+  "braucht": [
+    "nichts"
+  ],
+  "aufwand": "klein",
+  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Bei 50 Prozent der Dauer zeigt die Karte einen Wert zwischen Start und Ende, am Ende genau den Endwert. Die Karte liegt vollständig im Sicherheitsrand. Der Check von HyperFrames meldet keine Fehler.",
+  "sicherheitsrand": true,
+  "engines": [
+    "hyperframes"
+  ],
+  "einsatz": {
+    "wann": [
+      "Der Satz nennt eine einzelne Kennzahl, die die Aussage trägt, etwa «Sieben von zehn Websites laden zu langsam».",
+      "Eine Zahl soll hängen bleiben, ohne dass ein Diagramm nötig ist."
+    ],
+    "wannNicht": [
+      "Der Satz beschreibt eine Entwicklung über mehrere Messwerte, etwa «von 97 auf 60». Dafür fehlt noch ein Stück, die Lücke gehört ins Ideenprotokoll.",
+      "Mehrere Zahlen im selben Satz. Dann zwei Einsätze nacheinander oder ein Stück mit Balken."
+    ],
+    "beispiele": [
+      {
+        "satz": "Sieben von zehn Websites laden zu langsam.",
+        "variablen": {
+          "wert": 7,
+          "suffix": " von 10",
+          "label": "laden zu langsam",
+          "dauer": 2.6
+        }
+      },
+      {
+        "satz": "Das spart dir CHF 1'200 im Jahr.",
+        "variablen": {
+          "wert": 1200,
+          "praefix": "CHF ",
+          "suffix": "",
+          "label": "weniger pro Jahr",
+          "dauer": 2.4
+        }
+      }
+    ],
+    "kombinierbarMit": [],
+    "hinweise": [
+      "Der Sicherheitsrand lässt rechts und unten rund 20 Prozent frei (Bauplan 3.10, Vermutung). Die Karte steht deshalb links ausgerichtet.",
+      "Pro Reel höchstens zwei Einsätze, sonst verliert die Zahl ihre Wirkung."
+    ]
+  }
+}

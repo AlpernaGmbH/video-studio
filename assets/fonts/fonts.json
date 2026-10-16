@@ -1,0 +1,9 @@
+{
+  "hinweis": "Schriften, die Marken-Profile ansprechen dürfen. Eine Marken-Schrift, die hier fehlt, ist ein Fehler im Staging, kein stiller Rückfall auf sans-serif.",
+  "schriften": [
+    { "family": "Poppins", "weight": 600, "style": "normal", "file": "poppins-latin-600-normal.woff2" },
+    { "family": "Poppins", "weight": 700, "style": "normal", "file": "poppins-latin-700-normal.woff2" },
+    { "family": "Montserrat", "weight": 400, "style": "normal", "file": "montserrat-latin-400-normal.woff2" },
+    { "family": "Montserrat", "weight": 500, "style": "normal", "file": "montserrat-latin-500-normal.woff2" }
+  ]
+}

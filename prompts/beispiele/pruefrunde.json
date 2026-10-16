@@ -1,0 +1,8 @@
+{
+  "am": "2026-10-16T14:00:00.000Z",
+  "bestanden": false,
+  "befunde": [
+    { "stufe": "fehler", "code": "bild", "text": "Bild bei 1.30 s: Der Endwert wird am rechten Kartenrand angeschnitten", "stueck": "wert-verlauf" }
+  ],
+  "bildurteil": "Eine Stelle ist angeschnitten, sonst sauber."
+}

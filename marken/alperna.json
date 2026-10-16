@@ -1,0 +1,17 @@
+{
+  "schluessel": "alperna",
+  "name": "Alperna",
+  "status": "platzhalter",
+  "farben": {
+    "hintergrund": "#FFFFFF",
+    "text": "#0A0A0A",
+    "akzent1": "#FFC629",
+    "akzent2": "#4B3FD6"
+  },
+  "schriften": { "titel": "Poppins", "fliesstext": "Montserrat" },
+  "logo": {},
+  "effektStil": { "eckenradius": 24, "schatten": false, "bewegungstempo": 1 },
+  "tonalitaet": { "anrede": "du", "verboteneWoerter": [], "hinweise": "Ruhig, konkret, belegbar. Keine Ausrufezeichen, keine Superlative." },
+  "ton": { "sfxDichte": 0.3, "musik": false },
+  "hashtags": { "fest": [], "anzahl": 5 }
+}

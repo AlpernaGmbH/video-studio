@@ -1,0 +1,28 @@
+{
+  "name": "alperna-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Video-Editing-System der Alperna GmbH (Bauplan v2): Pipeline, Motion-Bibliothek und Wachstumsschleife",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "studio": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "motion:lint": "tsx src/cli.ts motion lint",
+    "check": "npm run typecheck && npm run test && npm run motion:lint",
+    "selftest:render": "tsx scripts/selftest-render.ts"
+  },
+  "dependencies": {
+    "gsap": "3.15.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "looks": {
+    "runde": 1,
+    "briefs": [
+      { "id": "a", "name": "Plakat", "leitidee": "Grosse Zahl, Akzentfläche, wenig Beiwerk", "typografie": "Poppins 700, sehr gross", "farbeinsatz": "Akzent als Fläche", "bewegung": "Linie schiesst ein, Zahl springt" },
+      { "id": "b", "name": "Interface", "leitidee": "Karte mit feinem Raster wie ein Dashboard", "typografie": "Montserrat 500, klein", "farbeinsatz": "Akzent nur für die Linie", "bewegung": "Linie zeichnet sich ruhig" },
+      { "id": "c", "name": "Editorial", "leitidee": "Dünne Linien, viel Weissraum, Beschriftung am Rand", "typografie": "Poppins 600, mittel", "farbeinsatz": "Schwarz auf transparent", "bewegung": "Punkte erscheinen nacheinander" }
+    ],
+    "bilder": [
+      { "id": "a", "pfad": "looks/a.png" },
+      { "id": "b", "pfad": "looks/b.png" },
+      { "id": "c", "pfad": "looks/c.png" }
+    ],
+    "notizen": []
+  }
+}

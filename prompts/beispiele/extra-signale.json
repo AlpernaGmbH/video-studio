@@ -1,0 +1,10 @@
+{
+  "z07": [
+    {
+      "typ": "frei",
+      "beschreibung": "Der Weg einer Anfrage durch den Betrieb, räumlich erklärt: vom Formular über das Postfach zur Offerte",
+      "text": "Schau, wie die Anfrage durch den Betrieb läuft",
+      "sicherheit": "hoch"
+    }
+  ]
+}
