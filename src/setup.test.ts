@@ -43,6 +43,21 @@ describe("init", () => {
     expect(fs.existsSync(path.join(user, ".config"))).toBe(false);
   });
 
+  it("zeigt bei mehreren Ordnern je einen fertigen Befehl und warnt vor Schul- und Fremdkonten", () => {
+    const a = onedrive("OneDrive-AlpernaGmbH");
+    const b = onedrive("OneDrive-KantonsschuleTrogen");
+    let meldung = "";
+    try {
+      initialisiere({ env: env(), userHome: user });
+    } catch (e) {
+      meldung = (e as Error).message;
+    }
+    expect(meldung).toContain(`npm run studio -- init --home "${a}/Studio"`);
+    expect(meldung).toContain(`npm run studio -- init --home "${b}/Studio"`);
+    expect(meldung).toMatch(/Schulkonten/);
+    expect(meldung).toMatch(/ich rate nicht/);
+  });
+
   it("meldet, wenn es kein OneDrive gibt", () => {
     expect(() => initialisiere({ env: env(), userHome: user })).toThrow(/Kein OneDrive-Ordner/);
   });

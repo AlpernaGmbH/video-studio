@@ -51,6 +51,20 @@ export function findeOneDrive(home = os.homedir()): string[] {
   return treffer;
 }
 
+/** Meldung bei mehreren OneDrive-Ordnern: je Ordner ein fertiger Befehl, dazu was nicht in Frage kommt. */
+export function mehrereOrdner(kandidaten: string[]): string {
+  const befehle = kandidaten.map((k) => `  npm run studio -- init --home "${k}/Studio"`).join("\n");
+  return [
+    "Mehrere OneDrive-Ordner gefunden. Welcher gilt, entscheidest du, ich rate nicht. Befehl für den gewählten Ordner kopieren:",
+    "",
+    befehle,
+    "",
+    "Nicht in Frage kommen Schulkonten, Konten anderer Firmen und Ordner mit «FreigegebeneBibliotheken» im Namen (Systemordner).",
+    "Firmendaten gehören in das OneDrive der Firma. Ist keines angemeldet, nimmst du für einen Test das persönliche Konto und verschiebst den Ordner später.",
+    "Enthält der Name ein «ö» und das Einfügen klappt nicht, hilft: --home \"$(ls -d ~/Library/CloudStorage/OneDrive-Pers*)/Studio\"",
+  ].join("\n");
+}
+
 export interface InitErgebnis {
   home: string;
   config: string;
@@ -65,7 +79,7 @@ export function initialisiere(opt: { home?: string; env?: NodeJS.ProcessEnv; use
   if (!home) {
     const kandidaten = findeOneDrive(userHome);
     if (kandidaten.length === 0) throw new Error("Kein OneDrive-Ordner gefunden. OneDrive installieren und anmelden, oder den Pfad mit --home angeben");
-    if (kandidaten.length > 1) throw new Error(`Mehrere OneDrive-Ordner gefunden:\n- ${kandidaten.join("\n- ")}\nWelcher gilt? Mit --home "<Ordner>/Studio" angeben`);
+    if (kandidaten.length > 1) throw new Error(mehrereOrdner(kandidaten));
     home = path.join(kandidaten[0]!, "Studio");
   }
   const angelegt: string[] = [];

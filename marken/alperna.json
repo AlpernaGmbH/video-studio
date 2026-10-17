@@ -17,6 +17,14 @@
     "hinweise": "Du-Form, ss statt ß, keine Gedankenstriche als Satzzeichen, keine KI-Floskeln. Aufbau Fall, Zahl, Einordnung: nie eine Zahl ohne Kontext. Titel höchstens 5 Worte, höchstens eine CTA. Schweizer Zahlenformat: CHF 1'000 und 70 % mit geschütztem Leerzeichen. Keine Erfolgsgarantien, «viral» nie als Versprechen."
   },
   "ton": { "sfxDichte": 0, "musik": true },
+  "schnittprofil": {
+    "laengstePause": 0.25,
+    "laengsteEinstellung": 1.5,
+    "woerterJeUntertitel": { "min": 2, "max": 3 },
+    "hookMaxSekunden": 2,
+    "zoomTempo": "mittel",
+    "textlaengen": {}
+  },
   "look": "Cine-Look: kühl, kontraststark, leicht entsättigt. Hauttöne über das Vectorscope kalibrieren (Hautlinie, Richtung Pink). LUT folgt (Bauplan 3.9).",
   "hashtags": { "fest": [], "anzahl": 5 }
 }

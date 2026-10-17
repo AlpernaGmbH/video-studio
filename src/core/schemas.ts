@@ -38,6 +38,33 @@ export type KatalogEintrag = z.infer<typeof KatalogEintrag>;
 
 /* ---------- Markenprofil (Bauplan Kap. 4) ---------- */
 
+/**
+ * Schnittprofil (Plan v3, 9.1): Die Optik folgt der Marke, das Tempo dem Schnittprofil. Alperna: Optik ruhig, Schnitt schnell (Retention).
+ * Eine Marke kann ruhig aussehen und schnell geschnitten sein, ein anderer Kunde umgekehrt.
+ */
+export const Schnittprofil = z
+  .object({
+    /** Längste Pause zwischen zwei Wörtern im Schnitt, in Sekunden. */
+    laengstePause: z.number().positive(),
+    /** Längste Einstellung ohne Bildwechsel, in Sekunden. */
+    laengsteEinstellung: z.number().positive(),
+    woerterJeUntertitel: z.object({ min: z.number().int().min(1), max: z.number().int().min(1) }),
+    /** Höchstens so viele Sekunden bis zur ersten Aussage. */
+    hookMaxSekunden: z.number().positive(),
+    zoomTempo: z.enum(["langsam", "mittel", "schnell"]),
+    /** Textlängen je Format (Zeichen), zum Beispiel {"linkedin-post": {"min": 400, "max": 1300}}. */
+    textlaengen: z.record(z.object({ min: z.number().int().min(0), max: z.number().int().positive() })).default({}),
+  })
+  .superRefine((p, ctx) => {
+    if (p.woerterJeUntertitel.max < p.woerterJeUntertitel.min) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["woerterJeUntertitel"], message: "max darf nicht kleiner als min sein" });
+    }
+    for (const [format, l] of Object.entries(p.textlaengen)) {
+      if (l.max < l.min) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["textlaengen", format], message: "max darf nicht kleiner als min sein" });
+    }
+  });
+export type Schnittprofil = z.infer<typeof Schnittprofil>;
+
 export const Markenprofil = z.object({
   schluessel: Slug,
   name: z.string().min(1),
@@ -83,6 +110,7 @@ export const Markenprofil = z.object({
     musik: z.boolean(),
   }),
   look: z.string().optional(),
+  schnittprofil: Schnittprofil.optional(),
   schlusskarte: z.object({ text: z.string(), handle: z.string().optional() }).optional(),
   hashtags: z.object({ fest: z.array(z.string()).default([]), anzahl: z.number().int().min(0).max(30) }),
 });
@@ -93,6 +121,20 @@ export function markeFuerExportFreigegeben(marke: Markenprofil): { ok: true } | 
   if (marke.status !== "freigegeben") return { ok: false, grund: `Markenprofil «${marke.name}» ist ein Platzhalter (Gate 0 offen)` };
   if (!marke.freigabe) return { ok: false, grund: `Markenprofil «${marke.name}» hat keine Freigabe (wer, wann)` };
   return { ok: true };
+}
+
+/**
+ * Was dem Profil für Gate 0 (Tor 0) noch fehlt. Leer heisst vollständig; freigeben muss trotzdem ein Mensch mit den Probebildern.
+ * Grundlage ist die Tabelle in Kapitel 4 des Plans v2 plus das Schnittprofil aus Plan v3.
+ */
+export function gate0Luecken(marke: Markenprofil): string[] {
+  const l: string[] = [];
+  if (!marke.logo.hell && !marke.logo.dunkel) l.push("Logo (helle oder dunkle Datei)");
+  if (!marke.captionPreset) l.push("Caption-Preset");
+  if (!marke.schnittprofil) l.push("Schnittprofil");
+  if (!marke.schlusskarte) l.push("Schlusskarte");
+  if (marke.tonalitaet.verboteneWoerter.length === 0) l.push("Verbotene Wörter");
+  return l;
 }
 
 /* ---------- Ereignisse (Bauplan Kap. 5 und 6) ---------- */
