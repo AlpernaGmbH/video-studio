@@ -2,11 +2,11 @@
   "schema": 1,
   "id": "zahl-zaehler",
   "name": "Zahl-Zähler",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "geprueft",
   "welle": 1,
   "herkunft": {
-    "notiz": "Welle 1 des Bauplans v2 (Kap. 3.6). Datenblatt-Beispiel A3, Storyboard-Beispiel A1. Referenzstück für das Stück-Format."
+    "notiz": "Welle 1 des Bauplans v2 (Kap. 3.6). Datenblatt-Beispiel A3, Storyboard-Beispiel A1. Referenzstück für das Stück-Format. 1.1.0: an das Alperna Design System angeglichen (ruhige Bewegung, Zahl in Gold, Glasfläche)."
   },
   "zweck": "Hebt eine einzelne Kennzahl hervor: Die Zahl läuft hoch, ein Label sagt, was sie bedeutet.",
   "ausloeser": {
@@ -52,22 +52,48 @@
     {
       "id": "suffix",
       "label": "Suffix",
-      "beschreibung": "Text nach der Zahl, zum Beispiel « von 10» oder « %».",
+      "beschreibung": "Text nach der Zahl, zum Beispiel « von 10» oder « %». Standard ist leer: Ein Standardwert darf nie Inhalt vortäuschen.",
       "pflicht": false,
       "rolle": "inhalt",
       "typ": "string",
-      "default": " von 10",
+      "default": "",
       "maxLaenge": 10
     },
     {
       "id": "label",
       "label": "Beschriftung",
-      "beschreibung": "Sagt in einer kurzen Zeile, was die Zahl bedeutet. Leer lassen, wenn die Zahl für sich spricht.",
-      "pflicht": false,
+      "beschreibung": "Sagt in einer kurzen Zeile, was die Zahl bedeutet. Pflicht: Marken-Regel «nie eine Zahl ohne Kontext». Vorschauwert für Check und Snapshot ist «laden zu langsam».",
+      "pflicht": true,
       "rolle": "inhalt",
       "typ": "string",
       "default": "laden zu langsam",
-      "maxLaenge": 40
+      "maxLaenge": 60
+    },
+    {
+      "id": "eyebrow",
+      "typ": "string",
+      "label": "Eyebrow",
+      "beschreibung": "Kurzes, gesperrtes Label über der Zahl im ruhigen Ton, zum Beispiel «Ein Fall aus der Region». Leer lassen für keines.",
+      "maxLaenge": 30,
+      "default": ""
+    },
+    {
+      "id": "zahlfarbe",
+      "typ": "enum",
+      "label": "Farbe der Zahl",
+      "beschreibung": "«akzent» setzt die Zahl in der Akzentfarbe der Marke (die eine Betonung, die Linie bleibt dann neutral). «text» setzt sie in der Textfarbe, die Linie trägt dann den Akzent.",
+      "optionen": [
+        {
+          "wert": "akzent",
+          "label": "Akzentfarbe"
+        },
+        {
+          "wert": "text",
+          "label": "Textfarbe"
+        }
+      ],
+      "default": "akzent",
+      "rolle": "stil"
     },
     {
       "id": "dezimalstellen",
@@ -124,15 +150,15 @@
     "nichts"
   ],
   "aufwand": "klein",
-  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Bei 50 Prozent der Dauer zeigt die Karte einen Wert zwischen Start und Ende, am Ende genau den Endwert. Die Karte liegt vollständig im Sicherheitsrand. Der Check von HyperFrames meldet keine Fehler.",
+  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Bei 50 Prozent der Dauer zeigt die Karte einen Wert zwischen Start und Ende, am Ende genau den Endwert. Die Karte liegt vollständig im Sicherheitsrand, die Zahl im Polster der Karte. Die Bewegung ist ein sanftes Einblenden ohne Überschwinger. Der Check von HyperFrames meldet keine Fehler.",
   "sicherheitsrand": true,
   "engines": [
     "hyperframes"
   ],
   "einsatz": {
     "wann": [
-      "Der Satz nennt eine einzelne Kennzahl, die die Aussage trägt, etwa «Sieben von zehn Websites laden zu langsam».",
-      "Eine Zahl soll hängen bleiben, ohne dass ein Diagramm nötig ist."
+      "Der Satz nennt eine einzelne Kennzahl, die die Aussage trägt, etwa «Nach drei Monaten +690 % Reichweite».",
+      "Eine Zahl soll hängen bleiben, ohne dass ein Diagramm nötig ist. Immer mit Einordnung (label): nie eine Zahl ohne Kontext."
     ],
     "wannNicht": [
       "Der Satz beschreibt eine Entwicklung über mehrere Messwerte, etwa «von 97 auf 60». Dafür fehlt noch ein Stück, die Lücke gehört ins Ideenprotokoll.",
@@ -140,21 +166,39 @@
     ],
     "beispiele": [
       {
-        "satz": "Sieben von zehn Websites laden zu langsam.",
+        "satz": "BC Trogen war online kaum zu finden. Nach drei Monaten +690 % Reichweite.",
         "variablen": {
-          "wert": 7,
-          "suffix": " von 10",
-          "label": "laden zu langsam",
+          "wert": 690,
+          "praefix": "+",
+          "suffix": " %",
+          "label": "Reichweite in drei Monaten",
+          "eyebrow": "Ein Fall aus der Region",
+          "dauer": 3.0
+        }
+      },
+      {
+        "satz": "Der Club erreichte in drei Monaten 74'300 Aufrufe.",
+        "variablen": {
+          "wert": 74300,
+          "label": "Aufrufe in drei Monaten",
           "dauer": 2.6
         }
       },
       {
-        "satz": "Das spart dir CHF 1'200 im Jahr.",
+        "satz": "Wir haben bisher 17 Partner betreut.",
         "variablen": {
-          "wert": 1200,
-          "praefix": "CHF ",
-          "suffix": "",
-          "label": "weniger pro Jahr",
+          "wert": 17,
+          "label": "Partner betreut",
+          "zahlfarbe": "text",
+          "dauer": 2.4
+        }
+      },
+      {
+        "satz": "Illustration, keine Aussage: Drei von vier Terminen sind vergeben.",
+        "variablen": {
+          "wert": 3,
+          "suffix": " von 4",
+          "label": "Termine vergeben",
           "dauer": 2.4
         }
       }
@@ -162,7 +206,10 @@
     "kombinierbarMit": [],
     "hinweise": [
       "Der Sicherheitsrand lässt rechts und unten rund 20 Prozent frei (Bauplan 3.10, Vermutung). Die Karte steht deshalb links ausgerichtet.",
-      "Pro Reel höchstens zwei Einsätze, sonst verliert die Zahl ihre Wirkung."
+      "Pro Reel höchstens zwei Einsätze, sonst verliert die Zahl ihre Wirkung.",
+      "Marken-Regel (Alperna Design System): Gold ist die eine Betonung. Steckt es in der Zahl, bleibt die Linie neutral. Darum Standard zahlfarbe «akzent» mit neutraler Linie.",
+      "Aufbau Fall, Zahl, Einordnung: Das label ist Pflicht, der eyebrow ist die ruhige Einleitung («Ein Fall aus der Region»).",
+      "Die Beispiele 1 bis 3 stammen aus den Zahlen in BRAND_CONTEXT.md des Alperna Design Systems (BC Trogen Speicher, Gesamtzahl Partner). Beispiel 4 ist eine Illustration ohne Aussage."
     ]
   }
 }

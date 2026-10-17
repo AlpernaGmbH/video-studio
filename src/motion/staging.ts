@@ -15,7 +15,7 @@ const SchriftenListe = z.object({
 export interface StagingOptionen {
   stueckDir: string;
   zielDir: string;
-  /** Ordner mit fonts.json und den Schriftdateien (Standard: studio/assets/fonts). */
+  /** Ordner mit fonts.json und den Schriftdateien (Standard: assets/fonts). */
   schriftenDir: string;
   marke?: Markenprofil;
 }
@@ -73,7 +73,7 @@ export function stageStueck(opt: StagingOptionen): StagingErgebnis {
   for (const familie of benoetigteFamilien(opt.marke)) {
     const treffer = verfuegbar.filter((s) => s.family === familie);
     if (treffer.length === 0) {
-      fehler.push(`Schrift «${familie}» ist nicht in fonts.json. Datei in studio/assets/fonts ablegen und eintragen`);
+      fehler.push(`Schrift «${familie}» ist nicht in fonts.json. Datei in assets/fonts ablegen und eintragen`);
       continue;
     }
     for (const s of treffer) {

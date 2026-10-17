@@ -3,15 +3,20 @@
   "name": "Alperna",
   "status": "platzhalter",
   "farben": {
-    "hintergrund": "#FFFFFF",
-    "text": "#0A0A0A",
-    "akzent1": "#FFC629",
-    "akzent2": "#4B3FD6"
+    "hintergrund": "#26324A",
+    "text": "#FDFBFB",
+    "akzent1": "#FFD700",
+    "akzent2": "#2B3A5A"
   },
   "schriften": { "titel": "Poppins", "fliesstext": "Montserrat" },
   "logo": {},
-  "effektStil": { "eckenradius": 24, "schatten": false, "bewegungstempo": 1 },
-  "tonalitaet": { "anrede": "du", "verboteneWoerter": [], "hinweise": "Ruhig, konkret, belegbar. Keine Ausrufezeichen, keine Superlative." },
-  "ton": { "sfxDichte": 0.3, "musik": false },
+  "effektStil": { "eckenradius": 15, "schatten": false, "bewegungstempo": 1 },
+  "tonalitaet": {
+    "anrede": "du",
+    "verboteneWoerter": ["viral", "Synergien", "ganzheitlich", "Mehrwert", "Game-Changer", "skalierbar", "Marktführer", "lass uns", "tauche ein", "schnelllebig"],
+    "hinweise": "Du-Form, ss statt ß, keine Gedankenstriche als Satzzeichen, keine KI-Floskeln. Aufbau Fall, Zahl, Einordnung: nie eine Zahl ohne Kontext. Titel höchstens 5 Worte, höchstens eine CTA. Schweizer Zahlenformat: CHF 1'000 und 70 % mit geschütztem Leerzeichen. Keine Erfolgsgarantien, «viral» nie als Versprechen."
+  },
+  "ton": { "sfxDichte": 0, "musik": true },
+  "look": "Cine-Look: kühl, kontraststark, leicht entsättigt. Hauttöne über das Vectorscope kalibrieren (Hautlinie, Richtung Pink). LUT folgt (Bauplan 3.9).",
   "hashtags": { "fest": [], "anzahl": 5 }
 }

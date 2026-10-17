@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.4 bis 5). Die Timeline endet hier.","default":2.6,"role":"timing"},{"id":"wert","type":"number","label":"Endwert","description":"Die Kennzahl, auf die der Zähler hinläuft. Vorschauwert für Check und Snapshot ist 7.","role":"content","default":7},{"id":"startwert","type":"number","label":"Startwert","description":"Wert, bei dem der Zähler beginnt. Fast immer 0.","role":"content","default":0},{"id":"praefix","type":"string","label":"Präfix","description":"Text vor der Zahl, zum Beispiel «CHF » für einen Betrag.","role":"content","default":""},{"id":"suffix","type":"string","label":"Suffix","description":"Text nach der Zahl, zum Beispiel « von 10» oder « %».","role":"content","default":" von 10"},{"id":"label","type":"string","label":"Beschriftung","description":"Sagt in einer kurzen Zeile, was die Zahl bedeutet. Leer lassen, wenn die Zahl für sich spricht.","role":"content","default":"laden zu langsam"},{"id":"dezimalstellen","type":"number","label":"Dezimalstellen","description":"Anzahl Nachkommastellen, 0 bis 2. Schweizer Schreibweise mit Komma, Tausender mit Apostroph.","role":"layout","default":0},{"id":"position","type":"enum","label":"Position","description":"Wo die Karte steht. «mitte» ist Standard, «oben» für Szenen, in denen das Gesicht in der Bildmitte bleiben soll.","role":"layout","options":[{"value":"mitte","label":"Mitte"},{"value":"oben","label":"Oben"}],"default":"mitte"},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
+<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.4 bis 5). Die Timeline endet hier.","default":2.6,"role":"timing"},{"id":"wert","type":"number","label":"Endwert","description":"Die Kennzahl, auf die der Zähler hinläuft. Vorschauwert für Check und Snapshot ist 7.","role":"content","default":7},{"id":"startwert","type":"number","label":"Startwert","description":"Wert, bei dem der Zähler beginnt. Fast immer 0.","role":"content","default":0},{"id":"praefix","type":"string","label":"Präfix","description":"Text vor der Zahl, zum Beispiel «CHF » für einen Betrag.","role":"content","default":""},{"id":"suffix","type":"string","label":"Suffix","description":"Text nach der Zahl, zum Beispiel « von 10» oder « %». Standard ist leer: Ein Standardwert darf nie Inhalt vortäuschen.","role":"content","default":""},{"id":"label","type":"string","label":"Beschriftung","description":"Sagt in einer kurzen Zeile, was die Zahl bedeutet. Pflicht: Marken-Regel «nie eine Zahl ohne Kontext». Vorschauwert für Check und Snapshot ist «laden zu langsam».","role":"content","default":"laden zu langsam"},{"id":"eyebrow","type":"string","label":"Eyebrow","description":"Kurzes, gesperrtes Label über der Zahl im ruhigen Ton, zum Beispiel «Ein Fall aus der Region». Leer lassen für keines.","role":"content","default":""},{"id":"zahlfarbe","type":"enum","label":"Farbe der Zahl","description":"«akzent» setzt die Zahl in der Akzentfarbe der Marke (die eine Betonung, die Linie bleibt dann neutral). «text» setzt sie in der Textfarbe, die Linie trägt dann den Akzent.","role":"style","options":[{"value":"akzent","label":"Akzentfarbe"},{"value":"text","label":"Textfarbe"}],"default":"akzent"},{"id":"dezimalstellen","type":"number","label":"Dezimalstellen","description":"Anzahl Nachkommastellen, 0 bis 2. Schweizer Schreibweise mit Komma, Tausender mit Apostroph.","role":"layout","default":0},{"id":"position","type":"enum","label":"Position","description":"Wo die Karte steht. «mitte» ist Standard, «oben» für Szenen, in denen das Gesicht in der Bildmitte bleiben soll.","role":"layout","options":[{"value":"mitte","label":"Mitte"},{"value":"oben","label":"Oben"}],"default":"mitte"},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
 <head>
 <meta charset="utf-8">
 <title>Zahl-Zähler</title>
@@ -9,27 +9,30 @@
   html, body { margin: 0; padding: 0; background: transparent; }
   #root { position: relative; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
   /* Sicherheitsrand: rechts und unten bleiben rund 20 Prozent frei, links 6 Prozent. Karte: x 70 bis 850. */
+  /* Glasfläche nach Alperna Design System: dunkle Karte, feine helle Kontur, dezenter Glanz oben, Text voll deckend.
+     Ein Overlay hat nichts zum Weichzeichnen dahinter, darum eine fast deckende Fläche statt Blur. */
   #card {
     position: absolute; left: 70px; width: 780px; box-sizing: border-box;
     padding: 52px 56px 48px; opacity: 0;
-    background: var(--markeBg); color: var(--markeText);
-    border-radius: calc(var(--markeRadius) * 1px);
+    color: var(--markeText);
     font-family: var(--markeFontText), sans-serif;
   }
+  #eyebrow { font-family: var(--markeFontText), sans-serif; font-weight: 500; font-size: 30px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7; margin: 0 0 18px; }
+  #eyebrow:empty { display: none; }
   #zahl {
     display: inline-block; /* inline-block, damit die Messung die Textbreite liefert und nicht die Kartenbreite */
     font-family: var(--markeFontTitel), sans-serif; font-weight: 700; line-height: 1.05;
     white-space: nowrap; font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums;
   }
   #praefix, #suffix { font-size: 0.42em; font-weight: 600; letter-spacing: 0.01em; }
-  #balken { width: 132px; height: 14px; margin: 22px 0 26px; border-radius: 7px; background: var(--markeAkzent1); transform-origin: left center; }
+  #balken { width: 132px; height: 6px; margin: 24px 0 26px; border-radius: 3px; transform-origin: left center; }
   #label { font-weight: 500; font-size: 52px; line-height: 1.25; }
-  #label:empty, #label:empty + * { display: none; }
 </style>
 </head>
 <body>
 <div id="root" data-composition-id="zahl-zaehler" data-start="0" data-width="1080" data-height="1920">
   <div id="card">
+    <div id="eyebrow"></div>
     <div id="zahl"><span id="praefix"></span><span id="wert"></span><span id="suffix"></span></div>
     <div id="balken"></div>
     <div id="label"></div>
@@ -46,6 +49,19 @@
     root.style.setProperty("--" + k, String(v[k]));
   });
 
+  function rgba(hex, a) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+
+  // Glasfläche, feine Kontur, Glanz oben
+  card.style.background = rgba(v.markeBg, 0.92);
+  card.style.border = "2px solid " + rgba(v.markeText, 0.16);
+  card.style.boxShadow = "inset 0 2px 0 " + rgba("#ffffff", 0.08);
+  card.style.borderRadius = Number(v.markeRadius) + "px";
+
   var d = Number(v.dauer);
   var tempo = Math.min(2, Math.max(0.5, Number(v.markeTempo) || 1));
   var k = 1 / tempo;
@@ -61,16 +77,28 @@
     return (neg ? "\u2212" : "") + ganz + (parts[1] ? "," + parts[1] : "");
   }
 
+  var eyebrow = document.getElementById("eyebrow");
   var praefix = document.getElementById("praefix");
   var wertEl = document.getElementById("wert");
   var suffix = document.getElementById("suffix");
   var label = document.getElementById("label");
   var zahl = document.getElementById("zahl");
+  var balken = document.getElementById("balken");
+  eyebrow.textContent = v.eyebrow || "";
   praefix.textContent = v.praefix || "";
   suffix.textContent = v.suffix || "";
   label.textContent = v.label || "";
   wertEl.textContent = fmt(start);
   card.style.top = (v.position === "oben" ? 260 : 700) + "px";
+
+  // Marken-Regel: Gold ist die eine Betonung. Steckt es in der Zahl, bleibt die Linie neutral.
+  if (v.zahlfarbe === "text") {
+    zahl.style.color = v.markeText;
+    balken.style.background = v.markeAkzent1;
+  } else {
+    zahl.style.color = v.markeAkzent1;
+    balken.style.background = rgba(v.markeText, 0.28);
+  }
 
   var obj = { v: start };
   function zeige() { wertEl.textContent = fmt(obj.v); }
@@ -83,9 +111,9 @@
     var aktuell = wertEl.textContent;
     wertEl.textContent = laengste;
     zahl.style.fontSize = "100px";
-    // offsetWidth statt getBoundingClientRect: Letzteres rechnet die Transformation der Karte (scale 0.94 beim Start) mit ein
+    // offsetWidth statt getBoundingClientRect: Letzteres rechnet Transformationen der Eltern mit ein
     var breite100 = zahl.offsetWidth || 1;
-    zahl.style.fontSize = Math.max(48, Math.min(260, Math.floor(100 * MAX_BREITE / breite100))) + "px";
+    zahl.style.fontSize = Math.max(48, Math.min(200, Math.floor(100 * MAX_BREITE / breite100))) + "px";
     wertEl.textContent = aktuell;
   }
   anpassen();
@@ -94,18 +122,18 @@
     document.fonts.ready.then(anpassen);
   }
 
+  // Bewegung nach Marke: sanftes Einblenden und leichte Verschiebung (200 bis 400 ms, ease-out), kein Überschwingen.
   // Das letzte gerenderte Bild liegt eine Bildlänge (0,04 s) vor «dauer». Das Ausblenden endet dort, nicht erst bei «dauer».
   var tOut = Math.max(0.6, d - 0.25 * k - 0.04);
   var zaehlStart = 0.12 * k;
   var zaehlDauer = Math.max(0.3, Math.min(1.1 * k, tOut - zaehlStart - 0.35));
 
   var tl = gsap.timeline({ paused: true });
-  tl.fromTo(card, { opacity: 0, y: 36, scale: 0.94, transformOrigin: "left center" },
-    { opacity: 1, y: 0, scale: 1, duration: 0.35 * k, ease: "back.out(1.5)" }, 0);
-  tl.fromTo("#balken", { scaleX: 0 }, { scaleX: 1, duration: 0.4 * k, ease: "power3.out" }, 0.18 * k);
+  tl.fromTo(card, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.35 * k, ease: "power2.out" }, 0);
+  tl.fromTo("#balken", { scaleX: 0 }, { scaleX: 1, duration: 0.4 * k, ease: "power2.out" }, 0.18 * k);
   tl.to(obj, { v: end, duration: zaehlDauer, ease: "power2.out", onUpdate: zeige }, zaehlStart);
   tl.add(function () { obj.v = end; zeige(); }, zaehlStart + zaehlDauer);
-  tl.to(card, { opacity: 0, y: -24, duration: 0.25 * k, ease: "power2.in" }, tOut);
+  tl.to(card, { opacity: 0, y: -16, duration: 0.25 * k, ease: "power2.in" }, tOut);
   tl.set({}, {}, d); // Die Timeline endet genau bei «dauer»
 
   window.__timelines = window.__timelines || {};
