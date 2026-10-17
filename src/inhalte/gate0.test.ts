@@ -6,7 +6,9 @@ import { gate0Abgleich } from "./gate0";
 import { zeileZuMarke } from "./marken";
 
 const wurzel = path.resolve(import.meta.dirname, "..", "..");
-const ECHT = fs.readFileSync(path.join(wurzel, "marken", "alperna.json"), "utf8");
+const DATEI = fs.readFileSync(path.join(wurzel, "marken", "alperna.json"), "utf8");
+/** Das echte Profil im Format der Datei, aber als Platzhalter: Die Tests sollen nicht vom aktuellen Stand von Gate 0 abhängen. */
+const ECHT = DATEI.replace(/^[ \t]*"freigabe":.*\n/m, "").replace('"status": "freigegeben"', '"status": "platzhalter"');
 const JETZT = "2026-10-17T12:00:00.000Z";
 
 const marke = (p: Record<string, unknown> = {}) => zeileZuMarke({ Typ: "Eigene", "Gate 0": "offen", "Gate 0 von": "", "Marken-ID": "alperna", Name: "Alperna", url: "https://app.notion.com/p/3fc6be186e9b81df9141ebe5778a86ff", ...p });
@@ -14,9 +16,21 @@ const lauf = (m: ReturnType<typeof marke>, text: string | undefined = ECHT) => g
 const freigegebenText = () => lauf(marke({ "Gate 0": "freigegeben", "Gate 0 von": "Andrej", "date:Gate 0 am:start": "2026-10-17T09:44:00.000Z" }))[0]!.neuerText!;
 
 describe("Gate 0 ins Profil übernehmen", () => {
-  it("die echte Profildatei beginnt als Platzhalter und braucht Gate 0", () => {
+  it("die Platzhalter-Fassung des echten Profils ist gültig und stimmt mit «offen» überein", () => {
     expect(Markenprofil.parse(JSON.parse(ECHT)).status).toBe("platzhalter");
+    expect(Markenprofil.parse(JSON.parse(ECHT)).freigabe).toBeUndefined();
     expect(lauf(marke())[0]).toMatchObject({ art: "unveraendert" });
+  });
+
+  it("die echte Profildatei im Repo ist gültig, und ein freigegebenes Profil nennt einen Menschen mit Zeitpunkt", () => {
+    const p = Markenprofil.parse(JSON.parse(DATEI));
+    if (p.status === "freigegeben") {
+      expect(markeFuerExportFreigegeben(p)).toEqual({ ok: true });
+      expect(p.freigabe?.wer.trim().length).toBeGreaterThan(0);
+      expect(p.freigabe?.wer).not.toMatch(/^(claude|system|ki|ai|bot|assistant|assistent|pipeline)$/i);
+    } else {
+      expect(p.freigabe).toBeUndefined();
+    }
   });
 
   it("Freigabe mit Namen: Status «freigegeben», Name und Zeit, der finale Export ist möglich", () => {

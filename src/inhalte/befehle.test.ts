@@ -134,7 +134,9 @@ describe("marken gate0", () => {
   const profilKopie = (): string => {
     const dir = path.join(tmp, "marken");
     fs.mkdirSync(dir, { recursive: true });
-    fs.copyFileSync(path.join(root, "marken", "alperna.json"), path.join(dir, "alperna.json"));
+    const echt = fs.readFileSync(path.join(root, "marken", "alperna.json"), "utf8");
+    // Als Platzhalter, unabhängig vom aktuellen Stand von Gate 0 im Repo
+    fs.writeFileSync(path.join(dir, "alperna.json"), echt.replace(/^[ \t]*"freigabe":.*\n/m, "").replace('"status": "freigegeben"', '"status": "platzhalter"'));
     env = { ...env, markenDir: dir };
     return path.join(dir, "alperna.json");
   };

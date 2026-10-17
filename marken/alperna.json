@@ -1,7 +1,8 @@
 {
   "schluessel": "alperna",
   "name": "Alperna",
-  "status": "platzhalter",
+  "status": "freigegeben",
+  "freigabe": { "wer": "Andrej", "wann": "2026-10-17T13:24:00.000Z" },
   "farben": {
     "hintergrund": "#26324A",
     "text": "#FDFBFB",

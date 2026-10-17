@@ -102,7 +102,7 @@ Beim Anlegen gefunden und behoben: Der Rohstoff-Verweis erkannte `app.notion.com
 3. Ein Name im Entscheid ist keine Anmeldung. Wer in Notion schreiben darf, kann jeden Namen eintragen. Der Code verhindert Systemnamen und leere Namen, nicht Fälschung. Das ist die Grenze des Modells ohne Konten.
 4. Prüfplatz (Version 3): Tor I, Tor P, Wochenmodus und Gate 0 stehen. Es fehlen die Handlungen **Pausieren, Verwerfen und «Veröffentlicht» bestätigen** (sie schreiben «Status von» und «Status-Grund», siehe 1.), die Auswahl der Marke je Kunde und Räume.
 5. **Gate 0 → Repo:** `studio marken gate0 --marken marken.json --anwenden` übernimmt die Freigabe mit Namen aus der Ansicht «Marken» ins Profil (zwei Zeilen: `status`, `freigabe`) und setzt es bei einem Widerruf zurück. Die geänderte Datei muss danach committet werden. Bis zur Freigabe bleibt `--final` gesperrt.
-6. Wer Gate 0 für Alperna freigibt, entscheidet ihr. Es fehlen laut Profil Logo, Caption-Preset und Schlusskarte.
+6. Gate 0 für Alperna: freigegeben von Andrej am 17.10.2026. Es fehlen laut Profil weiterhin Logo, Caption-Preset und Schlusskarte.
 
 ## Prüfplatz: was geprüft ist und was nicht
 
@@ -166,7 +166,8 @@ ist, alle Overlays in einer einzigen Komposition zu rendern (ein Render, aber ke
    Ablehnung nur mit Grund. Zahlen sind Startwerte, in `src/motion/idee.ts` änderbar.
 5. **Sicherheitsrand:** unten und rechts 20 % (Bauplan 3.10, dort Vermutung), oben 8 % und links 5 % sind meine Annahme. Eine Stelle: `SICHERHEITSRAND` in `src/motion/render.ts`. Test T4 und echte Reels klären es.
 6. **Markenprofil Alperna** (`marken/alperna.json`) hat die Werte des Design Systems (Hintergrund `#26324A`, Text `#FDFBFB`, Gold `#FFD700`, Höhenblau `#2B3A5A`, Poppins und
-   Montserrat), steht aber auf **`platzhalter`**: Gate 0 (Freigabe durch euch) ist nicht passiert. Bis dahin nur Entwürfe, `--final` wird verweigert.
+   Montserrat). **Gate 0 ist freigegeben: Andrej, 17.10.2026 13:24 UTC** (Prüfplatz, übernommen mit `marken gate0`, Profil auf `freigegeben` mit Name und Zeit). `--final` ist damit möglich.
+   **Ohne Logo, Caption-Preset und Schlusskarte** (laut Profil noch offen): Finale Videos entstehen vorerst ohne diese Teile. Widerruf: In Notion `Gate 0` auf «offen», dann `marken gate0 --anwenden`.
    Die Standardwerte in `MARKEN_VARIABLEN` (`src/motion/stueck.ts`: Weiss, `#FFC629`, `#4B3FD6`) sind Platzhalter aus dem Bauplan und gelten nur, wenn ein Profil sie nicht setzt.
 7. **Speicher:** Zustand der Ideen in `Studio/daten/ideen.json` (OneDrive, Versionsprüfung), Anzeige und Entscheide in Notion. Zwei Macs, die gleichzeitig in die Datei schreiben,
    können in OneDrive eine Konfliktkopie erzeugen: Eine Sitzung führt das Protokoll nach, alle anderen entscheiden im Prüfplatz.
@@ -204,7 +205,7 @@ beschreiben das Gegenteil: ruhig, Bewegungen von 200 bis 400 ms ohne Federn, kü
    Der Prototyp der Skript-Zuordnung (Bauplan 3.2) existiert nicht (Antwort aus dem Chat: «keine Ahnung»). Er wird in Phase 2 neu gebaut.
 4. **Welle 1** (8 weitere Stücke), danach Welle 2 und 3 und die ersten echten Ideen aus echten Videos.
 5. Lernsystem: Regelvorschläge aus den Ereignissen (Schema und Ereignisse stehen, der Vorschlags-Aufruf nicht).
-6. Gate 0 im Prüfplatz ist gebaut (Version 3). Offen: die Übernahme der Freigabe ins Repo-Profil (siehe «Inhalte-Modul», Punkt 5).
+6. Gate 0 für Alperna ist freigegeben und im Profil übernommen (17.10.2026). Für Kunden gilt dasselbe je Marke.
 
 ## Offen in Notion (bitte entscheiden)
 
@@ -217,7 +218,7 @@ beschreiben das Gegenteil: ruhig, Bewegungen von 200 bis 400 ms ohne Federn, kü
 
 1. Schnell oder ruhig: Stimmt die Empfehlung (Marke gilt, Schnittstil im Markenprofil)?
 2. Zahl-Zähler aktivieren? Sichtprüfung `library/motion/zahl-zaehler/vorschau/`, dann im Chat «aktiviere Zahl-Zähler, Freigabe von <Name>» (er hat keine Idee, also keine Abnahme im Prüfplatz).
-3. Gate 0: Passt `marken/alperna.json` (Farben, Schriften, Verbotene Wörter, Look-Beschreibung)? Wer gibt frei?
+3. ~~Gate 0~~ erledigt am 17.10.2026 durch Andrej. Offen bleibt: Logo, Caption-Preset und Schlusskarte nachliefern, Look-Beschreibung (LUT) und Probebilder.
 4. Passen die Limits (2 im Bau, 5 Pitches, 5 Ideen pro Video)?
 5. Wer soll im Prüfplatz entscheiden (Andrej, Leander)? Beide brauchen Zugriff auf das Artifact, die Notion-Seite und eine eigene Notion-Verbindung in claude.ai.
 6. Stunden pro Woche und Testprojekt (offene Punkte 3 und 7 des Bauplans).
