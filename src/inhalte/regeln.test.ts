@@ -1,43 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Akteur } from "../core/schemas";
 import type { Inhalt, Status } from "./inhalt";
 import { DUBLETTE_SCHWELLE, DUBLETTE_TAGE, dubletten, grundGenuegt, pflichtLuecken, pruefeUebergang, rohstoffFehlt, type UebergangsKontext } from "./regeln";
 
-const JETZT = "2026-10-17T09:00:00Z";
-const mensch: Akteur = { typ: "mensch", name: "Andrej" };
-const claude: Akteur = { typ: "system", name: "Claude" };
-const leer = { entscheid: "" as const, grund: "", von: "", am: "" };
+import { claude, inhalt, JETZT, mensch } from "./testdaten";
 
-function inhalt(p: Partial<Inhalt> = {}): Inhalt {
-  return {
-    id: "c-0001",
-    titel: "Wartezeit beim Zahnarzt",
-    format: "Reel",
-    plattformen: ["Instagram"],
-    marke: "alperna",
-    markeUrls: [],
-    profil: "Alperna",
-    quelle: "Manuell",
-    referenz: "",
-    hook: "Dreissig Minuten Wartezeit sind kein Naturgesetz.",
-    winkel: "Ein Praxisteam zeigt, wie es die Wartezeit halbiert hat",
-    beleg: "Praxis Hofer, Herisau: Wartezeit von 32 auf 14 Minuten, gemessen im September 2026",
-    aufwand: "Dreh nötig",
-    status: "Neu",
-    torI: { ...leer, entscheid: "offen" },
-    torP: { ...leer, entscheid: "offen" },
-    dateien: "",
-    ziel: "",
-    publishing: undefined,
-    geplantFuer: "",
-    batch: "",
-    offeneMarkierungen: 0,
-    url: "https://www.notion.so/c0001",
-    seite: "c0001",
-    erstellt: "2026-10-10T08:00:00Z",
-    ...p,
-  };
-}
+const leer = { entscheid: "" as const, grund: "", von: "", am: "" };
 
 const ctx = (p: Partial<UebergangsKontext> = {}): UebergangsKontext => ({ jetzt: JETZT, akteur: claude, gate0: "freigegeben", ...p });
 const fehler = (i: Inhalt, nach: Status, c: Partial<UebergangsKontext> = {}): string[] => {

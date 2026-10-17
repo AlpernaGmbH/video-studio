@@ -57,6 +57,9 @@ export interface Inhalt {
   status: Status | "";
   torI: Tor<TorIEntscheid>;
   torP: Tor<TorPEntscheid>;
+  /** Wer den Status von Hand gesetzt hat und warum (Pausieren, Verwerfen, «Veröffentlicht» bestätigen). Der Prüfplatz füllt beides. */
+  statusVon: string;
+  statusGrund: string;
   dateien: string;
   ziel: string;
   publishing?: string;
@@ -130,6 +133,8 @@ export function zeileZuInhalt(z: Zeile, markenNachId: ReadonlyMap<string, string
     status: wahl(z, "Status", STATI) ?? "",
     torI: tor(z, "Tor I", TOR_I),
     torP: tor(z, "Tor P", TOR_P),
+    statusVon: text(z, "Status von"),
+    statusGrund: text(z, "Status-Grund"),
     dateien: text(z, "Dateien"),
     ziel: text(z, "Ziel"),
     publishing: text(z, "Publishing") || undefined,

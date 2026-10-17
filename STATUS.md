@@ -3,7 +3,7 @@
 Stand: 17.10.2026, nach Eingang von **Bauplan v3** (`docs/plan/`). Etappe 1 (**Fundament und Motion-Werkstatt**) und Etappe 2 (**Notion, OneDrive, Prüfplatz, Einrichtung je Mac**) sind fertig. Als Nächstes: Phase 0 auf dem ersten Mac (`docs/phase0-mac.md`).
 Phase 0 des Bauplans (Tests T1 bis T6) ist **nicht** gelaufen, weil sie M4/M5-Macs, echte Clips, Instagram und Notion-Praxis braucht.
 
-`npm run check`: 364 Tests in 25 Dateien grün, Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
+`npm run check`: 514 Tests in 32 Dateien grün, Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
 Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion, Modus `view`), 14 Prüfungen bestanden. Er gehört nicht zu `npm run check`, weil er Playwright braucht.
 
 ## Entscheide aus dem Chat (17.10.)
@@ -81,6 +81,23 @@ Entschieden und übernommen: Marke gilt, Schnittstil als Feld im Markenprofil (A
 - `init` legt `Studio/` in OneDrive an und merkt den Pfad je Mac, `doctor` prüft Node, ffmpeg, OneDrive, Schreibrecht, Protokoll, Bibliothek, Notion-Ziel.
 - **Prüfplatz** (Artifact, privat): Pitch freigeben oder ablehnen (mit Grund), Look wählen, Abnahme, alle Ideen, Bibliothek, Marke. Liest die Zeile vor jedem
   Schreiben frisch, schreibt nichts über einen schon gefallenen Entscheid, liest nach und meldet erst dann «Gespeichert». Dunkel nach Design System.
+
+## Inhalte-Modul (Phase 1, begonnen am 17.10.)
+
+Gebaut in `src/inhalte/` (Plan v3, Kapitel 3 und 7), 150 Tests, jede Regel per Mutation gegengeprüft:
+- `inhalt.ts` Zeile ↔ Inhalt (Datenbank «Inhalte»), schreibt nie einen Entscheid ausser «offen»/leeren.
+- `regeln.ts` alle Übergänge des Lebenslaufs: Pflichtangaben, Tor I und Tor P nur mit Mensch mit Namen, Gate 0, «Kein Post ohne Rohstoff», Dublettenprüfung über 90 Tage (Wortmenge, Zahlen vereinheitlicht, Schwelle 0,85), Grund aus zwei Wörtern.
+- `abgleich.ts` liest alle Zeilen gegen den Stand, übernimmt erlaubte Wechsel, setzt unerlaubte zurück, löst nach einem Tor den nächsten Status aus, leert Entscheide ohne Namen oder von früher.
+- `stand.ts` Stand in `<Studio>/daten/inhalte-stand.json` (Version, atomar). `marken.ts` Gate 0 gilt nur mit Namen. `textpruefung.ts` deterministische Textprüfung ohne Claude-Aufruf.
+- CLI: `inhalte abgleich`, `inhalte textpruefen`, `inhalte pruefung`. Skill `inhalte-werkstatt`.
+
+**Fund beim Bauen:** Ein Entscheid, der im selben Zeitraum fällt, in dem die Zeile die Stufe erreicht, wurde zuerst als «von früher» gelöscht. Behoben: Der Stand hält einen Entscheid erst beim Verlassen der Stufe fest.
+
+**Offen:**
+1. In der Notion-Datenbank «Inhalte» fehlen zwei Textspalten: **«Status von»** und **«Status-Grund»**. Ohne sie lassen sich Pausieren, Verwerfen aus der Produktion und «Veröffentlicht» bei Manuell/Paket nicht von Hand setzen (der Abgleich setzt sie zurück). Der Prüfplatz füllt sie später. Wird mit den übrigen Datenbanken ergänzt.
+2. `marken/alperna.json` hat `schnittprofil.textlaengen` leer: Die Längenprüfung des Texts ist damit aus. Zahlen dafür fehlen (keine Zahl ohne Quelle). Bitte Zielwerte je Format nennen.
+3. Ein Name im Entscheid ist keine Anmeldung. Wer in Notion schreiben darf, kann jeden Namen eintragen. Der Code verhindert Systemnamen und leere Namen, nicht Fälschung. Das ist die Grenze des Modells ohne Konten.
+4. Prüfplatz: Karten für Tor I (Wochenmodus) und Tor P, Gate 0 als Handlung und die Auswahl der Marke fehlen noch.
 
 ## Prüfplatz: was geprüft ist und was nicht
 
@@ -175,7 +192,7 @@ beschreiben das Gegenteil: ruhig, Bewegungen von 200 bis 400 ms ohne Federn, kü
    Der Prototyp der Skript-Zuordnung (Bauplan 3.2) existiert nicht (Antwort aus dem Chat: «keine Ahnung»). Er wird in Phase 2 neu gebaut.
 4. **Welle 1** (8 weitere Stücke), danach Welle 2 und 3 und die ersten echten Ideen aus echten Videos.
 5. Lernsystem: Regelvorschläge aus den Ereignissen (Schema und Ereignisse stehen, der Vorschlags-Aufruf nicht).
-6. Gate 0 im Prüfplatz: Die Marke ist dort nur zu sehen. Die Freigabe fehlt noch als Handlung.
+6. Gate 0 im Prüfplatz: Die Marke ist dort nur zu sehen. Die Freigabe fehlt noch als Handlung. Dazu Tor I und Tor P als Karten (siehe «Inhalte-Modul»).
 
 ## Offen in Notion (bitte entscheiden)
 
