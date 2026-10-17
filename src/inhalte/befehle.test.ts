@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseArgs } from "../args";
 import { umgebung, type Umgebung } from "../motion/werkstatt";
-import { inhalteBefehl } from "./befehle";
+import { inhalteBefehl, markenBefehl } from "./befehle";
 import { ladeStand } from "./stand";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..");
@@ -127,5 +127,44 @@ describe("inhalte textpruefen und pruefung", () => {
 
   it("ein unbekannter Befehl gibt Hilfe und Exit-Code 2", () => {
     expect(lauf("inhalte", "gibtsnicht")).toBe(2);
+  });
+});
+
+describe("marken gate0", () => {
+  const profilKopie = (): string => {
+    const dir = path.join(tmp, "marken");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(path.join(root, "marken", "alperna.json"), path.join(dir, "alperna.json"));
+    env = { ...env, markenDir: dir };
+    return path.join(dir, "alperna.json");
+  };
+  const gate0 = (...argv: string[]): number => markenBefehl("gate0", parseArgs(["marken", "gate0", ...argv]), env, () => JETZT);
+
+  it("ohne --anwenden nur Bericht, die Datei bleibt unberührt", () => {
+    const datei = profilKopie();
+    const vorher = fs.readFileSync(datei, "utf8");
+    const m = schreibe("m.json", marken("freigegeben", "Andrej"));
+    expect(gate0("--marken", m)).toBe(0);
+    expect(json()).toMatchObject({ angewendet: false, befunde: [{ marke: "alperna", art: "uebernommen", aendertDatei: true }] });
+    expect(fs.readFileSync(datei, "utf8")).toBe(vorher);
+  });
+
+  it("mit --anwenden steht das Profil auf «freigegeben», ein zweiter Lauf ändert nichts mehr", () => {
+    const datei = profilKopie();
+    const m = schreibe("m.json", marken("freigegeben", "Andrej"));
+    gate0("--marken", m, "--anwenden");
+    const p = JSON.parse(fs.readFileSync(datei, "utf8"));
+    expect(p.status).toBe("freigegeben");
+    expect(p.freigabe.wer).toBe("Andrej");
+    ausgabe = [];
+    gate0("--marken", m, "--anwenden");
+    expect(json().befunde[0]).toMatchObject({ art: "unveraendert", aendertDatei: false });
+    expect(fs.readdirSync(path.dirname(datei))).toEqual(["alperna.json"]); // keine temporäre Datei übrig
+  });
+
+  it("verlangt die Datei und kennt nur gate0", () => {
+    profilKopie();
+    expect(() => gate0()).toThrow(/--marken fehlt/);
+    expect(markenBefehl("gibtsnicht", parseArgs(["marken", "gibtsnicht"]), env, () => JETZT)).toBe(2);
   });
 });

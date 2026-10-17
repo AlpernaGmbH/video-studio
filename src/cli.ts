@@ -16,7 +16,7 @@ import { Ideenprotokoll } from "./motion/protokoll";
 import { ideeZuZeile, leseAlle, zeilenAusAbfrage } from "./notion/abbild";
 import { ladeNotionZiel } from "./notion/ziel";
 import { baueDaten, setzeDatenEin } from "./pruefplatz";
-import { inhalteBefehl, INHALTE_HILFE } from "./inhalte/befehle";
+import { inhalteBefehl, INHALTE_HILFE, markenBefehl, MARKEN_HILFE } from "./inhalte/befehle";
 import { formatiere, hatFehler, initialisiere, pruefeUmgebung, studioHome, type Sonde } from "./setup";
 import { pruefeRender, messeRender, parseHfCheck } from "./motion/render-pruefung";
 import { SIGNAL_TYPEN, type SignalTyp } from "./motion/stueck";
@@ -70,6 +70,7 @@ Notion (Ansicht und Entscheide; die Sitzung holt und schreibt die Zeilen mit den
                                       eine Abnahme aktiviert dabei auch das Stück (mit dem Namen aus «Abnahme von»).
 
 ${INHALTE_HILFE}
+${MARKEN_HILFE}
 Umgebung: STUDIO_HOME (Studio-Ordner statt Konfiguration), STUDIO_MEDIEN (Medien-Ordner), STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse; sonst <Studio-Ordner>/daten), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
 `;
 
@@ -474,6 +475,7 @@ async function main(): Promise<number> {
   if (gruppe === "motion" && sub) return motion(sub, a, env);
   if (gruppe === "ideen" && sub) return ideen(sub, a, env);
   if (gruppe === "inhalte" && sub) return inhalteBefehl(sub, a, env, jetzt);
+  if (gruppe === "marken" && sub) return markenBefehl(sub, a, env, jetzt);
   console.error(HILFE);
   return 2;
 }

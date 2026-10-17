@@ -17,7 +17,7 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 - `library/motion/<id>/` – ein Stück: `piece.json` (Datenblatt) und `index.html` (HyperFrames-Komposition)
 - `marken/<key>.json` – Markenprofile. Status `platzhalter` sperrt den finalen Export (Gate 0)
 - `assets/fonts/` – Schriften, die Markenprofile ansprechen dürfen (`fonts.json`)
-- `src/inhalte/` – Inhalte (Plan v3): Zeile ↔ Inhalt, Übergangsregeln mit Tor I und Tor P, Abgleich mit dem Stand, Textprüfung, Marken mit Gate 0, Befehle `studio inhalte …`
+- `src/inhalte/` – Inhalte (Plan v3): Zeile ↔ Inhalt, Übergangsregeln mit Tor I und Tor P, Abgleich mit dem Stand, Textprüfung, Marken mit Gate 0 (auch Übernahme ins Profil), Befehle `studio inhalte …` und `studio marken gate0`
 - `src/notion/` – Abbild Idee ↔ Notion-Zeile, `src/setup.ts` – `init` und `doctor`, `src/pruefplatz.ts` – Daten für das Artifact
 - `pruefplatz/index.html` – Vorlage des Prüfplatzes (Artifact), `notion.json` – Kennungen von Notion-Seite, Datenbank und Prüfplatz
 - Daten (Ideenprotokoll, Ereignisse, Standbilder): `<Studio-Ordner>/daten/` in OneDrive, Pfad je Mac in `~/.config/video-studio/config.json`. Ohne Einrichtung `data/`

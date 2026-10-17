@@ -5,6 +5,7 @@ import { ladeMarke, type Umgebung } from "../motion/werkstatt";
 import { zeilenAusAbfrage } from "../notion/abbild";
 import { abgleich, zaehle } from "./abgleich";
 import { FORMATE, zeileZuInhalt, type Format } from "./inhalt";
+import { gate0Abgleich } from "./gate0";
 import { gate0Funktion, markenNachSeite, zeileZuMarke } from "./marken";
 import { ladeStand, speichereStand } from "./stand";
 import { textBestanden, textpruefung } from "./textpruefung";
@@ -21,6 +22,13 @@ export const INHALTE_HILFE = `Inhalte (Plan v3; die Sitzung holt die Zeilen und 
                                       wird das Ergebnis als Prüfung des Entwurfs im Stand vermerkt. Exit-Code 1 bei Fehlern.
   inhalte pruefung <id> (--bestanden | --nicht-bestanden) [--text "…"]
                                       Ergebnis der Prüfung eines Entwurfs (zum Beispiel Render-Prüfung) im Stand vermerken.
+`;
+
+export const MARKEN_HILFE = `Marken (Gate 0)
+  marken gate0 --marken marken.json [--anwenden]
+                                      Gate 0 aus der Ansicht «Marken» ins Profil marken/<id>.json übernehmen: Eine Freigabe mit Namen setzt das Profil auf
+                                      «freigegeben» (mit Name und Zeit), ein Widerruf setzt es auf «platzhalter». Ohne --anwenden nur der Bericht.
+                                      Danach die geänderte Datei committen.
 `;
 
 const lesJson = (datei: string): unknown => JSON.parse(fs.readFileSync(datei, "utf8"));
@@ -95,4 +103,26 @@ export function inhalteBefehl(sub: string, a: Args, env: Umgebung, jetzt: () => 
       console.error(INHALTE_HILFE);
       return 2;
   }
+}
+
+export function markenBefehl(sub: string, a: Args, env: Umgebung, jetzt: () => string = () => new Date().toISOString()): number {
+  if (sub !== "gate0") {
+    console.error(`Unbekannter Befehl «marken ${sub}»\n`);
+    console.error(MARKEN_HILFE);
+    return 2;
+  }
+  const marken = zeilenAusAbfrage(lesJson(pflicht(a, "marken", "Ergebnis der Ansicht «Marken», Modus view"))).map(zeileZuMarke);
+  const datei = (id: string): string => path.join(env.markenDir, `${id}.json`);
+  const befunde = gate0Abgleich(marken, (id) => (/^[a-z0-9-]+$/.test(id) && fs.existsSync(datei(id)) ? fs.readFileSync(datei(id), "utf8") : undefined), jetzt());
+  const anwenden = a.opt["anwenden"] === true;
+  if (anwenden) {
+    for (const b of befunde) {
+      if (b.neuerText === undefined) continue;
+      const tmp = `${datei(b.marke)}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, b.neuerText);
+      fs.renameSync(tmp, datei(b.marke));
+    }
+  }
+  console.log(JSON.stringify({ angewendet: anwenden, befunde: befunde.map(({ neuerText, ...rest }) => ({ ...rest, aendertDatei: neuerText !== undefined })) }, null, 2));
+  return 0;
 }

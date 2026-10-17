@@ -31,6 +31,12 @@ Ein Post braucht einen Rohstoff: Der Beleg verweist auf einen Eintrag in Notion,
 Exit-Code 1 heisst: Fehler beheben, nicht abschwächen. Erst bei bestandener Prüfung den Status auf «Entwurf fertig» setzen. Die Prüfung ersetzt kein Urteil über Ton und Inhalt.
 Bei Reels und Carousels vermerkt die Render-Prüfung das Ergebnis: `inhalte pruefung c-0007 --bestanden` oder `--nicht-bestanden --text "…"`.
 
+## Gate 0 ins Profil übernehmen
+
+Gate 0 gibt ein Mensch im Prüfplatz frei (Ansicht «Marken»). Damit der finale Export freigeschaltet wird, muss das Profil im Repo nachziehen:
+Ansicht «Marken» als JSON ablegen, `npm run studio -- marken gate0 --marken .cache/marken.json` (Vorschau), dann mit `--anwenden`, danach `marken/<id>.json` committen und pushen.
+Du setzt Gate 0 nie selbst. Steht «freigegeben» ohne Namen in Notion, übernimmt der Befehl nichts und sagt es.
+
 ## Von Hand geänderte Status
 
 Pausieren, Verwerfen aus der Produktion und «Veröffentlicht» bei Manuell/Paket gelten nur mit **Status von** (Name eines Menschen) und **Status-Grund** in der Zeile.

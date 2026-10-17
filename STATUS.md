@@ -98,7 +98,7 @@ Gebaut in `src/inhalte/` (Plan v3, Kapitel 3 und 7), 150 Tests, jede Regel per M
 2. `marken/alperna.json` hat `schnittprofil.textlaengen` leer: Die Längenprüfung des Texts ist damit aus. Zahlen dafür fehlen (keine Zahl ohne Quelle). Bitte Zielwerte je Format nennen.
 3. Ein Name im Entscheid ist keine Anmeldung. Wer in Notion schreiben darf, kann jeden Namen eintragen. Der Code verhindert Systemnamen und leere Namen, nicht Fälschung. Das ist die Grenze des Modells ohne Konten.
 4. Prüfplatz (Version 3): Tor I, Tor P, Wochenmodus und Gate 0 stehen. Es fehlen die Handlungen **Pausieren, Verwerfen und «Veröffentlicht» bestätigen** (sie schreiben «Status von» und «Status-Grund», siehe 1.), die Auswahl der Marke je Kunde und Räume.
-5. **Gate 0 → Repo:** Die Freigabe in Notion setzt `marken/alperna.json` nicht auf «freigegeben». Dafür fehlt noch ein Befehl, der die Freigabe mit Namen aus der Ansicht «Marken» ins Profil übernimmt (`status`, `freigabe`). Bis dahin bleibt `--final` gesperrt.
+5. **Gate 0 → Repo:** `studio marken gate0 --marken marken.json --anwenden` übernimmt die Freigabe mit Namen aus der Ansicht «Marken» ins Profil (zwei Zeilen: `status`, `freigabe`) und setzt es bei einem Widerruf zurück. Die geänderte Datei muss danach committet werden. Bis zur Freigabe bleibt `--final` gesperrt.
 6. Wer Gate 0 für Alperna freigibt, entscheidet ihr. Es fehlen laut Profil Logo, Caption-Preset und Schlusskarte.
 
 ## Prüfplatz: was geprüft ist und was nicht
