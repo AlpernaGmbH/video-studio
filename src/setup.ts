@@ -8,15 +8,25 @@ import { z } from "zod";
  * Was von Rechner zu Rechner anders ist (der Pfad zu OneDrive), steht in einer kleinen Datei ausserhalb von
  * Repo und OneDrive: ~/.config/video-studio/config.json. Die Umgebungsvariable STUDIO_HOME gilt vor der Datei.
  *
- *   Studio/daten/        Ideenprotokoll, Ereignisse, Standbilder der Looks (data/ideen/<id>/…)
- *   Studio/rohmaterial/  Aufnahmen und B-Roll (Phase 2)
- *   Studio/renders/      fertige Videos (Phase 2)
- *   Studio/inspiration/  gespeicherte Inspirationsvideos
+ *   Studio/daten/        Ideenprotokoll, Ereignisse, Standbilder der Looks (data/ideen/<id>/…). Klein.
+ *   Studio/rohmaterial/  Aufnahmen und B-Roll (Phase 2). Gross.
+ *   Studio/renders/      fertige Videos (Phase 2). Gross.
+ *   Studio/inspiration/  gespeicherte Inspirationsvideos. Gross.
+ *
+ * Reicht der Platz auf dem Mac nicht, liegen die grossen Ordner auf einem eigenen Laufwerk («Medien-Ordner», `--medien`). OneDrive auf einem
+ * externen Laufwerk geht laut Microsoft nur mit APFS und einem nicht auswerfbaren Laufwerk, ein USB-Laufwerk gilt als auswerfbar. Darum bleibt
+ * `daten/` im Studio-Ordner (klein, per OneDrive abgesichert) und nur die Medien wandern auf das Laufwerk.
  */
 
-export const UNTERORDNER = ["daten", "rohmaterial", "renders", "inspiration"] as const;
+export const KLEINE_UNTERORDNER = ["daten"] as const;
+export const GROSSE_UNTERORDNER = ["rohmaterial", "renders", "inspiration"] as const;
+export const UNTERORDNER = [...KLEINE_UNTERORDNER, ...GROSSE_UNTERORDNER] as const;
 
-const Config = z.object({ schema: z.literal(1), studioHome: z.string().min(1) });
+/** Unter diesen freien Gigabyte meldet doctor eine Warnung beziehungsweise einen Fehler. */
+export const PLATZ_WARNUNG_GB = 100;
+export const PLATZ_FEHLER_GB = 10;
+
+const Config = z.object({ schema: z.literal(1), studioHome: z.string().min(1), medienHome: z.string().min(1).optional() });
 export type Config = z.infer<typeof Config>;
 
 export function configPfad(env: NodeJS.ProcessEnv = process.env, home = os.homedir()): string {
@@ -26,17 +36,25 @@ export function configPfad(env: NodeJS.ProcessEnv = process.env, home = os.homed
 export interface StudioHome {
   pfad: string;
   quelle: "STUDIO_HOME" | "config";
+  /** Ordner für die grossen Medien, wenn sie nicht im Studio-Ordner liegen. */
+  medien?: string;
+}
+
+/** Wo `rohmaterial`, `renders` und `inspiration` liegen: im Medien-Ordner, sonst im Studio-Ordner. */
+export function medienOrdner(h: StudioHome): string {
+  return h.medien ?? h.pfad;
 }
 
 /** Der Studio-Ordner dieses Rechners, oder undefined, wenn noch nicht eingerichtet. */
 export function studioHome(env: NodeJS.ProcessEnv = process.env, home = os.homedir()): StudioHome | undefined {
   const aus = env["STUDIO_HOME"];
-  if (aus) return { pfad: path.resolve(aus), quelle: "STUDIO_HOME" };
+  const medienEnv = env["STUDIO_MEDIEN"] ? path.resolve(env["STUDIO_MEDIEN"]) : undefined;
+  if (aus) return { pfad: path.resolve(aus), quelle: "STUDIO_HOME", medien: medienEnv };
   const datei = configPfad(env, home);
   if (!fs.existsSync(datei)) return undefined;
   const p = Config.safeParse(JSON.parse(fs.readFileSync(datei, "utf8")));
   if (!p.success) throw new Error(`${datei} ist ungültig. Mit «studio init --home <Pfad>» neu schreiben`);
-  return { pfad: p.data.studioHome, quelle: "config" };
+  return { pfad: p.data.studioHome, quelle: "config", medien: medienEnv ?? p.data.medienHome };
 }
 
 /** OneDrive-Ordner dieses Rechners: macOS legt sie unter ~/Library/CloudStorage ab, ältere Versionen direkt im Home. */
@@ -67,12 +85,13 @@ export function mehrereOrdner(kandidaten: string[]): string {
 
 export interface InitErgebnis {
   home: string;
+  medien?: string;
   config: string;
   angelegt: string[];
 }
 
 /** Legt den Studio-Ordner an und merkt sich den Pfad. Bestehendes bleibt unberührt. */
-export function initialisiere(opt: { home?: string; env?: NodeJS.ProcessEnv; userHome?: string }): InitErgebnis {
+export function initialisiere(opt: { home?: string; medien?: string; env?: NodeJS.ProcessEnv; userHome?: string }): InitErgebnis {
   const env = opt.env ?? process.env;
   const userHome = opt.userHome ?? os.homedir();
   let home = opt.home ? path.resolve(opt.home) : undefined;
@@ -82,8 +101,15 @@ export function initialisiere(opt: { home?: string; env?: NodeJS.ProcessEnv; use
     if (kandidaten.length > 1) throw new Error(mehrereOrdner(kandidaten));
     home = path.join(kandidaten[0]!, "Studio");
   }
+  const medien = opt.medien ? path.resolve(opt.medien) : undefined;
+  if (medien && !fs.existsSync(path.dirname(medien))) {
+    throw new Error(`Der Ordner ${path.dirname(medien)} gibt es nicht. Ist das Laufwerk angeschlossen? Prüfen mit: ls /Volumes`);
+  }
   const angelegt: string[] = [];
-  for (const d of [home, ...UNTERORDNER.map((u) => path.join(home!, u))]) {
+  const stellen: string[] = [home, ...KLEINE_UNTERORDNER.map((u) => path.join(home!, u))];
+  if (medien) stellen.push(medien, ...GROSSE_UNTERORDNER.map((u) => path.join(medien, u)));
+  else stellen.push(...GROSSE_UNTERORDNER.map((u) => path.join(home!, u)));
+  for (const d of stellen) {
     if (!fs.existsSync(d)) {
       fs.mkdirSync(d, { recursive: true });
       angelegt.push(d);
@@ -91,8 +117,8 @@ export function initialisiere(opt: { home?: string; env?: NodeJS.ProcessEnv; use
   }
   const datei = configPfad(env, userHome);
   fs.mkdirSync(path.dirname(datei), { recursive: true });
-  fs.writeFileSync(datei, JSON.stringify({ schema: 1, studioHome: home } satisfies Config, null, 2) + "\n");
-  return { home, config: datei, angelegt };
+  fs.writeFileSync(datei, JSON.stringify({ schema: 1, studioHome: home, ...(medien ? { medienHome: medien } : {}) } satisfies Config, null, 2) + "\n");
+  return { home, medien, config: datei, angelegt };
 }
 
 /* ---------- doctor ---------- */
@@ -114,6 +140,8 @@ export interface Sonde {
   ideenProtokollPruefen(datei: string): string | undefined;
   bibliothekPruefen(): { fehler: number; warnungen: number };
   notionZielPruefen(): string | undefined;
+  /** Freier Platz auf dem Datenträger, auf dem `pfad` liegt, in Gigabyte. undefined, wenn nicht ermittelbar. */
+  freierPlatzGB(pfad: string): number | undefined;
 }
 
 export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
@@ -162,9 +190,37 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
   } catch {
     add("fehler", "Schreibrecht", `Kein Schreibrecht auf ${home.pfad}`);
   }
-  const fehlend = UNTERORDNER.filter((u) => !fs.existsSync(path.join(home!.pfad, u)));
+  const medien = medienOrdner(home);
+  if (home.medien) {
+    if (!fs.existsSync(home.medien)) {
+      add("fehler", "Medien-Ordner", `${home.medien} existiert nicht. Ist das Laufwerk angeschlossen? («ls /Volumes» zeigt die angeschlossenen Laufwerke)`);
+    } else {
+      add("ok", "Medien-Ordner", `${home.medien} (grosse Dateien liegen ausserhalb von OneDrive)`);
+      try {
+        fs.accessSync(home.medien, fs.constants.W_OK);
+      } catch {
+        add("fehler", "Schreibrecht Medien", `Kein Schreibrecht auf ${home.medien}`);
+      }
+    }
+  }
+  const fehlendKlein = KLEINE_UNTERORDNER.filter((u) => !fs.existsSync(path.join(home!.pfad, u)));
+  const fehlendGross = fs.existsSync(medien) ? GROSSE_UNTERORDNER.filter((u) => !fs.existsSync(path.join(medien, u))) : [];
+  const fehlend = [...fehlendKlein, ...fehlendGross];
   if (fehlend.length) add("warnung", "Unterordner", `fehlen: ${fehlend.join(", ")}. «npm run studio -- init» legt sie an`);
   else add("ok", "Unterordner", UNTERORDNER.join(", "));
+
+  const orte: [string, string][] = home.medien ? [["Platz Studio-Ordner", home.pfad], ["Platz Medien", home.medien]] : [["Platz", home.pfad]];
+  for (const [name, ort] of orte) {
+    const gb = fs.existsSync(ort) ? s.freierPlatzGB(ort) : undefined;
+    if (gb === undefined) continue;
+    const text = `${gb.toFixed(0)} GB frei`;
+    if (gb < PLATZ_FEHLER_GB) add("fehler", name, `${text}. Das reicht nicht einmal für ein Projekt`);
+    else if (gb < PLATZ_WARNUNG_GB) {
+      const ausweg = name === "Platz Studio-Ordner" ? "Der Studio-Ordner enthält nur kleine Daten, das ist in Ordnung." : "Für Phase 0 reicht das, für echte Rohvideos nicht. Grosse Dateien gehören auf ein grosses Laufwerk: init --medien";
+      add("warnung", name, `${text}. ${ausweg}`);
+    }
+    else add("ok", name, text);
+  }
 
   const ideen = path.join(home.pfad, "daten", "ideen.json");
   if (fs.existsSync(ideen)) {

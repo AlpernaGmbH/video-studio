@@ -26,7 +26,8 @@ import { checkStueck, erzeugeLookBogen, findeStueck, ladeMarke, rendereBatch, re
 const HILFE = `studio – Video-Editing-System der Alperna GmbH
 
 Einrichtung (einmal je Mac)
-  init [--home "<OneDrive>/Studio"]   Studio-Ordner in OneDrive anlegen und den Pfad für diesen Mac merken
+  init [--home "<OneDrive>/Studio"] [--medien "<Laufwerk>/Studio-Medien"]   Studio-Ordner in OneDrive anlegen und den Pfad für diesen Mac merken.
+                                      --medien: grosse Ordner (rohmaterial, renders, inspiration) auf ein eigenes Laufwerk, wenn der Mac zu wenig Platz hat
   doctor                              Prüft Node, ffmpeg, Studio-Ordner, OneDrive, Ideenprotokoll, Bibliothek, Notion-Ziel
 
 Motion-Bibliothek
@@ -67,7 +68,7 @@ Notion (Ansicht und Entscheide; die Sitzung holt und schreibt die Zeilen mit den
                                       Ohne --anwenden nur der Bericht. Mit --anwenden werden Entscheide im Protokoll nachgeführt;
                                       eine Abnahme aktiviert dabei auch das Stück (mit dem Namen aus «Abnahme von»).
 
-Umgebung: STUDIO_HOME (Studio-Ordner statt Konfiguration), STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse; sonst <Studio-Ordner>/daten), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
+Umgebung: STUDIO_HOME (Studio-Ordner statt Konfiguration), STUDIO_MEDIEN (Medien-Ordner), STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse; sonst <Studio-Ordner>/daten), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
 `;
 
 const studioRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -428,6 +429,14 @@ function echteSonde(): Sonde {
         return (e as Error).message;
       }
     },
+    freierPlatzGB(pfad) {
+      try {
+        const s = fs.statfsSync(pfad);
+        return (s.bavail * s.bsize) / 2 ** 30;
+      } catch {
+        return undefined;
+      }
+    },
   };
 }
 
@@ -439,8 +448,8 @@ async function main(): Promise<number> {
     return 0;
   }
   if (gruppe === "init") {
-    const r = initialisiere({ home: typeof a.opt["home"] === "string" ? a.opt["home"] : undefined });
-    console.log(`Studio-Ordner: ${r.home}${r.angelegt.length ? `\nAngelegt: ${r.angelegt.length} Ordner` : "\nBestand unverändert"}\nKonfiguration: ${r.config}\n\nNächste Schritte:\n  npm install\n  npx hyperframes browser ensure\n  npx hyperframes telemetry disable\n  npm run studio -- doctor`);
+    const r = initialisiere({ home: typeof a.opt["home"] === "string" ? a.opt["home"] : undefined, medien: typeof a.opt["medien"] === "string" ? a.opt["medien"] : undefined });
+    console.log(`Studio-Ordner: ${r.home}${r.medien ? `\nMedien-Ordner: ${r.medien}` : ""}${r.angelegt.length ? `\nAngelegt: ${r.angelegt.length} Ordner` : "\nBestand unverändert"}\nKonfiguration: ${r.config}\n\nNächste Schritte:\n  npm install\n  npx hyperframes browser ensure\n  npx hyperframes telemetry disable\n  npm run studio -- doctor`);
     return 0;
   }
   if (gruppe === "doctor") {

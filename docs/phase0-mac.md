@@ -27,6 +27,16 @@ npm run check                         # Erwartet: alle Tests grün, «0 Fehler»
 ```
 **Meldest du zurück:** die Ausgabe von `doctor` (alles kopieren) und ob `check` grün war.
 
+## Wenig Speicherplatz auf dem Mac
+
+Für Phase 0 reichen 20 GB. Für echte Rohvideos nicht: Ein Projekt mit drei Clips in 4K braucht rund 2 bis 3 GB, hundert Projekte gegen 300 GB. Die grossen Ordner (`rohmaterial`, `renders`, `inspiration`)
+können auf ein eigenes Laufwerk, die kleinen Daten (`daten`) bleiben im Studio-Ordner:
+```sh
+npm run studio -- init --home "<Studio-Ordner>" --medien "/Volumes/DEIN_LAUFWERK/Studio-Medien"
+```
+`doctor` zeigt danach den freien Platz je Ort. **OneDrive selbst auf das Laufwerk zu legen ist riskant:** Microsoft unterstützt es nur mit APFS und einem Laufwerk, das nicht auswerfbar ist.
+Ein USB-Laufwerk gilt als auswerfbar und wird mit «OneDrive folder can't be created in the location selected» abgelehnt. Darum nur die Medien dorthin, nicht OneDrive.
+
 ## 2. Messen (T1 und T1b)
 
 ```sh

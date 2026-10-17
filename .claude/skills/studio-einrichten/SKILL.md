@@ -21,6 +21,13 @@ Der steht in `~/.config/video-studio/config.json` (ausserhalb von Repo und OneDr
 8. Notion: Claude (App oder Claude Code) braucht die Notion-Verbindung des Kontos, und die Seite «Video-Studio» muss mit dem Konto geteilt sein.
    Prüfen: eine Abfrage der Datenbank «Ideen» (`notion-query-data-sources`, `notion.json`).
 
+## Wenig Platz auf dem Mac
+
+Die kleinen Daten (`daten/`: Ideenprotokoll, Standbilder) bleiben im Studio-Ordner, die grossen Ordner (`rohmaterial`, `renders`, `inspiration`) gehören bei knappem Platz auf ein Laufwerk:
+`npm run studio -- init --home "<Studio>" --medien "/Volumes/<Laufwerk>/Studio-Medien"`. `doctor` zeigt den freien Platz je Ort (Warnung unter 100 GB, Fehler unter 10 GB).
+OneDrive selbst auf einem externen Laufwerk geht laut Microsoft nur mit APFS und nicht auswerfbarem Laufwerk. USB-Laufwerke sind auswerfbar: nicht versuchen, nur die Medien dorthin legen.
+Laufwerk von der Platte nehmen: Nie ohne «Auswerfen» im Finder. Ein einzelnes Laufwerk ist kein Backup: Rohmaterial in zwei Kopien halten.
+
 ## Häufige Fehler
 
 | Meldung | Ursache | Lösung |
@@ -30,6 +37,7 @@ Der steht in `~/.config/video-studio/config.json` (ausserhalb von Repo und OneDr
 | Render findet Datei nicht, Datei ist 0 Byte oder Wolke | OneDrive Dateien auf Abruf | «Immer auf diesem Gerät behalten» auf `Studio` |
 | `Mehrere OneDrive-Ordner gefunden` | Privat und Firma angemeldet | `--home` mit dem Firmenordner |
 | Ideenprotokoll «wurde inzwischen geändert» | Zwei Macs schreiben gleichzeitig | Neu laden und wiederholen. Nie beide gleichzeitig mit Ideen arbeiten lassen |
+| `doctor`: Medien-Ordner existiert nicht | Laufwerk nicht angeschlossen oder umbenannt | Anschliessen, `ls /Volumes`, bei neuem Namen `init --medien` wiederholen |
 | Notion-Abfrage schlägt fehl | Verbindung fehlt oder Seite nicht geteilt | In claude.ai unter Einstellungen, Konnektoren verbinden, Seite teilen |
 
 ## Grenzen

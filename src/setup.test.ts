@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { findeOneDrive, formatiere, hatFehler, initialisiere, pruefeUmgebung, studioHome, UNTERORDNER, type Sonde } from "./setup";
+import { findeOneDrive, formatiere, hatFehler, initialisiere, medienOrdner, pruefeUmgebung, studioHome, UNTERORDNER, type Sonde } from "./setup";
 
 let user: string;
 beforeEach(() => {
@@ -103,6 +103,7 @@ function sonde(over: Partial<Sonde> = {}): Sonde {
     ideenProtokollPruefen: () => undefined,
     bibliothekPruefen: () => ({ fehler: 0, warnungen: 0 }),
     notionZielPruefen: () => undefined,
+    freierPlatzGB: () => 500,
     ...over,
   };
 }
@@ -170,5 +171,79 @@ describe("doctor", () => {
     onedrive();
     initialisiere({ env: env(), userHome: user });
     expect(pruefeUmgebung(sonde({ platform: "linux" })).some((x) => x.name === "OneDrive-Dateien")).toBe(false);
+  });
+});
+
+describe("Medien auf einem eigenen Laufwerk", () => {
+  const laufwerk = () => {
+    const d = path.join(user, "Volumes", "Gross");
+    fs.mkdirSync(d, { recursive: true });
+    return d;
+  };
+
+  it("init --medien legt daten im Studio-Ordner an, die grossen Ordner auf dem Laufwerk, und merkt beides", () => {
+    const od = path.join(user, "OneDrive-Firma", "Studio");
+    const medien = path.join(laufwerk(), "Studio-Medien");
+    const r = initialisiere({ home: od, medien, env: env(), userHome: user });
+    expect(fs.existsSync(path.join(od, "daten"))).toBe(true);
+    for (const u of ["rohmaterial", "renders", "inspiration"]) {
+      expect(fs.existsSync(path.join(medien, u))).toBe(true);
+      expect(fs.existsSync(path.join(od, u)), `${u} gehört nicht in OneDrive`).toBe(false);
+    }
+    expect(r.medien).toBe(medien);
+    const h = studioHome(env(), user)!;
+    expect(h).toMatchObject({ pfad: od, medien });
+    expect(medienOrdner(h)).toBe(medien);
+  });
+
+  it("ohne --medien liegt alles im Studio-Ordner wie bisher", () => {
+    const od = path.join(user, "OneDrive-Firma", "Studio");
+    initialisiere({ home: od, env: env(), userHome: user });
+    const h = studioHome(env(), user)!;
+    expect(h.medien).toBeUndefined();
+    expect(medienOrdner(h)).toBe(od);
+    expect(fs.existsSync(path.join(od, "rohmaterial"))).toBe(true);
+  });
+
+  it("ein Laufwerk, das nicht angeschlossen ist, wird nicht stillschweigend als Ordner im Home angelegt", () => {
+    expect(() => initialisiere({ home: path.join(user, "OneDrive-Firma", "Studio"), medien: path.join(user, "Volumes", "Nicht-da", "Studio-Medien"), env: env(), userHome: user })).toThrow(/Laufwerk angeschlossen/);
+    expect(fs.existsSync(path.join(user, "Volumes", "Nicht-da"))).toBe(false);
+    expect(fs.existsSync(path.join(user, ".config"))).toBe(false);
+  });
+
+  it("STUDIO_MEDIEN gilt vor der Konfiguration", () => {
+    initialisiere({ home: path.join(user, "OneDrive-Firma", "Studio"), medien: path.join(laufwerk(), "A"), env: env(), userHome: user });
+    expect(studioHome({ STUDIO_MEDIEN: "/Volumes/B" }, user)!.medien).toBe("/Volumes/B");
+  });
+
+  it("doctor: Laufwerk abgezogen ist ein Fehler mit dem Hinweis, nachzusehen", () => {
+    const medien = path.join(laufwerk(), "Studio-Medien");
+    initialisiere({ home: path.join(user, "OneDrive-Firma", "Studio"), medien, env: env(), userHome: user });
+    fs.rmSync(path.join(user, "Volumes"), { recursive: true });
+    const p = pruefeUmgebung(sonde());
+    expect(p.find((x) => x.name === "Medien-Ordner")).toMatchObject({ stufe: "fehler" });
+    expect(p.find((x) => x.name === "Medien-Ordner")?.text).toMatch(/Laufwerk angeschlossen/);
+  });
+
+  it("doctor: Platz je Datenträger, Warnung unter 100 GB, Fehler unter 10 GB, Meldung nennt den Ausweg", () => {
+    const medien = path.join(laufwerk(), "Studio-Medien");
+    const od = path.join(user, "OneDrive-Firma", "Studio");
+    initialisiere({ home: od, medien, env: env(), userHome: user });
+    const frei: Record<string, number> = { [od]: 80, [medien]: 3000 };
+    let p = pruefeUmgebung(sonde({ freierPlatzGB: (pfad) => frei[pfad] }));
+    expect(p.find((x) => x.name === "Platz Studio-Ordner")).toMatchObject({ stufe: "warnung" });
+    expect(p.find((x) => x.name === "Platz Studio-Ordner")?.text).toMatch(/nur kleine Daten/);
+    expect(p.find((x) => x.name === "Platz Medien")).toMatchObject({ stufe: "ok", text: "3000 GB frei" });
+    expect(hatFehler(p)).toBe(false);
+    p = pruefeUmgebung(sonde({ freierPlatzGB: () => 5 }));
+    expect(p.filter((x) => x.name.startsWith("Platz")).every((x) => x.stufe === "fehler")).toBe(true);
+    expect(hatFehler(p)).toBe(true);
+  });
+
+  it("doctor ohne Medien-Ordner: Warnung bei knappem Platz verweist auf init --medien", () => {
+    initialisiere({ home: path.join(user, "OneDrive-Firma", "Studio"), env: env(), userHome: user });
+    const p = pruefeUmgebung(sonde({ freierPlatzGB: () => 80 }));
+    expect(p.find((x) => x.name === "Platz")).toMatchObject({ stufe: "warnung" });
+    expect(p.find((x) => x.name === "Platz")?.text).toMatch(/init --medien/);
   });
 });
