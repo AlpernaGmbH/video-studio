@@ -57,7 +57,7 @@ Zustandsautomat: `src/motion/idee.ts`. Was er **erzwingt** (und die Tests belege
 | Nur aktive Stücke im Storyboard | `src/core/storyboard.ts` |
 
 **Grenze:** Der Namenstest für «Mensch» ist keine Authentifizierung. Er verhindert den Flüchtigkeitsfehler, dass Claude sich selbst
-einträgt. Echten Schutz bieten erst die Rechte im Prüfplatz oder in Notion (Phase 2).
+einträgt. Echten Schutz bieten erst die Rechte im Prüfplatz und in Notion.
 
 ## Lücken finden
 
@@ -124,4 +124,5 @@ der Zustandsautomat und das Protokoll blieben gleich. Nicht Teil dieser Etappe.
   ab etwa 100 Stücken braucht es eine Vorauswahl nach Signaltyp (noch nicht gebaut).
 - **Fit ist Datenblatt-Logik.** Ein Stück, das mehr kann, als sein Datenblatt sagt, wird übersehen. Datenblätter ehrlich pflegen.
 - **Regex-Vorstufe** hat Fehlalarme («mehr als 100 Kunden»). Darum entscheidet Claude bei `unsicher`, und neue Ideen sind auf 5 pro Video begrenzt.
-- **Speicher** ist vorerst eine Datei mit Versionsprüfung. Zwei Rechner auf derselben OneDrive-Datei sind keine Dauerlösung: Notion (Bauplan Kap. 6).
+- **Speicher:** Das Ideenprotokoll ist eine Datei mit Versionsprüfung im Studio-Ordner auf OneDrive. Zwei Rechner, die gleichzeitig darauf schreiben, sind keine Dauerlösung.
+  Darum laufen Entscheide über Notion und den Prüfplatz (`docs/notion-und-pruefplatz.md`), und die Datei wird nur von einer Sitzung nachgeführt.

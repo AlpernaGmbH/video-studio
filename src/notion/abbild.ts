@@ -18,6 +18,23 @@ import { quellenzeile } from "../motion/pitch";
 
 export type Wert = string | number | string[] | null;
 
+/** Ein Bild für den Prüfplatz: Kennung, Adresse und eine kurze Beschriftung. */
+export interface BildEintrag {
+  id: string;
+  url: string;
+  text?: string;
+}
+
+/**
+ * Format der Eigenschaft «Bilder»: eine Zeile je Bild, «<id>: <adresse> | <beschriftung>». Der Prüfplatz liest sie so.
+ * Passt alles nicht in die Eigenschaft, entfallen die Beschriftungen (sie stehen im Seitentext).
+ */
+export function bilderZeilen(liste: BildEintrag[]): string | null {
+  if (liste.length === 0) return null;
+  const mit = liste.map((b) => `${b.id}: ${b.url}${b.text ? ` | ${b.text}` : ""}`).join("\n");
+  return mit.length <= MAX_TEXT ? mit : liste.map((b) => `${b.id}: ${b.url}`).join("\n");
+}
+
 export interface ZeilenInhalt {
   /** Eigenschaften für notion-create-pages beziehungsweise notion-update-page (update_properties). */
   properties: Record<string, Wert>;
@@ -51,6 +68,8 @@ export interface ZeilenOptionen {
   onedriveOrdner?: string;
   /** Adressen der Standbilder im Prüfplatz (Look → URL). Fehlen sie, steht der Dateipfad in «Bilder». */
   bildUrls?: Partial<Record<"a" | "b" | "c", string>>;
+  /** Standbilder des gebauten Renders für die Abnahme (nur im Status «render_geprueft» verwendet). */
+  renderBilder?: BildEintrag[];
 }
 
 export function ideeZuZeile(i: Idee, opt: ZeilenOptionen = {}): ZeilenInhalt {
@@ -68,7 +87,7 @@ export function ideeZuZeile(i: Idee, opt: ZeilenOptionen = {}): ZeilenInhalt {
     Aufwand: i.pitch?.aufwand ?? null,
     "Look-Runde": i.looks?.runde ?? 0,
     Stueck: i.bau?.stueck ?? null,
-    Bilder: i.looks ? i.looks.bilder.map((b) => `${b.id}: ${opt.bildUrls?.[b.id] ?? b.pfad}`).join("\n") : null,
+    Bilder: bilderZeilen(i.status === "render_geprueft" && opt.renderBilder?.length ? opt.renderBilder : lookBilder(i, opt)),
     "OneDrive-Ordner": opt.onedriveOrdner ? `Studio/${opt.onedriveOrdner}` : null,
   };
 
@@ -84,6 +103,15 @@ export function ideeZuZeile(i: Idee, opt: ZeilenOptionen = {}): ZeilenInhalt {
     Object.assign(p, { Abnahme: "offen", "Abnahme-Notiz": null, "Abnahme von": null, "date:Abnahme am:start": null });
   }
   return { properties: p, inhalt: seitentext(i) };
+}
+
+function lookBilder(i: Idee, opt: ZeilenOptionen): BildEintrag[] {
+  if (!i.looks) return [];
+  const l = i.looks;
+  return l.bilder.map((b) => {
+    const brief = l.briefs.find((x) => x.id === b.id);
+    return { id: b.id, url: opt.bildUrls?.[b.id] ?? b.pfad, text: brief ? `${brief.name}. ${brief.leitidee}` : undefined };
+  });
 }
 
 function seitentext(i: Idee): string {

@@ -1,25 +1,32 @@
-# CLAUDE.md – studio (Video-Editing-System der Alperna GmbH)
+# CLAUDE.md – video-studio (Video-Editing-System der Alperna GmbH)
 
-Dieses Paket ist **nicht** die Website. Die Regeln in `../CLAUDE.md` (Next.js, Lead-Gate, Design System, Seitentexte)
-gelten hier nicht. Übernommen werden nur Sprache und Ton: Deutsch (Schweiz), ss statt ß, «» als Anführungszeichen,
-Du-Form, ruhig und konkret, keine Ausrufezeichen, keine Emojis, keine Superlative.
+Eigenes Repo, **nicht** die Website (`alperna-website-v2`). Dessen Regeln (Next.js, Lead-Gate, Seitentexte) gelten hier nicht.
+Gemeinsam sind Sprache und Ton: Deutsch (Schweiz), ss statt ß, «» als Anführungszeichen, Du-Form, ruhig und konkret, keine Ausrufezeichen,
+keine Emojis, keine Superlative, keine Gedankenstriche als Satzzeichen.
 Plan und Entscheide: `Video-Editing-System-Bauplan-v2` (Stand 16.10.2026), Abweichungen und Stand in `STATUS.md`.
+Marke: Alperna Design System v2 (zweites, 17.9.): gedämpftes Blau, Gold als einziger Akzent. Profil in `marken/alperna.json`.
+
+**Alles läuft über Claude und Claude Code, nie über die Claude-API.** Texte und Entscheide liegen in Notion, Medien in OneDrive (`Studio/`),
+Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, Prüfplatz: `docs/notion-und-pruefplatz.md`.
 
 ## Was hier liegt
 
 - `src/core/` – Pfade, Schemas (Katalog, Marke, Regel, Ereignis, Storyboard), Storyboard-Prüfung
 - `src/motion/` – Motion-Bibliothek: Stück-Vertrag, Lint, Staging, Render, Selbstprüfung, Lückenanalyse, Ideenprotokoll, Zustandsautomat
 - `library/motion/<id>/` – ein Stück: `piece.json` (Datenblatt) und `index.html` (HyperFrames-Komposition)
-- `marken/<key>.json` – Markenprofile (Übergang, später Notion). Status `platzhalter` sperrt den finalen Export (Gate 0)
+- `marken/<key>.json` – Markenprofile. Status `platzhalter` sperrt den finalen Export (Gate 0)
 - `assets/fonts/` – Schriften, die Markenprofile ansprechen dürfen (`fonts.json`)
-- `data/` – Ideenprotokoll und Ereignisse (Übergang, später Notion)
-- `prompts/`, `.claude/skills/motion-werkstatt/` – Arbeitsanleitung für Claude
+- `src/notion/` – Abbild Idee ↔ Notion-Zeile, `src/setup.ts` – `init` und `doctor`, `src/pruefplatz.ts` – Daten für das Artifact
+- `pruefplatz/index.html` – Vorlage des Prüfplatzes (Artifact), `notion.json` – Kennungen von Notion-Seite, Datenbank und Prüfplatz
+- Daten (Ideenprotokoll, Ereignisse, Standbilder): `<Studio-Ordner>/daten/` in OneDrive, Pfad je Mac in `~/.config/video-studio/config.json`. Ohne Einrichtung `data/`
+- `prompts/`, `.claude/skills/` – Arbeitsanleitung für Claude (`motion-werkstatt`, `studio-einrichten`)
 - `docs/motion-werkstatt.md` – Konzept der Wachstumsschleife
 
 ## Harte Regeln
 
 1. **Du gibst nie frei.** Pitch-Freigabe, Look-Wahl, Änderungswunsch, Aufnahme in die Bibliothek und Ablehnung nach dem Pitch
-   gehören Menschen. `--mensch` nur, wenn ein Mensch dir den Befehl mit seinem Namen diktiert hat.
+   gehören Menschen und laufen über den Prüfplatz. Du schreibst nie in die Entscheidfelder in Notion. `--mensch` nur, wenn ein Mensch dir
+   den Befehl mit seinem Namen diktiert hat.
 2. **Nichts wird gebaut, bevor drei Looks gezeigt und einer gewählt wurde.**
 3. **Das Storyboard benutzt nur aktive Stücke und nur B-Roll mit gültigem Katalog-Schlüssel.**
 4. **Kein Netz beim Rendern.** Keine externen Skripte, Schriften oder Bilder im HTML (der Lint verbietet es). GSAP liegt lokal.
@@ -32,9 +39,10 @@ Plan und Entscheide: `Video-Editing-System-Bauplan-v2` (Stand 16.10.2026), Abwei
 ## Arbeitsweise
 
 1. `STATUS.md` lesen, dann arbeiten. Eine Aufgabe, ein Commit.
-2. Vor jedem Commit: `npm run check` (Typecheck, Tests, Lint der Bibliothek). Bei Änderungen an Stücken oder Render-Code zusätzlich
+2. Vor jedem Commit: `npm run check` (Typecheck, Tests, Lint der Bibliothek). **Den Exit-Code prüfen**, nicht nur die Ausgabe: Eine Pipe mit `grep` oder `tail` verschluckt ihn. Bei Änderungen an Stücken oder Render-Code zusätzlich
    `npm run selftest:render` (rendert wirklich, braucht Chrome Headless Shell: `npx hyperframes browser ensure`).
 3. Neue Stücke nur über `npm run studio -- motion neu …`. Das Gerüst erfüllt den Stück-Vertrag (Kopf von `src/motion/stueck.ts`).
 4. Neue Regel im Code heisst: Test, der ohne die Regel scheitert. Tests, die nur die Fixture prüfen, sind keine Tests.
 5. Keine neuen Abhängigkeiten ohne Eintrag in `STATUS.md` mit Begründung und Lizenz.
-6. Das Website-Repo bleibt unberührt: Dieses Paket importiert nichts daraus und die Website nichts von hier.
+6. Dieses Repo importiert nichts aus der Website und umgekehrt.
+7. Änderungen am Prüfplatz: `npm run studio -- pruefplatz bauen`, `scripts/pruefplatz-test.cjs` laufen lassen, dann veröffentlichen.

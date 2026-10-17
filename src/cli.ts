@@ -15,6 +15,7 @@ import { pitchText } from "./motion/pitch";
 import { Ideenprotokoll } from "./motion/protokoll";
 import { ideeZuZeile, leseAlle, zeilenAusAbfrage } from "./notion/abbild";
 import { ladeNotionZiel } from "./notion/ziel";
+import { baueDaten, setzeDatenEin } from "./pruefplatz";
 import { formatiere, hatFehler, initialisiere, pruefeUmgebung, studioHome, type Sonde } from "./setup";
 import { pruefeRender, messeRender, parseHfCheck } from "./motion/render-pruefung";
 import { SIGNAL_TYPEN, type SignalTyp } from "./motion/stueck";
@@ -54,12 +55,17 @@ Ideenprotokoll
   ideen weiter <id> <status> (--mensch|--system) --by Name [--grund "…"] [--json daten.json] [--stueck slug] [--gewaehlt a|b|c]
   ideen pruefung <id> --json runde.json [--by Name]
 
+Prüfplatz (Artifact für die Menschen)
+  pruefplatz bauen [-o datei.html] [--marke key]   Seite mit aktuellem Stand von Bibliothek und Marke bauen (Standard: .cache/pruefplatz.html)
+
 Notion (Ansicht und Entscheide; die Sitzung holt und schreibt die Zeilen mit den Notion-Werkzeugen)
-  ideen notion-zeile <id> [--bilder urls.json]   Eigenschaften und Seitentext einer Idee als JSON (für notion-create-pages / notion-update-page).
-                                      --bilder: {"a": "https://…", "b": …, "c": …} Adressen der Standbilder im Prüfplatz
+  ideen notion-zeile <id> [--bilder urls.json] [--render-bilder liste.json]   Eigenschaften und Seitentext einer Idee als JSON (für notion-create-pages / notion-update-page).
+                                      --bilder: {"a": "https://…", "b": …, "c": …} Adressen der Look-Standbilder im Prüfplatz
+                                      --render-bilder: [{"id":"r1","url":"https://…","text":"bei 1,2 s"}] Standbilder des Renders für die Abnahme
   ideen notion-alle                   Dasselbe für alle Ideen, dazu Ziel (Datenquelle)
   ideen notion-lesen --json zeilen.json [--anwenden]   Entscheide aus den Notion-Zeilen lesen (Ergebnis von notion-query-data-sources, Modus rows).
-                                      Ohne --anwenden nur der Bericht. Mit --anwenden werden Entscheide im Protokoll nachgeführt.
+                                      Ohne --anwenden nur der Bericht. Mit --anwenden werden Entscheide im Protokoll nachgeführt;
+                                      eine Abnahme aktiviert dabei auch das Stück (mit dem Namen aus «Abnahme von»).
 
 Umgebung: STUDIO_HOME (Studio-Ordner statt Konfiguration), STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse; sonst <Studio-Ordner>/daten), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
 `;
@@ -338,7 +344,8 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
     case "notion-zeile": {
       const idee = pr.holen(id(a, 2));
       const bildUrls = typeof a.opt["bilder"] === "string" ? lesJson<Record<string, string>>(a.opt["bilder"]) : undefined;
-      console.log(JSON.stringify(ideeZuZeile(idee, { onedriveOrdner: `daten/ideen/${idee.id}`, bildUrls }), null, 2));
+      const renderBilder = typeof a.opt["render-bilder"] === "string" ? lesJson<{ id: string; url: string; text?: string }[]>(a.opt["render-bilder"]) : undefined;
+      console.log(JSON.stringify(ideeZuZeile(idee, { onedriveOrdner: `daten/ideen/${idee.id}`, bildUrls, renderBilder }), null, 2));
       return 0;
     }
     case "notion-alle": {
@@ -364,8 +371,10 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
         }
         try {
           const i = pr.holen(x.idee);
-          const g = x.nach === "in_bibliothek" ? ladeBibliothek(env.bibliothek).stuecke.find((s) => s.stueck.id === i.bau?.stueck) : undefined;
-          pr.weiter(x.idee, x.nach, x.akteur, x.wann, { grund: x.grund, daten: x.daten, stueckAktiviert: g?.stueck.status === "aktiv" });
+          const finde = () => (x.nach === "in_bibliothek" ? ladeBibliothek(env.bibliothek).stuecke.find((s) => s.stueck.id === i.bau?.stueck) : undefined);
+          // Die Abnahme im Prüfplatz ist zugleich die Aufnahme in die Bibliothek: Das Stück wird mit demselben Menschen aktiviert.
+          if (finde()?.stueck.status === "geprueft") aktiviere(env.bibliothek, i.bau!.stueck, x.akteur, x.wann);
+          pr.weiter(x.idee, x.nach, x.akteur, x.wann, { grund: x.grund, daten: x.daten, stueckAktiviert: finde()?.stueck.status === "aktiv" });
           angewendet.push({ idee: x.idee, nach: x.nach, text: x.text });
           nachziehen.add(x.idee);
         } catch (e) {
@@ -440,6 +449,16 @@ async function main(): Promise<number> {
     return hatFehler(punkte) ? 1 : 0;
   }
   const home = studioHome();
+  if (gruppe === "pruefplatz" && sub === "bauen") {
+    const marke = typeof a.opt["marke"] === "string" ? a.opt["marke"] : "alperna";
+    const daten = baueDaten({ bibliothek: ladeBibliothek(path.join(studioRoot, "library", "motion")), marke: ladeMarke(umgebung(studioRoot), marke), notion: ladeNotionZiel(studioRoot), jetzt: jetzt() });
+    const html = setzeDatenEin(fs.readFileSync(path.join(studioRoot, "pruefplatz", "index.html"), "utf8"), daten);
+    const ziel = typeof a.opt["o"] === "string" ? path.resolve(a.opt["o"]) : path.join(studioRoot, ".cache", "pruefplatz.html");
+    fs.mkdirSync(path.dirname(ziel), { recursive: true });
+    fs.writeFileSync(ziel, html);
+    console.log(`${ziel}\n${(Buffer.byteLength(html) / 1024).toFixed(0)} KB, ${daten.bibliothek.length} Stücke, Marke «${daten.marke?.name ?? "keine"}»`);
+    return 0;
+  }
   const env = umgebung(studioRoot, home ? path.join(home.pfad, "daten") : undefined);
   if (gruppe === "motion" && sub) return motion(sub, a, env);
   if (gruppe === "ideen" && sub) return ideen(sub, a, env);

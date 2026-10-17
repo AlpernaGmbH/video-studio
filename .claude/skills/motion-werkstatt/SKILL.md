@@ -5,6 +5,9 @@ description: Pflegt die Motion-Bibliothek des Video-Studios. Beim Schnitt eines 
 
 # Motion-Werkstatt
 
+Entscheide treffen Menschen im **Prüfplatz** (Artifact in claude.ai, Adresse in `notion.json`). Sie landen in der Notion-Datenbank «Ideen».
+Du liest sie, führst das Protokoll nach und schreibst den neuen Stand zurück. Ablauf und Schema: `docs/notion-und-pruefplatz.md`.
+
 Die Bibliothek wächst aus drei Quellen: aus den aufgenommenen Videos (Skript oder Transkript), aus gespeicherten
 Inspirationsvideos und aus dem, was ein Mensch direkt verlangt. Jede Idee trägt den genauen Auslöser und die Begründung,
 warum nichts Bestehendes passt. Konzept und Regeln: `docs/motion-werkstatt.md`. Alle Befehle: `npm run studio -- help`.
@@ -21,6 +24,9 @@ warum nichts Bestehendes passt. Konzept und Regeln: `docs/motion-werkstatt.md`. 
 5. **Kein Netz beim Rendern.** Keine externen Skripte, Schriften oder Bilder im HTML. Der Lint verbietet es.
 6. **Keine Kundenbilder an externe Dienste.** `snapshot` läuft immer mit `--describe false` (im Code fest). Setze `GEMINI_API_KEY` in dieser Umgebung nicht.
 7. **Aussagen mit Zahlen nur aus Quellen.** Beispielsätze in Datenblättern sind erfundene Illustrationen und als solche zu kennzeichnen.
+8. **Du schreibst nie in die Entscheidfelder von Notion** (`Entscheid`, `Look-Wahl`, `Abnahme` und ihre Notiz-, Von- und Am-Felder). `ideen notion-zeile`
+   schreibt sie nie, und du fügst sie auch von Hand nicht hinzu. Fehlt ein Entscheid, wartest du.
+9. **Vor dem Weiterarbeiten Entscheide lesen** (Abschnitt «Notion»). Wer in der letzten Stunde etwas im Prüfplatz entschieden hat, soll nicht auf dich warten müssen.
 
 ## Ablauf
 
@@ -35,18 +41,20 @@ Wenn ja, sage es und lege nichts an.
 
 ### B. Pitchen
 
-Siehe `prompts/pitch-schreiben.md`. `ideen weiter <id> pitch --system --json pitch.json`, dann `ideen pitch <id>`.
-Danach aufhören. Auf die Entscheidung eines Menschen warten.
+Siehe `prompts/pitch-schreiben.md`. `ideen weiter <id> pitch --system --json pitch.json`, dann Zeile nach Notion schreiben (Abschnitt «Notion», «Raus»).
+Dem Menschen sagen: «Der Pitch liegt im Prüfplatz.» Danach aufhören und auf die Entscheidung warten.
 
 ### C. Drei Looks (erst nach «freigegeben»)
 
-1. Ordner `data/ideen/<id>/looks/a`, `b`, `c` mit je einer `index.html` (Standbild-Entwurf, gleiches Format wie ein Stück,
+1. Ordner `<datenDir>/ideen/<id>/looks/a`, `b`, `c` (im Studio-Ordner auf OneDrive) mit je einer `index.html` (Standbild-Entwurf, gleiches Format wie ein Stück,
    Timeline mit mindestens 2 s). Die drei Looks müssen sich in Leitidee, Typografie, Farbeinsatz und Bewegung unterscheiden.
 2. `motion looks <id> --at 1.2 --marke alperna` erzeugt `a.png`, `b.png`, `c.png` und `vergleich.png` und gibt die Pfade als JSON aus.
 3. `looks.json` schreiben (`prompts/beispiele/looks.json`), dann `ideen weiter <id> looks --system --json looks.json`.
-4. Das Vergleichsblatt dem Menschen zeigen. Warten.
+4. Die drei Standbilder als Asset in den Prüfplatz laden, Adressen in `bilder.json` (`{"a": "https://…", "b": …, "c": …}`), dann
+   `ideen notion-zeile <id> --bilder bilder.json` und die Zeile schreiben. Dem Menschen sagen, dass die Looks im Prüfplatz liegen. Warten.
 
-Sagt der Mensch «keiner passt», verlangt das Protokoll einen Grund. Er kommt als Notiz in die nächste Runde. Baue Runde 2 anders, nicht ähnlich.
+Sagt der Mensch «keiner passt», verlangt das Protokoll einen Grund (der Prüfplatz verlangt ihn auch). Er kommt als Notiz in die nächste Runde.
+Baue Runde 2 anders, nicht ähnlich. `notion-lesen` setzt die Idee dabei zurück auf «freigegeben», und die Zeile wird beim nächsten Schreiben geleert.
 
 ### D. Bauen (erst nach der Wahl)
 
@@ -65,17 +73,43 @@ Sagt der Mensch «keiner passt», verlangt das Protokoll einen Grund. Er kommt a
 6. Schleife: `motion lint` → `motion check <slug>` → `motion render <slug> -o … --set …` (prüft objektiv) → Bildprüfung
    (`prompts/bildpruefung.md`) → `ideen pruefung <id> --json runde.json`. Höchstens zwei Korrekturrunden.
 7. Besteht die Prüfung: `motion status <slug> gebaut`, dann (Einsatzbeispiele gerendert, Vorschau erzeugt) `motion status <slug> geprueft`,
-   `ideen weiter <id> render_geprueft --system`. Dem Menschen den Render zeigen. Warten.
+   `ideen weiter <id> render_geprueft --system`. Standbilder des Renders (`motion vorschau <slug>`) als Asset in den Prüfplatz laden und mit
+`--render-bilder liste.json` in die Zeile schreiben. Dem Menschen sagen, dass die Abnahme im Prüfplatz wartet. Warten.
 
 ### E. Aufnahme (nur Mensch)
 
-`motion aktivieren <slug> --mensch --by <Name>`, dann `ideen weiter <id> in_bibliothek --mensch --by <Name>`.
+Der Mensch klickt im Prüfplatz «Abnehmen». `ideen notion-lesen --anwenden` aktiviert das Stück mit dem Namen aus «Abnahme von» und führt die Idee nach
+«in_bibliothek». «Änderung nötig» führt zurück nach «in_bau» (Notiz Pflicht, Versuch +1). Danach Prüfplatz neu bauen und veröffentlichen.
 Erst aktive Stücke darf das Storyboard benutzen.
+
+Ein Stück ohne Idee (zum Beispiel ein Referenzstück aus dem Bauplan) hat keine Abnahme im Prüfplatz. Es wird nur aktiviert, wenn ein Mensch es dir im Chat
+mit Namen sagt: `motion aktivieren <slug> --mensch --by <Name>`.
 
 ### F. Neue Fassungen
 
 Weil das Stück wiederverwendbar ist: `motion render <slug> -o … --set wert=12 --set label="…" --dauer 2.4 --marke <key>`.
 Mehrere Fassungen auf einmal geht mit dem Batch-Befehl von HyperFrames (`batchArgs` in `src/motion/render.ts`).
+
+## Notion
+
+Ziel (Datenquelle) und Adresse des Prüfplatzes stehen in `notion.json`. Notion-Werkzeuge: `notion-query-data-sources`, `notion-create-pages`, `notion-update-page`.
+
+**Rein (zu Beginn jeder Sitzung, und wenn jemand «entschieden» sagt):**
+1. `notion-query-data-sources` mit `mode: "rows"`, `data_source_url` aus `notion.json`, `limit: 100`. Die Antwort in eine Datei speichern.
+2. `npm run studio -- ideen notion-lesen --json <datei>` (Vorschau), dann mit `--anwenden`. Fehler und Hinweise dem Menschen sagen
+   (Entscheid ohne Namen, zu früh gesetzt, Abweichung zwischen Notion und Protokoll).
+3. Für jede Idee in `zeileNeuSchreiben` die Zeile neu schreiben (unten).
+4. `ohneIdee`: von Hand angelegte Zeilen sind direkte Aufträge. Frage nach dem genauen Satz, lege die Idee mit `ideen neu` an (`quelle.typ: "auftrag"`) und schreibe
+   die Zeile. Die handgemachte Zeile nicht doppeln: Sie bekommt die `Idee-ID`.
+
+**Raus (nach jedem Übergang, den du auslöst):**
+1. `npm run studio -- ideen notion-zeile <id> [--bilder …] [--render-bilder …]` gibt `properties` und `inhalt`.
+2. Keine Zeile: `notion-create-pages` mit `parent: {type: "data_source_id", data_source_id: <aus notion.json>}`, `properties`, `content`.
+   Sonst `notion-update-page` mit `update_properties` und `replace_content` (Zeilen-Seite finden: Abfrage mit Filter auf `Idee-ID`).
+3. Nach dem Schreiben kurz nachlesen: Steht `Status` richtig?
+
+**Prüfplatz neu veröffentlichen**, wenn ein Stück aktiviert oder die Marke geändert wurde: `npm run studio -- pruefplatz bauen`, dann das Artifact-Werkzeug mit
+`file_path` `.cache/pruefplatz.html` und `url` aus `notion.json`. Der Prüfplatz speichert nichts selbst, ein neuer Stand verliert nichts.
 
 ## Wenn etwas hängt
 
@@ -83,3 +117,5 @@ Mehrere Fassungen auf einmal geht mit dem Batch-Befehl von HyperFrames (`batchAr
 - «zero duration» beim Render: Timeline wird nicht synchron registriert.
 - Vorschaubild leer: Render prüfen (`motion pruefen`), nicht das Bild.
 - Schrift fehlt: in `assets/fonts/` ablegen und in `fonts.json` eintragen. Es gibt keinen stillen Rückfall.
+- `studio doctor` prüft Node, ffmpeg, Studio-Ordner, OneDrive, Protokoll, Bibliothek und Notion-Ziel. Erster Schritt bei jedem unklaren Fehler auf einem Mac.
+- Notion antwortet nicht oder ein Werkzeug fehlt: dem Menschen sagen, dass Notion nicht verbunden ist. Nie so tun, als wäre eine Zeile geschrieben.

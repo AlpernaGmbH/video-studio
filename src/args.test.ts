@@ -4,8 +4,8 @@ import { parseArgs, werteAusSet } from "./args";
 describe("parseArgs", () => {
   it("trennt positionale Argumente, Flags, Werte und --set", () => {
     const a = parseArgs(["motion", "render", "zahl-zaehler", "-x", "--final", "--dauer", "2.4", "--marke=alperna", "--set", "wert=7", "--set", "suffix= von 10"]);
-    expect(a.pos).toEqual(["motion", "render", "zahl-zaehler", "-x"]);
-    expect(a.opt).toEqual({ final: true, dauer: "2.4", marke: "alperna" });
+    expect(a.pos).toEqual(["motion", "render", "zahl-zaehler"]);
+    expect(a.opt).toEqual({ x: true, final: true, dauer: "2.4", marke: "alperna" });
     expect(a.set).toEqual({ wert: "7", suffix: " von 10" });
   });
   it("ein Flag vor einem weiteren Flag bleibt ein Flag", () => {
@@ -14,6 +14,13 @@ describe("parseArgs", () => {
   it("alles nach -- ist positional", () => {
     expect(parseArgs(["a", "--", "--b"]).pos).toEqual(["a", "--b"]);
   });
+  it("-o wert ist die Kurzform, wie in Hilfe und README dokumentiert", () => {
+    expect(parseArgs(["motion", "render", "zahl-zaehler", "-o", "out.webm", "--dauer", "2.6"])).toMatchObject({ pos: ["motion", "render", "zahl-zaehler"], opt: { o: "out.webm", dauer: "2.6" } });
+    expect(parseArgs(["x", "-o"]).opt["o"]).toBe(true);
+    // Negative Zahlen und längere Einzelstriche bleiben positional
+    expect(parseArgs(["x", "-12", "-abc"]).pos).toEqual(["x", "-12", "-abc"]);
+  });
+
   it("--set ohne = ist ein Fehler", () => {
     expect(() => parseArgs(["--set", "wert"])).toThrow("Schlüssel=Wert");
     expect(() => parseArgs(["--set"])).toThrow("Schlüssel=Wert");

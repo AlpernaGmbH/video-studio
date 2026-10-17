@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { entwurf, pitch } from "./testing/fixtures";
+import { entwurf, looks, pitch } from "./testing/fixtures";
 
 /**
  * Ruft die CLI als Prozess auf, so wie Claude Code und das Team sie benutzen.
@@ -219,4 +219,31 @@ describe("studio CLI: Notion", () => {
     const r = notion("ideen", "notion-lesen", "--json", zeilen({ Titel: "Karte mit Pin", url: "https://app.notion.com/p/abc" }));
     expect((JSON.parse(r.out) as { ohneIdee: { titel: string }[] }).ohneIdee).toEqual([{ url: "https://app.notion.com/p/abc", titel: "Karte mit Pin" }]);
   });
+
+  it("ganzer Weg über Notion: Looks gewählt, gebaut, abgenommen. Die Abnahme aktiviert das Stück mit dem Namen des Menschen", () => {
+    // Claude: Looks anlegen
+    fs.writeFileSync(path.join(daten, "looks.json"), JSON.stringify({ looks: looks(1) }));
+    expect(notion("ideen", "weiter", "m-001", "looks", "--system", "--json", path.join(daten, "looks.json")).code).toBe(0);
+    // Mensch wählt im Prüfplatz, Claude liest
+    const wahl = notion("ideen", "notion-lesen", "--anwenden", "--json", zeilen({ "Idee-ID": "m-001", Status: "looks", "Look-Wahl": "b", "Look-Wahl von": "Leander" }));
+    expect(wahl.code).toBe(0);
+    expect(JSON.parse(notion("ideen", "zeigen", "m-001").out)).toMatchObject({ status: "look_gewaehlt", looks: { gewaehlt: "b" } });
+    // Claude: bauen und selbst prüfen (das Stück ist das echte Referenzstück, Status «geprueft»)
+    expect(notion("ideen", "weiter", "m-001", "in_bau", "--system", "--stueck", "zahl-zaehler").code).toBe(0);
+    fs.writeFileSync(path.join(daten, "runde.json"), JSON.stringify({ am: "2026-10-17T09:00:00.000Z", bestanden: true, befunde: [] }));
+    expect(notion("ideen", "pruefung", "m-001", "--json", path.join(daten, "runde.json")).code).toBe(0);
+    expect(notion("ideen", "weiter", "m-001", "render_geprueft", "--system").code).toBe(0);
+    // Ohne Namen keine Aufnahme
+    const ohne = notion("ideen", "notion-lesen", "--anwenden", "--json", zeilen({ "Idee-ID": "m-001", Status: "render_geprueft", Abnahme: "abgenommen" }));
+    expect(JSON.parse(ohne.out).angewendet).toEqual([]);
+    expect(fs.readFileSync(path.join(tmpLib, "zahl-zaehler", "piece.json"), "utf8")).toContain('"status": "geprueft"');
+    // Mensch nimmt ab
+    const ab = notion("ideen", "notion-lesen", "--anwenden", "--json", zeilen({ "Idee-ID": "m-001", Status: "render_geprueft", Abnahme: "abgenommen", "Abnahme von": "Andrej", "date:Abnahme am:start": "2026-10-17T10:00:00.000Z" }));
+    expect(ab.code).toBe(0);
+    expect(JSON.parse(ab.out).angewendet.map((x: { nach: string }) => x.nach)).toEqual(["in_bibliothek"]);
+    const piece = JSON.parse(fs.readFileSync(path.join(tmpLib, "zahl-zaehler", "piece.json"), "utf8")) as { status: string; freigabe: { wer: string; wann: string } };
+    expect(piece.status).toBe("aktiv");
+    expect(piece.freigabe).toMatchObject({ wer: "Andrej", wann: "2026-10-17T10:00:00.000Z" });
+    expect(JSON.parse(notion("ideen", "zeigen", "m-001").out)).toMatchObject({ status: "in_bibliothek", abnahme: { wer: "Andrej" } });
+  }, 90_000);
 });

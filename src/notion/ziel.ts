@@ -6,6 +6,8 @@ import { z } from "zod";
 export const NotionZiel = z.object({
   schema: z.literal(1),
   wurzelSeite: z.string().uuid(),
+  /** Adresse des Prüfplatzes (Artifact in claude.ai), damit jede Sitzung die richtige Seite neu veröffentlicht. */
+  pruefplatz: z.string().url().optional(),
   ideen: z.object({
     datenbank: z.string().uuid(),
     datenquelle: z.string().regex(/^collection:\/\/[0-9a-f-]{36}$/),

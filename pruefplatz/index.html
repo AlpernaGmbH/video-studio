@@ -1,0 +1,608 @@
+<title>Alperna Prüfplatz</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Poppins:wght@600;700&display=swap">
+<style>
+/* Layout: eine ruhige Spalte. Oben Tabs, darunter Karten, die sich einzeln öffnen. Pro Karte genau eine Gold-Aktion.
+   Dunkel ohne Umschalter: Das Design System v2 (17.9.) ist dunkel, Gold ist der einzige Akzent und nie eine Fläche ausser dem einen Knopf. */
+:root {
+  --mitternacht: #0a0c10;
+  --tiefblau: #111a28;
+  --bergblau: #1b2740;
+  --alpenblau: #26324a;
+  --hoehenblau: #2b3a5a;
+  --off: #fdfbfb;
+  --off-muted: rgba(253, 251, 251, 0.7);
+  --linie: rgba(253, 251, 251, 0.16);
+  --linie-stark: rgba(253, 251, 251, 0.34);
+  --gold: #ffd700;
+  --ink: #121110;
+  --ok: #9ad9b8;
+  --stopp: #f0a3a3;
+  --f-titel: "Poppins", "Helvetica Neue", Arial, sans-serif;
+  --f-text: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --radius: 15px;
+  --gutter: 16px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--tiefblau); }
+body {
+  margin: 0;
+  color: var(--off);
+  font-family: var(--f-text);
+  font-size: 16px;
+  line-height: 1.55;
+  padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
+  padding-block: 20px 56px;
+  -webkit-text-size-adjust: 100%;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--f-titel); font-weight: 700; line-height: 1.12; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--off-muted); font-weight: 500; }
+.muted { color: var(--off-muted); }
+a { color: var(--off); text-underline-offset: 3px; text-decoration-color: var(--linie-stark); }
+a:hover { text-decoration-color: var(--gold); }
+:focus-visible { outline: 2px solid var(--off); outline-offset: 3px; border-radius: 6px; }
+
+/* Kopf */
+.kopf { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; justify-content: space-between; }
+.marke { display: grid; gap: 4px; min-width: 0; }
+.marke h1 { font-size: 30px; }
+.werkzeug { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.feld { display: grid; gap: 4px; }
+.feld label { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--off-muted); }
+input[type="text"], textarea, select {
+  font: inherit; color: var(--off); background: var(--bergblau); border: 0.5px solid var(--linie-stark);
+  border-radius: 10px; padding: 9px 12px; min-width: 0; width: 100%;
+}
+textarea { resize: vertical; min-height: 88px; }
+input::placeholder, textarea::placeholder { color: rgba(253, 251, 251, 0.45); }
+#name { width: 200px; max-width: 100%; }
+
+/* Knöpfe */
+.knopf {
+  font-family: var(--f-titel); font-weight: 600; font-size: 15px; line-height: 1; cursor: pointer;
+  border-radius: 999px; padding: 13px 22px; border: 0.5px solid var(--linie-stark); background: transparent; color: var(--off);
+  transition: background-color 0.2s ease-out, opacity 0.2s ease-out;
+}
+.knopf:hover { background: rgba(253, 251, 251, 0.08); }
+.knopf:active { opacity: 0.8; }
+.knopf[disabled] { opacity: 0.45; cursor: not-allowed; }
+.knopf.gold { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.knopf.gold:hover { background: #ffe14d; }
+.knopf.klein { padding: 9px 16px; font-size: 14px; }
+
+/* Tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px 28px; border-bottom: 0.5px solid var(--linie); }
+.tab {
+  font-family: var(--f-titel); font-weight: 600; font-size: 16px; background: none; border: 0; color: var(--off-muted);
+  padding: 10px 0 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -0.5px;
+}
+.tab[aria-selected="true"] { color: var(--off); border-bottom-color: var(--off); }
+.tab .zahl { font-family: var(--f-text); font-weight: 500; font-size: 13px; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--hoehenblau); color: var(--off); }
+.tab .zahl[data-null="true"] { background: transparent; border: 0.5px solid var(--linie); color: var(--off-muted); }
+.panel[hidden] { display: none !important; }
+.panel { display: grid; gap: 16px; align-content: start; }
+
+/* Karten */
+.karte { background: var(--alpenblau); border: 0.5px solid var(--linie); border-radius: var(--radius); }
+.karte-kopf {
+  display: grid; gap: 6px; width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit;
+  padding: 18px 20px; cursor: pointer; border-radius: var(--radius);
+}
+.karte-kopf h3 { font-size: 20px; }
+.karte-kopf .zeile { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.satz-kurz { color: var(--off-muted); overflow-wrap: anywhere; }
+.karte-inhalt { padding: 4px 20px 22px; display: grid; gap: 22px; border-top: 0.5px solid var(--linie); margin-top: 0; padding-top: 20px; }
+.abschnitt { display: grid; gap: 8px; }
+.zitat { font-family: var(--f-titel); font-weight: 600; font-size: 21px; line-height: 1.3; overflow-wrap: anywhere; }
+.text { white-space: pre-line; overflow-wrap: anywhere; }
+.aktionen { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.hinweis { font-size: 14px; color: var(--off-muted); }
+.chip { display: inline-block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; padding: 3px 10px; border-radius: 999px; border: 0.5px solid var(--linie-stark); color: var(--off); white-space: nowrap; }
+.chip.still { color: var(--off-muted); border-color: var(--linie); }
+.chip.ok { color: var(--ok); }
+.chip.stopp { color: var(--stopp); }
+.leer { padding: 28px 20px; text-align: left; display: grid; gap: 6px; }
+.leer h3 { font-size: 20px; }
+
+/* Looks */
+.looks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+.look { position: relative; display: grid; gap: 8px; align-content: start; border: 0.5px solid var(--linie); border-radius: var(--radius); padding: 10px; background: var(--bergblau); cursor: pointer; min-width: 0; }
+.look input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.look:has(input:checked) { outline: 2px solid var(--off); outline-offset: 2px; }
+.look:has(input:focus-visible) { outline: 2px solid var(--off); outline-offset: 4px; }
+.look img { width: 100%; aspect-ratio: 9 / 16; max-height: 380px; object-fit: contain; background: var(--mitternacht); border-radius: 10px; display: block; }
+.look .kein-bild { aspect-ratio: 9 / 16; max-height: 380px; display: grid; place-items: center; background: var(--mitternacht); border-radius: 10px; color: var(--off-muted); font-size: 14px; padding: 12px; text-align: center; }
+.look b { font-family: var(--f-titel); font-weight: 600; }
+.look span { font-size: 14px; color: var(--off-muted); overflow-wrap: anywhere; }
+.keiner { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border: 0.5px solid var(--linie); border-radius: var(--radius); cursor: pointer; }
+.keiner:has(input:checked) { outline: 2px solid var(--off); outline-offset: 2px; }
+.renders { display: flex; flex-wrap: wrap; gap: 12px; }
+.renders figure { margin: 0; display: grid; gap: 6px; width: 180px; max-width: 100%; }
+.renders img { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; background: var(--mitternacht); border-radius: 10px; }
+.renders figcaption { font-size: 13px; color: var(--off-muted); }
+
+/* Meldungen */
+.meldung { border: 0.5px solid var(--linie-stark); border-radius: 12px; padding: 12px 14px; background: var(--bergblau); display: grid; gap: 8px; }
+.meldung.fehler { border-color: var(--stopp); }
+.meldung.gut { border-color: var(--ok); }
+.meldung strong { font-family: var(--f-titel); font-weight: 600; }
+
+/* Liste, Bibliothek, Marke */
+.tabelle { display: grid; gap: 0; }
+.zeile-idee { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 4px 16px; padding: 14px 20px; border-top: 0.5px solid var(--linie); align-items: start; }
+.zeile-idee:first-child { border-top: 0; }
+.zeile-idee .id { font-variant-numeric: tabular-nums; color: var(--off-muted); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 500; padding-top: 3px; }
+.zeile-idee .titel { font-weight: 600; overflow-wrap: anywhere; }
+.zeile-idee .satz { grid-column: 2 / -1; color: var(--off-muted); font-size: 14px; overflow-wrap: anywhere; }
+.raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 16px; }
+.stueck { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 18px; align-items: start; }
+.stueck img { width: 120px; aspect-ratio: 9 / 16; object-fit: contain; background: var(--mitternacht); border-radius: 10px; }
+.stueck h3 { font-size: 20px; }
+.stueck ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; }
+.stueck .inhalt { display: grid; gap: 10px; min-width: 0; }
+.farben { display: flex; flex-wrap: wrap; gap: 12px; }
+.farbe { display: grid; gap: 6px; width: 120px; }
+.farbe i { display: block; height: 56px; border-radius: 10px; border: 0.5px solid var(--linie-stark); }
+.farbe code { font-size: 13px; color: var(--off-muted); }
+dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; }
+dt { color: var(--off-muted); font-size: 14px; }
+dd { margin: 0; overflow-wrap: anywhere; }
+.fuss { font-size: 13px; color: var(--off-muted); }
+
+@media (max-width: 560px) {
+  .stueck { grid-template-columns: 1fr; }
+  .zeile-idee { grid-template-columns: 1fr; }
+  .zeile-idee .satz { grid-column: auto; }
+  .knopf { padding: 14px 20px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="kopf">
+    <div class="marke">
+      <span class="eyebrow">Alperna Prüfplatz</span>
+      <h1>Du entscheidest</h1>
+    </div>
+    <div class="werkzeug">
+      <div class="feld">
+        <label for="name">Entscheid als</label>
+        <input id="name" type="text" autocomplete="name" placeholder="Dein Name" maxlength="60">
+      </div>
+      <button class="knopf klein" id="neu-laden" type="button">Neu laden</button>
+    </div>
+  </header>
+
+  <div id="status" role="status" aria-live="polite"></div>
+
+  <div class="tabs" role="tablist" aria-label="Bereiche">
+    <button class="tab" role="tab" id="t-queue" aria-controls="p-queue" aria-selected="true" data-tab="queue">Zu entscheiden <span class="zahl" id="z-queue" data-null="true">0</span></button>
+    <button class="tab" role="tab" id="t-alle" aria-controls="p-alle" aria-selected="false" data-tab="alle">Alle Ideen <span class="zahl" id="z-alle" data-null="true">0</span></button>
+    <button class="tab" role="tab" id="t-bib" aria-controls="p-bib" aria-selected="false" data-tab="bib">Bibliothek <span class="zahl" id="z-bib" data-null="true">0</span></button>
+    <button class="tab" role="tab" id="t-marke" aria-controls="p-marke" aria-selected="false" data-tab="marke">Marke</button>
+  </div>
+
+  <section class="panel" id="p-queue" role="tabpanel" aria-labelledby="t-queue"></section>
+  <section class="panel" id="p-alle" role="tabpanel" aria-labelledby="t-alle" hidden></section>
+  <section class="panel" id="p-bib" role="tabpanel" aria-labelledby="t-bib" hidden></section>
+  <section class="panel" id="p-marke" role="tabpanel" aria-labelledby="t-marke" hidden></section>
+
+  <p class="fuss" id="fuss"></p>
+</div>
+
+<script type="application/json" id="daten">/*__DATEN__*/{"notion":{"datenquelle":"collection://00000000-0000-0000-0000-000000000000"},"bibliothek":[],"marke":null,"erzeugt":""}</script>
+<script>
+(() => {
+  "use strict";
+  const DATEN = JSON.parse(document.getElementById("daten").textContent);
+  const SERVER = "Notion";
+  const SYSTEMNAMEN = /^(claude|system|ki|ai|bot|assistant|assistent|pipeline)$/i;
+
+  /* ---------- kleine Helfer ---------- */
+  const $ = (id) => document.getElementById(id);
+  function h(tag, attrs, ...kinder) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === false || v === null || v === undefined) continue;
+      if (k === "class") el.className = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else if (k === "text") el.textContent = v;
+      else el.setAttribute(k, v === true ? "" : String(v));
+    }
+    for (const k of kinder.flat()) if (k !== null && k !== undefined && k !== false) el.append(k.nodeType ? k : document.createTextNode(String(k)));
+    return el;
+  }
+  const speicher = {
+    lies(k) { try { return localStorage.getItem(k) || ""; } catch { return ""; } },
+    schreibe(k, v) { try { localStorage.setItem(k, v); } catch { /* ohne Speicher geht es auch */ } },
+  };
+  const woerter = (s) => s.trim().split(/\s+/).filter(Boolean).length;
+
+  /* ---------- Zustand ---------- */
+  const S = { mcp: null, zeilen: [], laden: "idle", fehler: null, tab: "queue", offen: null, name: "", busy: false, entwurf: {}, ablehnen: {}, filter: "alle", stand: null, meldung: null };
+
+  /* ---------- Notion ---------- */
+  function ergebnis(r) {
+    let p = r && r.payload;
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch { /* weiter */ } }
+    if (!p || typeof p !== "object") {
+      const t = r && Array.isArray(r.content) ? (r.content.find((b) => b.type === "text") || {}).text : null;
+      try { p = JSON.parse(t); } catch { p = null; }
+    }
+    return p;
+  }
+  async function aufruf(tool, input) {
+    return ergebnis(await S.mcp.callTool(SERVER, tool, input, { cache: false }));
+  }
+  const abfrage = (extra) => ({ data: Object.assign({ mode: "rows", data_source_url: DATEN.notion.datenquelle, limit: 100 }, extra || {}) });
+
+  function modell(z) {
+    const t = (k) => (typeof z[k] === "string" ? z[k].replace(/<br\s*\/?>/gi, "\n").trim() : "");
+    let signale = [];
+    try { signale = JSON.parse(z["Signale"] || "[]"); } catch { /* leer */ }
+    const treffer = typeof z.url === "string" ? z.url.match(/[0-9a-f]{32}/gi) : null;
+    return {
+      id: t("Idee-ID"), titel: t("Titel"), status: t("Status"), quelle: t("Quelle"), projekt: t("Projekt"), satz: t("Satz"),
+      signale, warum: t("Warum nichts passt"), pitch: t("Pitch"), aufwand: t("Aufwand"),
+      entscheid: t("Entscheid"), entscheidGrund: t("Entscheid-Grund"),
+      lookRunde: Number(z["Look-Runde"]) || 0, lookWahl: t("Look-Wahl"), lookNotiz: t("Look-Notiz"),
+      abnahme: t("Abnahme"), abnahmeNotiz: t("Abnahme-Notiz"), stueck: t("Stueck"),
+      bilder: bilder(t("Bilder")), url: typeof z.url === "string" ? z.url : "", seite: treffer ? treffer[treffer.length - 1] : "",
+    };
+  }
+  /** «<id>: <adresse> | <beschriftung>», eine Zeile je Bild. Nur https-Adressen werden als Bild geladen. */
+  function bilder(text) {
+    return text.split("\n").map((z) => z.trim()).filter(Boolean).map((z) => {
+      const m = z.match(/^([A-Za-z0-9_-]+):\s*(\S+)(?:\s*\|\s*(.*))?$/);
+      return m ? { id: m[1], ziel: m[2], text: m[3] || "", bild: /^https:\/\//.test(m[2]) } : null;
+    }).filter(Boolean);
+  }
+  function phase(m) {
+    if (m.status === "pitch") return !m.entscheid || m.entscheid === "offen" ? "pitch" : "pitch-gesendet";
+    if (m.status === "looks") return m.lookWahl ? "look-gesendet" : m.bilder.length >= 3 ? "look" : "look-wartet";
+    if (m.status === "render_geprueft") return !m.abnahme || m.abnahme === "offen" ? "abnahme" : "abnahme-gesendet";
+    return "sonst";
+  }
+  const ENTSCHEIDBAR = new Set(["pitch", "look", "abnahme"]);
+
+  async function laden(still) {
+    S.laden = "laden";
+    if (!still) zeichne();
+    try {
+      const p = await aufruf("notion-query-data-sources", abfrage());
+      if (!p || !Array.isArray(p.results)) throw { code: "form", message: "Die Antwort von Notion hat nicht das erwartete Format." };
+      S.zeilen = p.results.map(modell).filter((m) => m.id).sort((a, b) => a.id.localeCompare(b.id));
+      S.hatMehr = !!p.has_more;
+      S.laden = "fertig"; S.fehler = null; S.stand = new Date();
+    } catch (e) {
+      S.laden = "fehler"; S.fehler = e;
+    }
+    zeichne();
+  }
+
+  /** Vor jedem Schreiben die Zeile frisch lesen: Ist sie schon entschieden oder weitergelaufen, wird nichts überschrieben. */
+  async function frisch(id) {
+    const p = await aufruf("notion-query-data-sources", abfrage({
+      limit: 2,
+      filter: { type: "group", operator: "and", filters: [{ type: "property", property: "Idee-ID", propertyType: "text", operator: "string_is", value: { type: "exact", value: id } }] },
+    }));
+    const z = p && Array.isArray(p.results) ? p.results.map(modell)[0] : null;
+    return z || null;
+  }
+
+  function jetzt() { return new Date().toISOString(); }
+  function datum(feld) { return { ["date:" + feld + ":start"]: jetzt(), ["date:" + feld + ":is_datetime"]: 1 }; }
+
+  /** Schreibt einen Entscheid. `bereit(frischeZeile)` sagt, ob die Zeile noch im erwarteten Zustand ist. */
+  async function senden(m, felder, erwartet, bestaetigt) {
+    if (S.busy) return;
+    const name = S.name.trim();
+    if (!name) return melde("fehler", "Name fehlt", "Trag oben deinen Namen ein. Er steht beim Entscheid in Notion und im Protokoll.");
+    if (SYSTEMNAMEN.test(name)) return melde("fehler", "Dieser Name gilt nicht", "Entscheide braucht ein Mensch mit seinem Namen, kein Systemname.");
+    S.busy = true; S.meldung = null; zeichne();
+    try {
+      const f = await frisch(m.id);
+      if (!f) throw { code: "weg", message: "Die Idee ist in Notion nicht mehr zu finden." };
+      if (!erwartet(f)) {
+        S.busy = false;
+        await laden(true);
+        return melde("fehler", "Schon weiter", "Bei «" + m.titel + "» hat sich inzwischen etwas geändert. Die Liste ist neu geladen, nichts wurde überschrieben.");
+      }
+      await aufruf("notion-update-page", { page_id: m.seite, command: "update_properties", properties: felder, allow_async: false });
+      const danach = await frisch(m.id);
+      S.busy = false;
+      await laden(true);
+      if (danach && bestaetigt(danach)) {
+        S.offen = null; S.entwurf[m.id] = null; S.ablehnen[m.id] = false;
+        return melde("gut", "Gespeichert", "Dein Entscheid zu «" + m.titel + "» steht in Notion. Claude führt die Idee beim nächsten Lauf weiter.");
+      }
+      return melde("fehler", "Nicht bestätigt", "Notion hat geantwortet, aber der Entscheid ist beim Nachlesen nicht zu sehen. Prüf die Zeile in Notion, bevor du es nochmal versuchst.");
+    } catch (e) {
+      S.busy = false;
+      melde("fehler", ...fehlertext(e, true));
+      await laden(true);
+    }
+  }
+
+  function fehlertext(e, schreiben) {
+    const c = e && e.code;
+    switch (c) {
+      case "approval_required": case "not_in_manifest": case "consent_required":
+        return ["Zugriff auf Notion nicht erlaubt", "Beim ersten Speichern fragt claude.ai, ob dieser Prüfplatz Notion benutzen darf. Erlaube es und drück den Knopf nochmal."];
+      case "needs_reauth": case "server_not_connected": case "selection_required":
+        return ["Notion ist nicht verbunden", "Verbinde Notion in claude.ai unter Einstellungen, Konnektoren. Danach «Neu laden»."];
+      case "blocked_by_policy":
+        return ["Notion ist für dich gesperrt", "Eure Organisation lässt diesen Zugriff nicht zu. Frag, wer Claude bei euch verwaltet."];
+      case "server_unavailable": case "upstream_error":
+        return schreiben
+          ? ["Unklar, ob es gespeichert wurde", "Notion hat nicht sauber geantwortet. Die Liste ist neu geladen: Siehst du deinen Entscheid dort nicht, drück den Knopf nochmal."]
+          : ["Notion antwortet gerade nicht", "Versuch es in einer Minute mit «Neu laden»."];
+      case "tool_error":
+        return ["Notion hat den Auftrag abgelehnt", String(e.message || "Ohne Angabe.").slice(0, 240)];
+      case "weg": case "form":
+        return ["Unerwartete Antwort", String(e.message)];
+      default:
+        return ["Das hat nicht geklappt", String((e && e.message) || "Unbekannter Fehler").slice(0, 240)];
+    }
+  }
+
+  function melde(art, titel, text) { S.meldung = { art, titel, text }; zeichne(); }
+
+  /* ---------- Darstellung ---------- */
+  const STATUSTEXT = {
+    idee: "Entwurf von Claude", pitch: "Pitch", freigegeben: "Freigegeben", looks: "Looks", look_gewaehlt: "Look gewählt",
+    in_bau: "Im Bau", render_geprueft: "Zur Abnahme", in_bibliothek: "In der Bibliothek", abgelehnt: "Abgelehnt",
+  };
+  const PHASENTEXT = { pitch: "Pitch entscheiden", look: "Look wählen", abnahme: "Abnehmen", "pitch-gesendet": "Wartet auf Claude", "look-gesendet": "Wartet auf Claude", "abnahme-gesendet": "Wartet auf Claude", "look-wartet": "Claude erstellt die Looks" };
+  const STUECKSTATUS = { entwurf: "Entwurf", gebaut: "Gebaut", geprueft: "Geprüft, noch nicht aktiv", aktiv: "Aktiv", veraltet: "Veraltet" };
+  const chip = (text, art) => h("span", { class: "chip" + (art ? " " + art : ""), text });
+
+  function zeichne() {
+    $("name").value !== S.name && document.activeElement !== $("name") && ($("name").value = S.name);
+    document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === S.tab)));
+    for (const t of ["queue", "alle", "bib", "marke"]) $("p-" + t).hidden = S.tab !== t;
+    $("neu-laden").disabled = S.busy || S.laden === "laden";
+
+    const offene = S.zeilen.filter((m) => ENTSCHEIDBAR.has(phase(m)));
+    zahl("z-queue", offene.length); zahl("z-alle", S.zeilen.length); zahl("z-bib", DATEN.bibliothek.length);
+
+    zeichneStatus();
+    if (S.tab === "queue") zeichneQueue(offene);
+    if (S.tab === "alle") zeichneAlle();
+    if (S.tab === "bib") zeichneBib();
+    if (S.tab === "marke") zeichneMarke();
+    $("fuss").textContent = (S.stand ? "Ideen aus Notion gelesen um " + S.stand.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) + ". " : "") +
+      "Bibliothek und Marke stehen im Stand vom " + (DATEN.erzeugt ? new Date(DATEN.erzeugt).toLocaleDateString("de-CH") : "unbekannt") + ".";
+  }
+  function zahl(id, n) { const e = $(id); e.textContent = String(n); e.dataset.null = String(n === 0); }
+
+  function zeichneStatus() {
+    const box = $("status");
+    box.replaceChildren();
+    if (S.meldung) box.append(h("div", { class: "meldung " + S.meldung.art }, h("strong", { text: S.meldung.titel }), h("p", { text: S.meldung.text })));
+    if (S.laden === "fehler" && S.fehler) {
+      const [titel, text] = fehlertext(S.fehler, false);
+      box.append(h("div", { class: "meldung fehler" }, h("strong", { text: titel }), h("p", { text }), h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", onclick: () => laden() }, "Nochmal versuchen"))));
+    }
+    if (!S.mcp) box.append(h("div", { class: "meldung fehler" }, h("strong", { text: "Nur in Claude benutzbar" }), h("p", { text: "Dieser Prüfplatz liest und schreibt über deine Notion-Verbindung in claude.ai. Öffne ihn dort. Bibliothek und Marke siehst du auch ohne." })));
+  }
+
+  function leer(titel, text) { return h("div", { class: "karte leer" }, h("h3", { text: titel }), h("p", { class: "muted", text })); }
+
+  function quelleText(m) {
+    return m.quelle === "video" ? "Aus dem Video " + m.projekt : m.quelle === "inspiration" ? "Aus dem Inspirationsvideo «" + m.projekt + "»" : m.projekt;
+  }
+
+  function zeichneQueue(offene) {
+    const p = $("p-queue");
+    p.replaceChildren();
+    if (!S.mcp) return p.append(leer("Hier erscheint, was auf dich wartet", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier Pitches, Looks und Abnahmen."));
+    if (S.laden === "laden" && S.zeilen.length === 0) return p.append(leer("Lade Ideen aus Notion", "Das dauert einen Moment."));
+    const gesendet = S.zeilen.filter((m) => phase(m).endsWith("-gesendet") || phase(m) === "look-wartet");
+    if (offene.length === 0) p.append(leer("Nichts zu entscheiden", "Wenn Claude eine Idee pitcht, Looks zeigt oder ein Stück zur Abnahme bereit hat, erscheint es hier."));
+    for (const m of offene) p.append(karte(m));
+    if (gesendet.length) {
+      p.append(h("p", { class: "eyebrow", text: "Bei Claude" }));
+      p.append(h("div", { class: "karte tabelle" }, gesendet.map(zeileIdee)));
+    }
+    if (S.hatMehr) p.append(h("p", { class: "hinweis", text: "Es gibt mehr als 100 Ideen. Der Prüfplatz zeigt die ersten 100." }));
+  }
+
+  function karte(m) {
+    const ph = phase(m);
+    const offen = S.offen === m.id;
+    const kopf = h("button", { class: "karte-kopf", type: "button", "aria-expanded": String(offen), "aria-controls": "k-" + m.id, onclick: () => { S.offen = offen ? null : m.id; zeichne(); } },
+      h("div", { class: "zeile" }, h("span", { class: "eyebrow", text: m.id }), chip(PHASENTEXT[ph]), m.aufwand && ph === "pitch" ? chip("Aufwand " + m.aufwand, "still") : null),
+      h("h3", { text: m.titel }),
+      offen ? null : h("span", { class: "satz-kurz", text: "«" + m.satz + "»" }));
+    const k = h("article", { class: "karte" }, kopf);
+    if (offen) k.append(h("div", { class: "karte-inhalt", id: "k-" + m.id }, ph === "pitch" ? pitchInhalt(m) : ph === "look" ? lookInhalt(m) : abnahmeInhalt(m)));
+    return k;
+  }
+
+  const abschnitt = (titel, ...inhalt) => h("div", { class: "abschnitt" }, h("span", { class: "eyebrow", text: titel }), ...inhalt);
+  const notionLink = (m) => (m.url ? h("a", { href: m.url, target: "_blank", rel: "noopener", text: "Ganze Seite in Notion öffnen" }) : null);
+
+  function entwurfFeld(m, name, def) { const e = S.entwurf[m.id] || {}; return e[name] === undefined ? def : e[name]; }
+  function setzeEntwurf(m, name, wert) { S.entwurf[m.id] = Object.assign({}, S.entwurf[m.id], { [name]: wert }); }
+
+  function textfeld(m, name, label, hilfe) {
+    const id = "f-" + m.id + "-" + name;
+    const ta = h("textarea", { id, rows: 3, "aria-describedby": id + "-h", oninput: (ev) => { setzeEntwurf(m, name, ev.target.value); aktualisiereKnoepfe(m); } });
+    ta.value = entwurfFeld(m, name, "");
+    return h("div", { class: "feld" }, h("label", { for: id, text: label }), ta, h("span", { class: "hinweis", id: id + "-h", text: hilfe }));
+  }
+  /* Knöpfe ohne neues Zeichnen aktivieren, damit der Cursor im Feld bleibt */
+  function aktualisiereKnoepfe(m) {
+    document.querySelectorAll('[data-braucht="' + m.id + '"]').forEach((b) => { b.disabled = S.busy || !b._ok(); });
+  }
+  function knopf(m, text, art, ok, tue) {
+    const b = h("button", { class: "knopf " + art, type: "button", "data-braucht": m.id, onclick: tue }, text);
+    b._ok = ok; b.disabled = S.busy || !ok();
+    return b;
+  }
+
+  function pitchInhalt(m) {
+    const ablehnen = !!S.ablehnen[m.id];
+    const grund = () => entwurfFeld(m, "grund", "").trim();
+    const grundOk = () => grund().length >= 10 && woerter(grund()) >= 2;
+    const nochOffen = (f) => f.status === "pitch" && (!f.entscheid || f.entscheid === "offen");
+    return [
+      abschnitt("Der Satz, der es ausgelöst hat", h("p", { class: "zitat", text: "«" + m.satz + "»" }), h("p", { class: "hinweis", text: quelleText(m) })),
+      abschnitt("Warum nichts Bestehendes passt", h("p", { class: "text", text: m.warum })),
+      abschnitt("Was Claude vorschlägt", h("p", { class: "text", text: m.pitch })),
+      h("p", { class: "hinweis" }, "Nach einer Freigabe wird noch nichts gebaut. Zuerst zeigt Claude dir drei Looks als Standbilder, und du wählst. ", notionLink(m)),
+      ablehnen ? textfeld(m, "grund", "Grund der Ablehnung", "Mindestens zwei Wörter. Der Grund verhindert, dass dieselbe Idee wiederkommt.") : null,
+      h("div", { class: "aktionen" },
+        ablehnen
+          ? [knopf(m, "Ablehnung senden", "gold", grundOk, () => senden(m, Object.assign({ Entscheid: "abgelehnt", "Entscheid-Grund": grund(), "Entscheid von": S.name.trim() }, datum("Entscheid am")), nochOffen, (d) => d.entscheid === "abgelehnt")),
+             knopf(m, "Zurück", "", () => true, () => { S.ablehnen[m.id] = false; zeichne(); })]
+          : [knopf(m, "Freigeben", "gold", () => true, () => senden(m, Object.assign({ Entscheid: "freigegeben", "Entscheid von": S.name.trim() }, datum("Entscheid am")), nochOffen, (d) => d.entscheid === "freigegeben")),
+             knopf(m, "Ablehnen", "", () => true, () => { S.ablehnen[m.id] = true; zeichne(); })]),
+    ];
+  }
+
+  function lookInhalt(m) {
+    const wahl = () => entwurfFeld(m, "wahl", "");
+    const notiz = () => entwurfFeld(m, "notiz", "").trim();
+    const ok = () => ["a", "b", "c"].includes(wahl()) || (wahl() === "keiner" && notiz().length >= 5);
+    const nochOffen = (f) => f.status === "looks" && !f.lookWahl && f.lookRunde === m.lookRunde;
+    const radio = (wert, kind) => {
+      const r = h("input", { type: "radio", name: "look-" + m.id, value: wert, onchange: () => { setzeEntwurf(m, "wahl", wert); aktualisiereKnoepfe(m); } });
+      r.checked = wahl() === wert;
+      return r;
+    };
+    const tiles = m.bilder.slice(0, 3).map((b) => {
+      const [name, ...rest] = (b.text || "").split(". ");
+      return h("label", { class: "look" }, radio(b.id.toLowerCase()),
+        b.bild ? h("img", { src: b.ziel, alt: "Standbild Look " + b.id.toUpperCase(), loading: "lazy" }) : h("div", { class: "kein-bild", text: "Bild liegt auf OneDrive: " + b.ziel }),
+        h("b", { text: "Look " + b.id.toUpperCase() + (name ? ", " + name : "") }), rest.length ? h("span", { text: rest.join(". ") }) : null);
+    });
+    return [
+      abschnitt("Der Satz", h("p", { class: "zitat", text: "«" + m.satz + "»" })),
+      abschnitt("Wähle die Richtung, Runde " + m.lookRunde, h("div", { class: "looks" }, tiles)),
+      h("label", { class: "keiner" }, radio("keiner"), "Keiner passt"),
+      textfeld(m, "notiz", wahl() === "keiner" ? "Was soll die nächste Runde anders machen" : "Notiz an Claude (freiwillig)", wahl() === "keiner" ? "Pflicht bei «Keiner passt», mindestens ein kurzer Satz." : "Zum Beispiel: Schrift etwas kleiner."),
+      h("p", { class: "hinweis" }, "Die Originale der Standbilder liegen auf OneDrive. ", notionLink(m)),
+      h("div", { class: "aktionen" }, knopf(m, "Look bestätigen", "gold", ok, () => {
+        const w = wahl();
+        senden(m, Object.assign({ "Look-Wahl": w, "Look-Notiz": entwurfFeld(m, "notiz", "").trim() || null, "Look-Wahl von": S.name.trim() }, datum("Look-Wahl am")), nochOffen, (d) => d.lookWahl === w);
+      })),
+    ];
+  }
+
+  function abnahmeInhalt(m) {
+    const notiz = () => entwurfFeld(m, "notiz", "").trim();
+    const nochOffen = (f) => f.status === "render_geprueft" && (!f.abnahme || f.abnahme === "offen");
+    const stills = m.bilder.filter((b) => b.bild).map((b) => h("figure", null, h("img", { src: b.ziel, alt: "Standbild " + b.id, loading: "lazy" }), h("figcaption", { text: b.text || b.id })));
+    return [
+      abschnitt("Das gebaute Stück", h("p", { text: m.stueck ? "«" + m.stueck + "». Claude hat das Render selbst geprüft: Länge, Transparenz, Ränder, erstes und letztes Bild." : "Claude hat das Render selbst geprüft." })),
+      stills.length ? abschnitt("Standbilder aus dem Render", h("div", { class: "renders" }, stills)) : h("p", { class: "hinweis", text: "Zu dieser Abnahme gibt es keine Standbilder im Prüfplatz. Das Render liegt auf OneDrive." }),
+      abschnitt("Der Satz, der es ausgelöst hat", h("p", { class: "zitat", text: "«" + m.satz + "»" })),
+      textfeld(m, "notiz", "Notiz (bei «Änderung nötig» Pflicht)", "Was soll anders sein? Konkret, zum Beispiel: Zahl 10 Prozent kleiner, Linie dünner."),
+      h("p", { class: "hinweis" }, "Mit der Abnahme kommt das Stück in die Bibliothek und darf in Storyboards verwendet werden. ", notionLink(m)),
+      h("div", { class: "aktionen" },
+        knopf(m, "Abnehmen", "gold", () => true, () => senden(m, Object.assign({ Abnahme: "abgenommen", "Abnahme-Notiz": notiz() || null, "Abnahme von": S.name.trim() }, datum("Abnahme am")), nochOffen, (d) => d.abnahme === "abgenommen")),
+        knopf(m, "Änderung nötig", "", () => notiz().length >= 5, () => senden(m, Object.assign({ Abnahme: "aenderung", "Abnahme-Notiz": notiz(), "Abnahme von": S.name.trim() }, datum("Abnahme am")), nochOffen, (d) => d.abnahme === "aenderung"))),
+    ];
+  }
+
+  function zeileIdee(m) {
+    const ph = phase(m);
+    const art = m.status === "abgelehnt" ? "stopp" : m.status === "in_bibliothek" ? "ok" : ENTSCHEIDBAR.has(ph) ? "" : "still";
+    return h("div", { class: "zeile-idee" },
+      h("span", { class: "id", text: m.id }),
+      h("span", { class: "titel" }, m.url ? h("a", { href: m.url, target: "_blank", rel: "noopener", text: m.titel }) : m.titel),
+      chip(ph.endsWith("-gesendet") ? "Wartet auf Claude" : (STATUSTEXT[m.status] || m.status), art),
+      h("span", { class: "satz", text: "«" + m.satz + "»" }));
+  }
+
+  function zeichneAlle() {
+    const p = $("p-alle");
+    p.replaceChildren();
+    if (!S.mcp) return p.append(leer("Alle Ideen", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier jede Idee mit ihrem Stand."));
+    const sel = h("select", { id: "filter", "aria-label": "Nach Stand filtern", onchange: (ev) => { S.filter = ev.target.value; zeichne(); } },
+      h("option", { value: "alle", text: "Alle Stände" }), ...Object.entries(STATUSTEXT).map(([k, v]) => h("option", { value: k, text: v })));
+    sel.value = S.filter;
+    p.append(h("div", { class: "feld", style: "max-width: 260px" }, h("label", { for: "filter", text: "Stand" }), sel));
+    const liste = S.zeilen.filter((m) => S.filter === "alle" || m.status === S.filter);
+    p.append(liste.length ? h("div", { class: "karte tabelle" }, liste.map(zeileIdee)) : leer("Keine Ideen in diesem Stand", "Wähle oben einen anderen Stand."));
+  }
+
+  function zeichneBib() {
+    const p = $("p-bib");
+    p.replaceChildren();
+    const aktiv = DATEN.bibliothek.filter((s) => s.status === "aktiv");
+    const rest = DATEN.bibliothek.filter((s) => s.status !== "aktiv");
+    p.append(h("p", { class: "muted", text: aktiv.length + (aktiv.length === 1 ? " aktives Stück" : " aktive Stücke") + ". Nur aktive Stücke darf das Storyboard benutzen." }));
+    p.append(h("div", { class: "raster" }, [...aktiv, ...rest].map(stueckKarte)));
+    if (DATEN.bibliothek.length === 0) p.append(leer("Noch keine Stücke", "Die Bibliothek wächst aus den Ideen, die du freigibst."));
+  }
+  function stueckKarte(s) {
+    const liste = (titel, arr) => (arr && arr.length ? h("div", { class: "abschnitt" }, h("span", { class: "eyebrow", text: titel }), h("ul", null, arr.map((x) => h("li", { text: x })))) : null);
+    return h("article", { class: "karte stueck" },
+      s.vorschau ? h("img", { src: s.vorschau, alt: "Standbild von " + s.name, loading: "lazy" }) : h("div"),
+      h("div", { class: "inhalt" },
+        h("div", { class: "zeile", style: "display:flex;flex-wrap:wrap;gap:8px;align-items:center" }, h("span", { class: "eyebrow", text: "Version " + s.version }), chip(STUECKSTATUS[s.status] || s.status, s.status === "aktiv" ? "ok" : "still")),
+        h("h3", { text: s.name }),
+        h("p", { text: s.zweck }),
+        h("p", { class: "hinweis", text: "Auslöser: " + s.ausloeser + " Dauer " + s.dauer.standard.toString().replace(".", ",") + " s (" + s.dauer.min.toString().replace(".", ",") + " bis " + s.dauer.max.toString().replace(".", ",") + ")." }),
+        liste("Passt, wenn", s.wann), liste("Passt nicht, wenn", s.wannNicht),
+        liste("Pro Einsatz anders", s.parameter.map((x) => x.label + (x.pflicht ? " (Pflicht)" : ""))),
+        liste("Beispielsätze", s.beispiele)));
+  }
+
+  function zeichneMarke() {
+    const p = $("p-marke");
+    p.replaceChildren();
+    const m = DATEN.marke;
+    if (!m) return p.append(leer("Kein Markenprofil", "Es liegt kein Markenprofil im Repo."));
+    const frei = m.status === "freigegeben";
+    p.append(h("div", { class: "karte", style: "padding:20px;display:grid;gap:18px" },
+      h("div", { style: "display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center" }, h("h3", { text: m.name }), chip(frei ? "Freigegeben" : "Platzhalter", frei ? "ok" : "stopp")),
+      frei ? null : h("p", { text: "Dieses Profil ist noch nicht freigegeben (Gate 0). Bis dahin entstehen nur Entwürfe, nie ein finales Video." }),
+      h("div", { class: "farben" }, Object.entries(m.farben).map(([k, v]) => h("div", { class: "farbe" }, h("i", { style: "background:" + v }), h("b", { text: k }), h("code", { text: v })))),
+      h("dl", null,
+        h("dt", { text: "Titelschrift" }), h("dd", { text: m.schriften.titel }),
+        h("dt", { text: "Fliesstext" }), h("dd", { text: m.schriften.fliesstext }),
+        h("dt", { text: "Look" }), h("dd", { text: m.look || "" }),
+        h("dt", { text: "Anrede" }), h("dd", { text: m.tonalitaet.anrede }),
+        h("dt", { text: "Verbotene Wörter" }), h("dd", { text: (m.tonalitaet.verboteneWoerter || []).join(", ") }),
+        h("dt", { text: "Hinweise" }), h("dd", { text: m.tonalitaet.hinweise || "" })),
+      h("p", { class: "hinweis", text: "Die Freigabe der Marke läuft nicht über diesen Prüfplatz, sie gehört in die Hände von Andrej und Leander." })));
+  }
+
+  /* ---------- Start ---------- */
+  document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => { S.tab = b.dataset.tab; zeichne(); }));
+  $("neu-laden").addEventListener("click", () => { S.meldung = null; laden(); });
+  $("name").addEventListener("input", (ev) => { S.name = ev.target.value; speicher.schreibe("pp-name", S.name); document.querySelectorAll("[data-braucht]").forEach((b) => (b.disabled = S.busy || !b._ok())); });
+  document.addEventListener("visibilitychange", () => {
+    const tippt = document.activeElement && /^(TEXTAREA|INPUT|SELECT)$/.test(document.activeElement.tagName);
+    if (!document.hidden && S.mcp && !S.busy && !tippt && S.laden !== "laden") laden(true);
+  });
+
+  S.name = speicher.lies("pp-name");
+  zeichne();
+
+  (async () => {
+    const claude = window.claude;
+    if (!claude || typeof claude.use !== "function") return zeichne();
+    const [mcp, user] = await Promise.all([claude.use("mcp").catch(() => null), claude.use("user").catch(() => null)]);
+    S.mcp = mcp;
+    if (user) {
+      try {
+        const me = await user.me();
+        if (me && me.name && !S.name) { S.name = me.name; speicher.schreibe("pp-name", S.name); }
+      } catch { /* Name bleibt leer, der Mensch trägt ihn ein */ }
+    }
+    zeichne();
+    if (S.mcp) laden();
+  })();
+})();
+</script>

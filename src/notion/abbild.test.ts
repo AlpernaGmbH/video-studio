@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Ideenprotokoll } from "../motion/protokoll";
 import type { Idee, IdeeStatus } from "../motion/idee";
 import { JETZT, MENSCH, SPAETER, SYSTEM, entwurf, ideeNeu, looks, pitch } from "../testing/fixtures";
-import { ideeZuZeile, leseAlle, leseZeile, zeilenAusAbfrage, type Zeile } from "./abbild";
+import { bilderZeilen, ideeZuZeile, leseAlle, leseZeile, zeilenAusAbfrage, type Zeile } from "./abbild";
 import { ladeNotionZiel } from "./ziel";
 
 let dir: string;
@@ -88,6 +88,32 @@ describe("Idee → Zeile", () => {
     const p = ideeZuZeile(bis("freigegeben")).properties;
     expect(p["Look-Wahl"]).toBeNull();
     expect(p["Abnahme"]).toBe("offen");
+  });
+
+  it("schreibt die Looks als Bildzeilen mit Adresse und Beschriftung, die der Prüfplatz lesen kann", () => {
+    const i = bis("looks");
+    const { properties } = ideeZuZeile(i, { bildUrls: { a: "https://x/a.png", b: "https://x/b.png", c: "https://x/c.png" } });
+    const zeilen = String(properties["Bilder"]).split("\n");
+    expect(zeilen).toHaveLength(3);
+    expect(zeilen[0]).toBe("a: https://x/a.png | Plakat. Grosse Zahl, Akzentfläche, wenig Beiwerk");
+    expect(properties["Look-Runde"]).toBe(1);
+  });
+
+  it("zeigt bei der Abnahme die Standbilder des Renders statt der Looks", () => {
+    const i = bis("render_geprueft");
+    const { properties } = ideeZuZeile(i, { renderBilder: [{ id: "r1", url: "https://x/r1.png", text: "bei 1,2 s" }, { id: "r2", url: "https://x/r2.png" }] });
+    expect(properties["Bilder"]).toBe("r1: https://x/r1.png | bei 1,2 s\nr2: https://x/r2.png");
+    // In einem anderen Status ignoriert: dort gehören die Looks hin.
+    fs.rmSync(path.join(dir, "ideen.json"));
+    expect(String(ideeZuZeile(bis("looks"), { renderBilder: [{ id: "r1", url: "https://x/r1.png" }] }).properties["Bilder"])).toMatch(/^a: /);
+  });
+
+  it("lässt Beschriftungen weg, wenn die Bildzeilen sonst zu lang würden", () => {
+    const viele = Array.from({ length: 12 }, (_, n) => ({ id: `r${n}`, url: `https://x/${n}.png`, text: "Beschriftung ".repeat(12) }));
+    const z = bilderZeilen(viele)!;
+    expect(z.length).toBeLessThanOrEqual(1800);
+    expect(z).not.toContain("|");
+    expect(bilderZeilen([])).toBeNull();
   });
 
   it("maskiert Zeichen, die Notion als Formatierung lesen würde", () => {

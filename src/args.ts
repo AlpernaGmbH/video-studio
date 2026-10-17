@@ -1,4 +1,4 @@
-/** Minimaler Argument-Parser: positionale Argumente, --flag, --key wert, wiederholbares --set k=v. */
+/** Minimaler Argument-Parser: positionale Argumente, --flag, --key wert, -o wert (ein Buchstabe), wiederholbares --set k=v. */
 export interface Args {
   pos: string[];
   opt: Record<string, string | true>;
@@ -15,11 +15,13 @@ export function parseArgs(argv: string[]): Args {
       pos.push(...argv.slice(i + 1));
       break;
     }
-    if (!a.startsWith("--")) {
+    // Kurzform mit einem Buchstaben, wie in der Hilfe und im README: «-o datei»
+    const kurz = /^-[A-Za-z]$/.test(a);
+    if (!a.startsWith("--") && !kurz) {
       pos.push(a);
       continue;
     }
-    const roh = a.slice(2);
+    const roh = kurz ? a.slice(1) : a.slice(2);
     const eq = roh.indexOf("=");
     const key = eq >= 0 ? roh.slice(0, eq) : roh;
     let value: string | true;
