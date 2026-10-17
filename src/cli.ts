@@ -351,7 +351,7 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
     case "notion-alle": {
       const ziel = ladeNotionZiel(studioRoot);
       const zeilen = pr.liste().map((i) => ({ idee: i.id, ...ideeZuZeile(i, { onedriveOrdner: `daten/ideen/${i.id}` }) }));
-      console.log(JSON.stringify({ datenquelle: ziel.ideen.datenquelle, zeilen }, null, 2));
+      console.log(JSON.stringify({ datenquelle: ziel.motionIdeen.datenquelle, zeilen }, null, 2));
       return 0;
     }
     case "notion-lesen": {

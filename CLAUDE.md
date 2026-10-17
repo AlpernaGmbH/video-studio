@@ -36,7 +36,7 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 6. **Der genaue Satz einer Idee steht wörtlich im Protokoll.** Nie umformulieren.
 7. **Keine Zahl ohne Quelle.** Beispiele in Datenblättern sind erfundene Illustrationen.
 8. Pfade im Katalog sind relativ zu `Studio/` und NFC-normalisiert (`src/core/paths.ts`).
-9. **Notion nur über die gespeicherte Ansicht lesen** (`notion-query-data-sources`, Modus `view`, `ideen.ansicht` in `notion.json`). SQL und Modus `rows` zählen gegen ein knappes Kontingent und fallen aus.
+9. **Notion nur über die gespeicherte Ansicht lesen** (`notion-query-data-sources`, Modus `view`, `motionIdeen.ansicht` in `notion.json`). SQL und Modus `rows` zählen gegen ein knappes Kontingent und fallen aus.
 10. **Keine Claude-API.** Auch nicht in n8n oder anderen Automationen. Analysen macht Claude in einer Sitzung. Das Tor-Modell des Plans v3 (Tor 0 Marke, Tor I Idee, Tor P Produkt) gilt: Tore gehören Menschen und laufen über den Prüfplatz.
 
 ## Arbeitsweise

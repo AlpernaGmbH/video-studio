@@ -261,6 +261,8 @@ describe("Ganze Abfrage", () => {
 describe("notion.json", () => {
   it("ist gültig und zeigt auf die Datenbank «Ideen»", () => {
     const z = ladeNotionZiel(path.resolve(__dirname, "../.."));
-    expect(z.ideen.datenquelle).toMatch(/^collection:\/\//);
+    expect(z.motionIdeen.datenquelle).toMatch(/^collection:\/\//);
+    expect(z.inhalte.ansicht).toMatch(/^view:\/\//);
+    expect(z.marken.ansicht).toMatch(/^view:\/\//);
   });
 });

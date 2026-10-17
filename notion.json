@@ -1,11 +1,22 @@
 {
-  "schema": 1,
-  "hinweis": "Nur Kennungen, keine Zugangsdaten. Zugriff regelt Notion selbst (Seite teilen).",
-  "wurzelSeite": "3fc6be18-6e9b-8104-82a1-f544b2dd2247",
+  "schema": 2,
+  "hinweis": "Nur Kennungen, keine Zugangsdaten. Zugriff regelt Notion selbst (Seite teilen). Gelesen wird nur über die Ansichten (Modus view), nie per SQL oder rows.",
+  "marketingSystem": "3fc6be18-6e9b-81a0-af4b-fa3182e64f54",
+  "motionSeite": "3fc6be18-6e9b-8104-82a1-f544b2dd2247",
   "pruefplatz": "https://claude.ai/artifact/W1Yh1QbDqjvYXkC4sj9a3g",
-  "ideen": {
+  "motionIdeen": {
     "datenbank": "15f84105-9237-4486-9cdf-4ffa7e3df519",
     "datenquelle": "collection://eb7c05cf-3134-49aa-9989-b915027e8749",
     "ansicht": "view://e583e1a8-0448-4d71-9635-8c5a5eb4f1ec"
+  },
+  "marken": {
+    "datenbank": "6032e474-0fe1-4fb0-9e65-ccb1567d4a84",
+    "datenquelle": "collection://8d306c4d-09a8-4d17-ae5e-d892e65a5d94",
+    "ansicht": "view://3fc6be18-6e9b-8183-b761-000cc79d3f56"
+  },
+  "inhalte": {
+    "datenbank": "923dbb7b-98ef-4abd-bfca-cdd777367dbb",
+    "datenquelle": "collection://a434b598-8c17-43d0-a1f6-05b422c70277",
+    "ansicht": "view://3fc6be18-6e9b-817b-a388-000c00ccb158"
   }
 }

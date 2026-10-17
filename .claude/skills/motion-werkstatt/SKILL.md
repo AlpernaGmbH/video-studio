@@ -95,7 +95,7 @@ Mehrere Fassungen auf einmal geht mit dem Batch-Befehl von HyperFrames (`batchAr
 Ziel (Datenquelle) und Adresse des Prüfplatzes stehen in `notion.json`. Notion-Werkzeuge: `notion-query-data-sources`, `notion-create-pages`, `notion-update-page`.
 
 **Rein (zu Beginn jeder Sitzung, und wenn jemand «entschieden» sagt):**
-1. `notion-query-data-sources` mit `data: {"mode": "view", "view_url": <ideen.ansicht aus notion.json>, "page_size": 100}`. **Nie SQL oder Modus `rows`:** Die zählen gegen ein knappes Kontingent des Notion-Arbeitsbereichs (beobachtet am 17.10., Meldung `usage_limit_reached`), der Modus `view` nicht. Bei `has_more` mit `start_cursor` weiterlesen. Die Antwort in eine Datei speichern.
+1. `notion-query-data-sources` mit `data: {"mode": "view", "view_url": <motionIdeen.ansicht aus notion.json>, "page_size": 100}`. **Nie SQL oder Modus `rows`:** Die zählen gegen ein knappes Kontingent des Notion-Arbeitsbereichs (beobachtet am 17.10., Meldung `usage_limit_reached`), der Modus `view` nicht. Bei `has_more` mit `start_cursor` weiterlesen. Die Antwort in eine Datei speichern.
 2. `npm run studio -- ideen notion-lesen --json <datei>` (Vorschau), dann mit `--anwenden`. Fehler und Hinweise dem Menschen sagen
    (Entscheid ohne Namen, zu früh gesetzt, Abweichung zwischen Notion und Protokoll).
 3. Für jede Idee in `zeileNeuSchreiben` die Zeile neu schreiben (unten).
