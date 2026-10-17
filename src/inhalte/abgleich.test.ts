@@ -5,6 +5,8 @@ import type { Eintrag, Stand } from "./stand";
 import { inhalt, JETZT } from "./testdaten";
 
 const AM = "2026-10-17T08:00:00Z";
+const AM1 = "2026-10-17T10:00:00Z";
+const AM2 = "2026-10-18T10:00:00Z";
 const tor = (entscheid = "offen", von = "", am = "") => ({ entscheid, von, am });
 const eintrag = (status: Status, p: Partial<Eintrag> = {}): Eintrag => ({ status, torI: tor(), torP: tor(), seit: JETZT, ...p });
 const standMit = (inhalte: Record<string, Eintrag>, pruefungen: Stand["pruefungen"] = {}): Stand => ({ version: 1, inhalte, pruefungen });
@@ -158,7 +160,7 @@ describe("Statusänderung von Hand in Notion", () => {
   it("Pausieren braucht Namen und Grund, die Pause führt nur zum früheren Status zurück", () => {
     const s = standMit({ "c-0001": eintrag("In Produktion") });
     expect(lauf(s, [inhalt({ id: "c-0001", status: "Pausiert" })]).befunde[0]!.art).toBe("zurueckgesetzt");
-    const pause = lauf(s, [inhalt({ id: "c-0001", status: "Pausiert", statusVon: "Andrej", statusGrund: "Kunde wartet auf den Dreh" })]);
+    const pause = lauf(s, [inhalt({ id: "c-0001", status: "Pausiert", statusVon: "Andrej", statusGrund: "Kunde wartet auf den Dreh", statusAm: AM1 })]);
     expect(pause.befunde[0]!.art).toBe("uebernommen");
     expect(pause.stand.inhalte["c-0001"]).toMatchObject({ status: "Pausiert", vorPause: "In Produktion" });
     const zurueck = lauf(pause.stand, [inhalt({ id: "c-0001", status: "In Produktion" })]);
@@ -170,8 +172,8 @@ describe("Statusänderung von Hand in Notion", () => {
   it("Verwerfen aus der Produktion braucht einen Menschen mit Namen und einen Grund", () => {
     const s = standMit({ "c-0001": eintrag("In Produktion") });
     expect(lauf(s, [inhalt({ id: "c-0001", status: "Verworfen", statusGrund: "Kunde sagt ab" })]).befunde[0]!.art).toBe("zurueckgesetzt");
-    expect(lauf(s, [inhalt({ id: "c-0001", status: "Verworfen", statusVon: "Claude", statusGrund: "Kunde sagt ab" })]).befunde[0]!.art).toBe("zurueckgesetzt");
-    expect(lauf(s, [inhalt({ id: "c-0001", status: "Verworfen", statusVon: "Andrej", statusGrund: "Kunde sagt ab" })]).befunde[0]!.art).toBe("uebernommen");
+    expect(lauf(s, [inhalt({ id: "c-0001", status: "Verworfen", statusVon: "Claude", statusGrund: "Kunde sagt ab", statusAm: AM1 })]).befunde[0]!.art).toBe("zurueckgesetzt");
+    expect(lauf(s, [inhalt({ id: "c-0001", status: "Verworfen", statusVon: "Andrej", statusGrund: "Kunde sagt ab", statusAm: AM1 })]).befunde[0]!.art).toBe("uebernommen");
   });
 
   it("aus «Verworfen» führt nichts mehr heraus", () => {
@@ -183,7 +185,52 @@ describe("Statusänderung von Hand in Notion", () => {
     const s = standMit({ "c-0001": eintrag("Geplant") });
     const i = (p: Partial<Inhalt>) => inhalt({ id: "c-0001", status: "Veröffentlicht", publishing: "Manuell", ...p });
     expect(lauf(s, [i({})]).befunde[0]!.art).toBe("zurueckgesetzt");
-    expect(lauf(s, [i({ statusVon: "Leander" })]).befunde[0]!.art).toBe("uebernommen");
+    expect(lauf(s, [i({ statusVon: "Leander", statusAm: AM1 })]).befunde[0]!.art).toBe("uebernommen");
+  });
+});
+
+describe("Von Hand gesetzter Status: Name und Grund gelten nur mit neuem Zeitpunkt", () => {
+  const pausiert = (p: Partial<Inhalt> = {}) => inhalt({ id: "c-0001", status: "Pausiert", statusVon: "Andrej", statusGrund: "Kunde wartet auf den Dreh", statusAm: AM1, ...p });
+  const inProd = () => standMit({ "c-0001": eintrag("In Produktion") });
+
+  it("ohne Zeitpunkt zählt der Name nicht: zurückgesetzt, mit dem Hinweis auf den Prüfplatz", () => {
+    const r = lauf(inProd(), [pausiert({ statusAm: "" })]);
+    expect(r.befunde[0]!.art).toBe("zurueckgesetzt");
+    expect(r.befunde[0]!.fehler.join(" ")).toMatch(/Status am.*neuen Zeitpunkt/);
+  });
+
+  it("mit neuem Zeitpunkt wird der Wechsel übernommen und der Zeitpunkt im Stand verbraucht", () => {
+    const r = lauf(inProd(), [pausiert()]);
+    expect(r.befunde[0]!.art).toBe("uebernommen");
+    expect(r.stand.inhalte["c-0001"]?.statusAm).toBe(AM1);
+  });
+
+  it("derselbe Zeitpunkt gilt nie ein zweites Mal: Ein alter Name rutscht nicht in einen neuen Wechsel", () => {
+    const p = lauf(inProd(), [pausiert()]);
+    // Später setzt jemand den Status in Notion auf «Verworfen» und lässt Name, Grund und Zeit stehen.
+    const r = lauf(p.stand, [pausiert({ status: "Verworfen" })]);
+    expect(r.befunde[0]).toMatchObject({ art: "zurueckgesetzt", eingriff: { nach: "Pausiert" } });
+  });
+
+  it("dieselbe Begründung mit neuem Zeitpunkt ist ein neuer Entscheid", () => {
+    const p = lauf(inProd(), [pausiert()]);
+    const zurueck = lauf(p.stand, [pausiert({ status: "In Produktion" })]); // Fortsetzen: derselbe Zeitpunkt, aber Rückweg ohne Name nötig
+    expect(zurueck.befunde[0]!.art).toBe("uebernommen");
+    const wieder = lauf(zurueck.stand, [pausiert({ statusAm: AM2 })]);
+    expect(wieder.befunde[0]!.art).toBe("uebernommen");
+  });
+
+  it("ein abgelehnter Versuch verbraucht seinen Zeitpunkt: Er gibt später keinen anderen Wechsel frei", () => {
+    const abgelehnt = lauf(inProd(), [pausiert({ statusGrund: "kurz", statusAm: AM1 })]); // Grund zu kurz
+    expect(abgelehnt.befunde[0]!.art).toBe("zurueckgesetzt");
+    expect(abgelehnt.stand.inhalte["c-0001"]).toMatchObject({ status: "In Produktion", statusAm: AM1 });
+    const spaeter = lauf(abgelehnt.stand, [pausiert({ statusGrund: "Kunde wartet auf den Dreh", statusAm: AM1 })]);
+    expect(spaeter.befunde[0]!.art).toBe("zurueckgesetzt");
+  });
+
+  it("Zeilen aus dem Erstlauf tragen ihren vorhandenen Zeitpunkt schon als verbraucht", () => {
+    const r = lauf(standMit({}), [inhalt({ id: "c-0001", status: "Pausiert", statusVon: "Andrej", statusAm: AM1 })], { ...frei, erstlauf: true });
+    expect(r.stand.inhalte["c-0001"]?.statusAm).toBe(AM1);
   });
 });
 

@@ -155,6 +155,8 @@ dt { color: var(--off-muted); font-size: 14px; }
 dd { margin: 0; overflow-wrap: anywhere; }
 .fuss { font-size: 13px; color: var(--off-muted); }
 
+.verwalten-zeile { padding: 0 20px 12px; }
+.verwalten-feld { display: grid; gap: 12px; padding: 0 20px 18px; border-top: 0; }
 .fortschritt { height: 4px; border-radius: 999px; background: var(--linie); overflow: hidden; }
 .fortschritt > i { display: block; height: 100%; background: var(--off); transition: width 0.2s; }
 .entwurf { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bergblau); border: 0.5px solid var(--linie); border-radius: 12px; padding: 14px 16px; max-height: 420px; overflow: auto; }
@@ -233,7 +235,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   const woerter = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 
   /* ---------- Zustand ---------- */
-  const S = { mcp: null, zeilen: [], inhalte: [], marken: [], inhalteFehler: null, wochen: null, torModus: {}, gate0Frage: {}, seitentext: {}, inhaltFilter: "alle", laden: "idle", fehler: null, tab: "queue", offen: null, name: "", busy: false, entwurf: {}, ablehnen: {}, filter: "alle", stand: null, meldung: null };
+  const S = { mcp: null, zeilen: [], inhalte: [], marken: [], inhalteFehler: null, wochen: null, torModus: {}, gate0Frage: {}, seitentext: {}, inhaltFilter: "alle", verwalten: null, laden: "idle", fehler: null, tab: "queue", offen: null, name: "", busy: false, entwurf: {}, ablehnen: {}, filter: "alle", stand: null, meldung: null };
 
   /* ---------- Notion ---------- */
   function ergebnis(r) {
@@ -309,7 +311,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
     return {
       art: "inhalt", id: t("Inhalt-ID"), titel: t("Titel"), format: t("Format"), plattformen: liste(z["Plattformen"]), markeUrls: liste(z["Marke"]),
       quelle: t("Quelle"), referenz: t("Referenz"), hook: t("Hook"), winkel: t("Winkel"), beleg: t("Beleg"), aufwand: t("Aufwand"), status: t("Status"),
-      torI: tor("Tor I"), torP: tor("Tor P"), dateien: t("Dateien"), ziel: t("Ziel"),
+      torI: tor("Tor I"), torP: tor("Tor P"), dateien: t("Dateien"), ziel: t("Ziel"), publishing: t("Publishing"), geplantFuer: t("date:Geplant für:start"),
+      statusVon: t("Status von"), statusGrund: t("Status-Grund"), statusAm: t("date:Status am:start"),
       offeneMarkierungen: typeof z["Offene Markierungen"] === "number" ? z["Offene Markierungen"] : 0, url, seite: seitenId(url),
     };
   }
@@ -390,7 +393,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
       S.busy = false;
       await laden(true);
       if (danach && bestaetigt(danach)) {
-        S.offen = null; S.entwurf[m.id] = null; S.ablehnen[m.id] = false; S.torModus[m.id] = false; S.gate0Frage[m.id] = false;
+        S.offen = null; S.entwurf[m.id] = null; S.ablehnen[m.id] = false; S.torModus[m.id] = false; S.gate0Frage[m.id] = false; S.verwalten = null;
         if (m.art === "marke") return melde("gut", "Gate 0 gespeichert", "Die Freigabe von «" + m.titel + "» steht in Notion. Tor I und Tor P gelten ab dem nächsten Abgleich für diese Marke.");
         return melde("gut", "Gespeichert", "Dein Entscheid zu «" + m.titel + "» steht in Notion. Claude führt " + (m.art === "inhalt" ? "den Inhalt beim nächsten Abgleich" : "die Idee beim nächsten Lauf") + " weiter.");
       }
@@ -725,6 +728,38 @@ dd { margin: 0; overflow-wrap: anywhere; }
       h("span", { class: "satz", text: [c.format, mk && mk.titel, c.hook && "«" + c.hook + "»"].filter(Boolean).join(" · ") }));
   }
 
+  /* ---------- Pausieren, Verwerfen, «Veröffentlicht» bestätigen ---------- */
+  const NICHT_PAUSIERBAR = ["Verworfen", "Ausgewertet", "Veröffentlicht", "Pausiert"];
+  const NICHT_VERWERFBAR = ["Verworfen", "Ausgewertet", "Veröffentlicht", "Pitch bereit"]; // «Pitch bereit» entscheidet Tor I
+  const verwaltenAktionen = (c) => ({
+    pausieren: !NICHT_PAUSIERBAR.includes(c.status || "Neu"),
+    verwerfen: !NICHT_VERWERFBAR.includes(c.status || "Neu"),
+    bestaetigen: c.status === "Geplant" && ["Manuell", "Paket"].includes(c.publishing),
+  });
+
+  /** Unter der Zeile: ein Knopf «Verwalten», der die erlaubten Handlungen öffnet. Der Prüfplatz schreibt Status, Name, Grund und Zeit, der Abgleich prüft und übernimmt. */
+  function verwaltenBlock(c) {
+    const a = verwaltenAktionen(c);
+    if (!a.pausieren && !a.verwerfen && !a.bestaetigen) return null;
+    const offen = S.verwalten === c.id;
+    const toggle = h("div", { class: "verwalten-zeile" }, h("button", { class: "knopf klein", type: "button", id: "verwalten-" + c.id, "aria-expanded": String(offen), onclick: () => { S.verwalten = offen ? null : c.id; zeichne(); } }, offen ? "Verwalten schliessen" : "Verwalten"));
+    if (!offen) return toggle;
+    const grund = () => entwurfFeld(c, "grund", "").trim();
+    const kurz = () => grund().length >= 5;
+    const lang = () => grund().length >= 10 && woerter(grund()) >= 2;
+    const stand = c.status || "Neu";
+    const sende = (neu, g) => senden(c, Object.assign({ Status: neu, "Status von": S.name.trim(), "Status-Grund": g || null }, datum("Status am")), (f) => (f.status || "Neu") === stand, (d) => d.status === neu && d.statusVon === S.name.trim());
+    return h("div", { class: "verwalten-feld" }, toggle,
+      a.pausieren || a.verwerfen ? textfeld(c, "grund", "Grund", a.verwerfen ? "Pausieren: ein kurzer Grund. Verwerfen: mindestens zwei Wörter, der Grund verhindert, dass dieselbe Idee wiederkommt." : "Ein kurzer Grund, warum es pausiert.") : null,
+      c.status === "Pitch bereit" ? h("p", { class: "hinweis", text: "Ablehnen oder Freigeben entscheidest du unter «Zu entscheiden» mit Tor I." }) : null,
+      a.bestaetigen ? h("p", { class: "hinweis", text: "Geplant" + (c.geplantFuer ? " für " + new Date(c.geplantFuer).toLocaleDateString("de-CH") : "") + (c.publishing ? ", Veröffentlichung: " + c.publishing : "") + ". Bestätige erst, wenn der Beitrag wirklich draussen ist." }) : null,
+      h("div", { class: "aktionen" },
+        a.bestaetigen ? knopf(c, "Veröffentlicht bestätigen", "gold", () => true, () => sende("Veröffentlicht", grund())) : null,
+        a.pausieren ? knopf(c, "Pausieren", "", kurz, () => sende("Pausiert", grund())) : null,
+        a.verwerfen ? knopf(c, "Verwerfen", "", lang, () => sende("Verworfen", grund())) : null),
+      h("p", { class: "hinweis", text: "Claude übernimmt den Wechsel beim nächsten Abgleich und prüft ihn dabei." }));
+  }
+
   function zeichneInhalte() {
     const p = $("p-inhalte");
     p.replaceChildren();
@@ -734,7 +769,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
     sel.value = S.inhaltFilter;
     p.append(h("div", { class: "feld", style: "max-width: 260px" }, h("label", { for: "filter-inhalte", text: "Stand" }), sel));
     const liste = S.inhalte.filter((c) => S.inhaltFilter === "alle" || (c.status || "Neu") === S.inhaltFilter);
-    p.append(liste.length ? h("div", { class: "karte tabelle" }, liste.map(zeileInhalt)) : leer(S.inhalte.length ? "Keine Inhalte in diesem Stand" : "Noch keine Inhalte", S.inhalte.length ? "Wähle oben einen anderen Stand." : "Ideen für Reels, Carousels, Posts und Blogtexte erscheinen hier, sobald Claude sie in Notion anlegt."));
+    p.append(liste.length ? h("div", { class: "karte tabelle" }, liste.flatMap((c) => [zeileInhalt(c), verwaltenBlock(c)])) : leer(S.inhalte.length ? "Keine Inhalte in diesem Stand" : "Noch keine Inhalte", S.inhalte.length ? "Wähle oben einen anderen Stand." : "Ideen für Reels, Carousels, Posts und Blogtexte erscheinen hier, sobald Claude sie in Notion anlegt."));
   }
 
   function zeileIdee(m) {

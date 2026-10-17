@@ -93,6 +93,7 @@ Der Prüfplatz liest zusätzlich die Ansichten «Inhalte» und «Marken». Er sc
 | Tor I (Pitch bereit) | `Tor I Entscheid` (freigegeben, abgelehnt, Rückfrage), `Tor I Grund`, `Tor I von`, `Tor I am` | Zeile noch «Pitch bereit» und Tor I offen (vorher frisch gelesen). Ablehnung: Grund aus zwei Wörtern, Rückfrage: eine Frage |
 | Tor P (Entwurf fertig) | `Tor P Entscheid` (freigegeben, Änderung), `Tor P Grund`, `Tor P von`, `Tor P am` | Zeile noch «Entwurf fertig» und Tor P offen. Änderung: Anweisung, mindestens fünf Zeichen |
 | Marke | `Gate 0` (freigegeben), `Gate 0 von`, `Gate 0 am` | Gate 0 noch nicht freigegeben, mit Bestätigung und Namen |
+| Inhalte, «Verwalten» | `Status` (Pausiert, Verworfen, Veröffentlicht), `Status von`, `Status-Grund`, `Status am` | Status noch wie angezeigt. Pausieren ab «Neu» bis «Geplant» (Grund), Verwerfen (zwei Wörter, nicht aus «Pitch bereit»: dort entscheidet Tor I), «Veröffentlicht» bestätigen nur bei Publishing Manuell oder Paket |
 
 Den Status ändert der Prüfplatz nie. Den Wechsel nach einem Entscheid führt der Abgleich aus (`studio inhalte abgleich`, Skill `inhalte-werkstatt`), wenn die Regeln es erlauben.
 Wartet ein Tor-Entscheid auf Gate 0, bleibt er stehen und wirkt, sobald Gate 0 freigegeben ist. Der Entwurf eines Texts steht im Inhalt der Notion-Seite und wird beim Öffnen der Karte mit `notion-fetch` geladen.

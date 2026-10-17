@@ -297,7 +297,9 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     assert.equal(await page.locator("#p-bib .stueck img").first().evaluate((i) => i.complete && i.naturalWidth > 0), true);
     assert.match(await page.locator("#p-bib").textContent(), /Zahl-Zähler/);
     await page.click("#t-marke");
-    assert.match(await page.locator("#p-marke").textContent(), /Platzhalter/);
+    // Das Profil im Repo ist die Grundlage der Seite: Der erwartete Text hängt von seinem aktuellen Stand ab (Gate 0).
+    const profilStatus = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "marken", "alperna.json"), "utf8")).status;
+    assert.match(await page.locator("#p-marke").textContent(), profilStatus === "freigegeben" ? /Freigegeben/ : /Platzhalter/);
     assert.equal(await page.locator("#p-marke .farbe").count(), 4);
     await ctx.close();
   });
@@ -552,6 +554,96 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     assert.match(t, /Rohstoff: Marketing System/);
     assert.doesNotMatch(t, /mention-page/);
     await c2.close(); await ctx.close();
+  });
+
+  const mitVerwaltung = (o = {}) => {
+    const rows = INHALTE();
+    rows.push(inhalt(8, { Titel: "Geplanter Post", Status: "Geplant", Publishing: "Manuell", "date:Geplant für:start": "2026-10-20", Hook: "Ein ganz anderer Satz zum Planen 8." }));
+    rows.push(inhalt(9, { Titel: "Erledigt", Status: "Verworfen", Hook: "Noch ein anderer Satz 9." }));
+    return seite({ inhalte: rows, marken: MARKEN("freigegeben", "Andrej"), optionen: { name: "Andrej" }, ...o });
+  };
+
+  await t("Verwalten: Pausieren schreibt Status, Name, Grund und Zeit, braucht einen Grund", async () => {
+    const { page, ctx } = await mitVerwaltung();
+    await page.click("#t-inhalte");
+    await page.click("#verwalten-c-0004");
+    const pause = page.getByRole("button", { name: "Pausieren" });
+    assert.equal(await pause.isDisabled(), true);
+    await page.fill("textarea", "Kunde wartet auf den Dreh");
+    assert.equal(await pause.isDisabled(), false);
+    await pause.click();
+    await page.waitForSelector("#status .meldung.gut");
+    const w = (await eigenschaften(page))[0];
+    assert.equal(w.page_id, inhaltId(4));
+    assert.deepEqual(Object.keys(w.properties).sort(), ["Status", "Status am".replace(/^/, "date:") + ":is_datetime", "date:Status am:start", "Status von", "Status-Grund"].sort());
+    assert.equal(w.properties.Status, "Pausiert");
+    assert.equal(w.properties["Status von"], "Andrej");
+    assert.equal(w.properties["Status-Grund"], "Kunde wartet auf den Dreh");
+    assert.equal(w.properties["date:Status am:is_datetime"], 1);
+    assert.match(w.properties["date:Status am:start"], /^\d{4}-\d\d-\d\dT/);
+    await ctx.close();
+  });
+
+  await t("Verwalten: Verwerfen braucht zwei Wörter, «Pitch bereit» wird nicht verworfen, Endzustände haben keine Handlung", async () => {
+    const { page, ctx } = await mitVerwaltung();
+    await page.click("#t-inhalte");
+    await page.click("#verwalten-c-0004");
+    const verwerfen = page.getByRole("button", { name: "Verwerfen" });
+    await page.fill("textarea", "Unbrauchbarwegen");
+    assert.equal(await verwerfen.isDisabled(), true);
+    await page.fill("textarea", "Kunde sagt ab");
+    assert.equal(await verwerfen.isDisabled(), false);
+    await verwerfen.click();
+    await page.waitForSelector("#status .meldung.gut");
+    assert.equal((await eigenschaften(page))[0].properties.Status, "Verworfen");
+    await page.click("#verwalten-c-0001"); // Pitch bereit
+    assert.equal(await page.getByRole("button", { name: "Verwerfen" }).count(), 0);
+    assert.equal(await page.getByRole("button", { name: "Pausieren" }).count(), 1);
+    assert.match(await page.locator("#p-inhalte").textContent(), /unter «Zu entscheiden» mit Tor I/);
+    assert.equal(await page.locator("#verwalten-c-0009").count(), 0); // Verworfen: keine Handlung
+    await ctx.close();
+  });
+
+  await t("Verwalten: «Veröffentlicht» bestätigen nur bei Manuell und Paket, der Grund ist freiwillig", async () => {
+    const { page, ctx } = await mitVerwaltung();
+    await page.click("#t-inhalte");
+    await page.click("#verwalten-c-0008");
+    assert.match(await page.locator("#p-inhalte").textContent(), /Bestätige erst, wenn der Beitrag wirklich draussen ist/);
+    await page.getByRole("button", { name: "Veröffentlicht bestätigen" }).click();
+    await page.waitForSelector("#status .meldung.gut");
+    const w = (await eigenschaften(page))[0];
+    assert.equal(w.properties.Status, "Veröffentlicht");
+    assert.equal(w.properties["Status von"], "Andrej");
+    assert.equal(w.properties["Status-Grund"], null);
+    await ctx.close();
+    const rows = INHALTE(); rows.push(inhalt(8, { Status: "Geplant", Publishing: "Auto", Hook: "Ein ganz anderer Satz zum Planen 8." }));
+    const a = await seite({ inhalte: rows, marken: MARKEN(), optionen: { name: "Andrej" } });
+    await a.page.click("#t-inhalte");
+    await a.page.click("#verwalten-c-0008"); // Pausieren und Verwerfen gehen, nur «Veröffentlicht bestätigen» nicht: bei Auto veröffentlicht der Code selbst
+    assert.equal(await a.page.getByRole("button", { name: "Veröffentlicht bestätigen" }).count(), 0);
+    assert.equal(await a.page.getByRole("button", { name: "Pausieren" }).count(), 1);
+    await a.ctx.close();
+  });
+
+  await t("Verwalten: Name ist Pflicht, und hat sich der Stand inzwischen geändert, wird nichts überschrieben", async () => {
+    const n = await mitVerwaltung({ optionen: { name: "" } });
+    await n.page.click("#t-inhalte");
+    await n.page.click("#verwalten-c-0004");
+    await n.page.fill("textarea", "Kunde wartet auf den Dreh");
+    await n.page.getByRole("button", { name: "Pausieren" }).click();
+    assert.match(await n.page.locator("#status").textContent(), /Name fehlt/);
+    assert.equal((await schreibaufrufe(n.page)).length, 0);
+    await n.ctx.close();
+    const { page, ctx } = await mitVerwaltung();
+    await page.click("#t-inhalte");
+    await page.click("#verwalten-c-0004");
+    await page.fill("textarea", "Kunde wartet auf den Dreh");
+    await page.evaluate(() => { window.__inhalte[3].Status = "Entwurf fertig"; });
+    await page.getByRole("button", { name: "Pausieren" }).click();
+    await page.waitForSelector("#status .meldung.fehler");
+    assert.match(await page.locator("#status").textContent(), /Schon weiter/);
+    assert.equal((await schreibaufrufe(page)).length, 0);
+    await ctx.close();
   });
 
   await t("Inhalte-Tab: alle Zeilen, Filter nach Stand", async () => {

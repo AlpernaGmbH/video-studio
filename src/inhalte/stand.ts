@@ -18,6 +18,8 @@ export const Eintrag = z.object({
   torP: TorStand,
   /** Wann der Abgleich diesen Status übernommen hat. */
   seit: z.string(),
+  /** Der Zeitpunkt in «Status am», den der Abgleich schon verbraucht hat (übernommen oder abgelehnt). Derselbe Zeitpunkt gilt nie ein zweites Mal. */
+  statusAm: z.string().optional(),
 });
 
 export const Pruefung = z.object({ bestanden: z.boolean(), text: z.string().optional(), am: z.string() });

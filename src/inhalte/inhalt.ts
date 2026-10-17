@@ -60,6 +60,8 @@ export interface Inhalt {
   /** Wer den Status von Hand gesetzt hat und warum (Pausieren, Verwerfen, «Veröffentlicht» bestätigen). Der Prüfplatz füllt beides. */
   statusVon: string;
   statusGrund: string;
+  /** Zeitpunkt, an dem der Prüfplatz den Status gesetzt hat. Ein von Hand geänderter Status gilt nur mit einem neuen Zeitpunkt. */
+  statusAm: string;
   dateien: string;
   ziel: string;
   publishing?: string;
@@ -138,6 +140,7 @@ export function zeileZuInhalt(z: Zeile, markenNachId: ReadonlyMap<string, string
     torP: tor(z, "Tor P", TOR_P),
     statusVon: text(z, "Status von"),
     statusGrund: text(z, "Status-Grund"),
+    statusAm: text(z, "date:Status am:start"),
     dateien: text(z, "Dateien"),
     ziel: text(z, "Ziel"),
     publishing: text(z, "Publishing") || undefined,

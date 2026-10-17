@@ -194,6 +194,7 @@ export function abgleich(stand: Stand, inhalte: Inhalt[], ctx: AbgleichKontext):
     ...(vorPause ? { vorPause } : {}),
     ...befolgt(i, status, alt, !!ctx.erstlauf),
     seit: ctx.jetzt,
+    ...(i.statusAm ? { statusAm: i.statusAm } : alt?.statusAm ? { statusAm: alt.statusAm } : {}),
   });
 
   for (const i of inhalte) {
@@ -233,15 +234,19 @@ export function abgleich(stand: Stand, inhalte: Inhalt[], ctx: AbgleichKontext):
     }
 
     // Der Status wurde in Notion geändert: prüfen wie einen Statuswechsel aus dem letzten gültigen Stand.
-    const akteur: Akteur = hatMensch(i.statusVon) ? { typ: "mensch", name: i.statusVon.trim() } : system;
-    const r = pruefeUebergang({ ...i, status: alt.status }, status, kontext(i, alt, akteur, i.statusGrund || undefined));
+    // Name und Grund aus «Status von» und «Status-Grund» gelten nur mit einem neuen Zeitpunkt in «Status am»: sonst käme ein alter Name für einen neuen Wechsel zum Zug.
+    const frisch = !!i.statusAm && i.statusAm !== alt.statusAm;
+    const akteur: Akteur = frisch && hatMensch(i.statusVon) ? { typ: "mensch", name: i.statusVon.trim() } : system;
+    const r = pruefeUebergang({ ...i, status: alt.status }, status, kontext(i, alt, akteur, frisch ? i.statusGrund || undefined : undefined));
     if (r.ok) {
       neu.inhalte[i.id] = eintrag(i, status, alt, status === "Pausiert" ? alt.status : undefined);
       befund(i, "uebernommen", `«${alt.status}» → «${status}» übernommen`);
       tore(i, status, alt, neu.inhalte[i.id]);
     } else {
+      // Ein abgelehnter Versuch verbraucht seinen Zeitpunkt ebenfalls: Er darf später keinen anderen Wechsel freigeben.
+      if (i.statusAm) neu.inhalte[i.id] = { ...alt, statusAm: i.statusAm };
       befund(i, "zurueckgesetzt", `«${alt.status}» → «${status}» ist nicht erlaubt: zurück auf «${alt.status}»`, {
-        fehler: r.fehler,
+        fehler: frisch ? r.fehler : [...r.fehler, "«Status am» trägt keinen neuen Zeitpunkt: Ein von Hand gesetzter Status gilt nur über den Prüfplatz, mit Name, Grund und Zeit"],
         eingriff: { typ: "status", nach: alt.status },
         eigenschaften: { Status: alt.status },
       });

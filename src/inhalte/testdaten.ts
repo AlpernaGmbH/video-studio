@@ -27,6 +27,7 @@ export function inhalt(p: Partial<Inhalt> = {}): Inhalt {
     torP: { ...leer, entscheid: "offen" },
     statusVon: "",
     statusGrund: "",
+    statusAm: "",
     dateien: "",
     ziel: "",
     publishing: undefined,

@@ -39,8 +39,8 @@ Du setzt Gate 0 nie selbst. Steht «freigegeben» ohne Namen in Notion, übernim
 
 ## Von Hand geänderte Status
 
-Pausieren, Verwerfen aus der Produktion und «Veröffentlicht» bei Manuell/Paket gelten nur mit **Status von** (Name eines Menschen) und **Status-Grund** in der Zeile.
-Das schreibt der Prüfplatz. Fehlt beides, setzt der Abgleich den Status zurück. Du trägst dort nie einen Namen für jemand anderen ein.
+Pausieren, Verwerfen aus der Produktion und «Veröffentlicht» bei Manuell/Paket gelten nur mit **Status von** (Name eines Menschen), **Status-Grund** und einem **neuen Zeitpunkt in «Status am»**.
+Das schreibt der Prüfplatz (Tab «Inhalte», «Verwalten»). Fehlt etwas oder ist der Zeitpunkt schon verbraucht, setzt der Abgleich den Status zurück und nennt den Grund. Du trägst dort nie einen Namen oder einen Zeitpunkt für jemand anderen ein.
 
 ## Regeln, die der Code durchsetzt
 
