@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { Markenprofil } from "./core/schemas";
 import { ladeBibliothek } from "./motion/bibliothek";
 import { ladeNotionZiel } from "./notion/ziel";
 import { baueDaten, jsonFuerScript, setzeDatenEin, vorschauAlsDatenAdresse } from "./pruefplatz";
@@ -26,12 +27,25 @@ describe("Prüfplatz: Daten", () => {
     expect(z!.wann.length).toBeGreaterThan(0);
     expect(z!.parameter.some((p) => p.pflicht)).toBe(true);
     expect(d.notion.ansicht).toMatch(/^view:\/\//);
+    expect(d.notion.inhalte).toMatch(/^view:\/\//);
+    expect(d.notion.marken).toMatch(/^view:\/\//);
+    expect(new Set([d.notion.ansicht, d.notion.inhalte, d.notion.marken]).size).toBe(3);
   });
 
   it("gibt von der Marke nur Anzeigefelder weiter", () => {
     const d = baueDaten({ bibliothek: { stuecke: [], befunde: [] }, marke: marke(), notion: notion(), jetzt: "x" });
-    expect(Object.keys(d.marke!).sort()).toEqual(["farben", "look", "name", "schriften", "status", "tonalitaet"]);
+    expect(Object.keys(d.marke!).sort()).toEqual(["farben", "gate0Luecken", "look", "name", "schluessel", "schriften", "status", "tonalitaet"]);
     expect(baueDaten({ bibliothek: { stuecke: [], befunde: [] }, marke: null, notion: notion(), jetzt: "x" }).marke).toBeNull();
+  });
+
+  it("nennt, was für Gate 0 noch fehlt, aus dem Profil", () => {
+    const d = baueDaten({ bibliothek: { stuecke: [], befunde: [] }, marke: marke(), notion: notion(), jetzt: "x" });
+    const echt = JSON.parse(fs.readFileSync(path.join(wurzel, "marken", "alperna.json"), "utf8"));
+    const e = baueDaten({ bibliothek: { stuecke: [], befunde: [] }, marke: Markenprofil.parse(echt), notion: notion(), jetzt: "x" });
+    expect(Array.isArray(d.marke!.gate0Luecken)).toBe(true);
+    expect(e.marke!.schluessel).toBe("alperna");
+    expect(e.marke!.gate0Luecken).toEqual(expect.arrayContaining(["Logo (helle oder dunkle Datei)", "Caption-Preset", "Schlusskarte"]));
+    expect(e.marke!.gate0Luecken).not.toContain("Schnittprofil");
   });
 
   it("ein Stück ohne Standbild bekommt null statt eines kaputten Bildes", () => {

@@ -155,6 +155,12 @@ dt { color: var(--off-muted); font-size: 14px; }
 dd { margin: 0; overflow-wrap: anywhere; }
 .fuss { font-size: 13px; color: var(--off-muted); }
 
+.fortschritt { height: 4px; border-radius: 999px; background: var(--linie); overflow: hidden; }
+.fortschritt > i { display: block; height: 100%; background: var(--off); transition: width 0.2s; }
+.entwurf { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bergblau); border: 0.5px solid var(--linie); border-radius: 12px; padding: 14px 16px; max-height: 420px; overflow: auto; }
+.wochen-kopf { display: grid; gap: 10px; padding: 16px 20px; }
+.wochen-kopf .zeile { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.warnung { border: 0.5px solid var(--stopp); border-radius: 12px; padding: 10px 14px; color: var(--stopp); font-size: 14px; }
 @media (max-width: 560px) {
   .stueck { grid-template-columns: 1fr; }
   .zeile-idee { grid-template-columns: 1fr; }
@@ -183,12 +189,14 @@ dd { margin: 0; overflow-wrap: anywhere; }
 
   <div class="tabs" role="tablist" aria-label="Bereiche">
     <button class="tab" role="tab" id="t-queue" aria-controls="p-queue" aria-selected="true" data-tab="queue">Zu entscheiden <span class="zahl" id="z-queue" data-null="true">0</span></button>
+    <button class="tab" role="tab" id="t-inhalte" aria-controls="p-inhalte" aria-selected="false" data-tab="inhalte">Inhalte <span class="zahl" id="z-inhalte" data-null="true">0</span></button>
     <button class="tab" role="tab" id="t-alle" aria-controls="p-alle" aria-selected="false" data-tab="alle">Alle Ideen <span class="zahl" id="z-alle" data-null="true">0</span></button>
     <button class="tab" role="tab" id="t-bib" aria-controls="p-bib" aria-selected="false" data-tab="bib">Bibliothek <span class="zahl" id="z-bib" data-null="true">0</span></button>
     <button class="tab" role="tab" id="t-marke" aria-controls="p-marke" aria-selected="false" data-tab="marke">Marke</button>
   </div>
 
   <section class="panel" id="p-queue" role="tabpanel" aria-labelledby="t-queue"></section>
+  <section class="panel" id="p-inhalte" role="tabpanel" aria-labelledby="t-inhalte" hidden></section>
   <section class="panel" id="p-alle" role="tabpanel" aria-labelledby="t-alle" hidden></section>
   <section class="panel" id="p-bib" role="tabpanel" aria-labelledby="t-bib" hidden></section>
   <section class="panel" id="p-marke" role="tabpanel" aria-labelledby="t-marke" hidden></section>
@@ -196,7 +204,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   <p class="fuss" id="fuss"></p>
 </div>
 
-<script type="application/json" id="daten">/*__DATEN__*/{"notion":{"ansicht":"view://00000000-0000-0000-0000-000000000000"},"bibliothek":[],"marke":null,"erzeugt":""}</script>
+<script type="application/json" id="daten">/*__DATEN__*/{"notion":{"ansicht":"view://00000000-0000-0000-0000-000000000000","inhalte":"view://00000000-0000-0000-0000-000000000001","marken":"view://00000000-0000-0000-0000-000000000002"},"bibliothek":[],"marke":null,"erzeugt":""}</script>
 <script>
 (() => {
   "use strict";
@@ -225,7 +233,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   const woerter = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 
   /* ---------- Zustand ---------- */
-  const S = { mcp: null, zeilen: [], laden: "idle", fehler: null, tab: "queue", offen: null, name: "", busy: false, entwurf: {}, ablehnen: {}, filter: "alle", stand: null, meldung: null };
+  const S = { mcp: null, zeilen: [], inhalte: [], marken: [], inhalteFehler: null, wochen: null, torModus: {}, gate0Frage: {}, seitentext: {}, inhaltFilter: "alle", laden: "idle", fehler: null, tab: "queue", offen: null, name: "", busy: false, entwurf: {}, ablehnen: {}, filter: "alle", stand: null, meldung: null };
 
   /* ---------- Notion ---------- */
   function ergebnis(r) {
@@ -244,12 +252,12 @@ dd { margin: 0; overflow-wrap: anywhere; }
    * Gelesen wird über eine gespeicherte Ansicht (Modus «view»). SQL und der Modus «rows» zählen gegen ein knappes Kontingent des
    * Arbeitsbereichs; die Ansicht nicht. Die Ansicht zeigt alle Eigenschaften und hat keinen Filter.
    */
-  const abfrage = (cursor) => ({ data: Object.assign({ mode: "view", view_url: DATEN.notion.ansicht, page_size: 100 }, cursor ? { start_cursor: cursor } : {}) });
-  /** Liest die Ansicht seitenweise bis zu 5 Seiten (500 Ideen). Gibt Zeilen und die Angabe zurück, ob es mehr gäbe. */
-  async function alleZeilen() {
+  const abfrage = (ansicht, cursor) => ({ data: Object.assign({ mode: "view", view_url: ansicht, page_size: 100 }, cursor ? { start_cursor: cursor } : {}) });
+  /** Liest eine Ansicht seitenweise bis zu 5 Seiten (500 Zeilen). Gibt Zeilen und die Angabe zurück, ob es mehr gäbe. */
+  async function alleZeilen(ansicht) {
     let cursor = null, zeilen = [], mehr = false;
     for (let seite = 0; seite < 5; seite++) {
-      const p = await aufruf("notion-query-data-sources", abfrage(cursor));
+      const p = await aufruf("notion-query-data-sources", abfrage(ansicht || DATEN.notion.ansicht, cursor));
       if (!p || !Array.isArray(p.results)) throw { code: "form", message: "Die Antwort von Notion hat nicht das erwartete Format." };
       zeilen = zeilen.concat(p.results);
       mehr = !!p.has_more;
@@ -265,7 +273,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
     try { signale = JSON.parse(z["Signale"] || "[]"); } catch { /* leer */ }
     const treffer = typeof z.url === "string" ? z.url.match(/[0-9a-f]{32}/gi) : null;
     return {
-      id: t("Idee-ID"), titel: t("Titel"), status: t("Status"), quelle: t("Quelle"), projekt: t("Projekt"), satz: t("Satz"),
+      art: "idee", id: t("Idee-ID"), titel: t("Titel"), status: t("Status"), quelle: t("Quelle"), projekt: t("Projekt"), satz: t("Satz"),
       signale, warum: t("Warum nichts passt"), pitch: t("Pitch"), aufwand: t("Aufwand"),
       entscheid: t("Entscheid"), entscheidGrund: t("Entscheid-Grund"),
       lookRunde: Number(z["Look-Runde"]) || 0, lookWahl: t("Look-Wahl"), lookNotiz: t("Look-Notiz"),
@@ -288,24 +296,75 @@ dd { margin: 0; overflow-wrap: anywhere; }
   }
   const ENTSCHEIDBAR = new Set(["pitch", "look", "abnahme"]);
 
+  const seitenId = (u) => { const t = typeof u === "string" ? u.match(/[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}/gi) : null; return t ? t[t.length - 1].replace(/-/g, "").toLowerCase() : ""; };
+  const liste = (v) => { if (Array.isArray(v)) return v.filter((x) => typeof x === "string"); try { const p = JSON.parse(v || "[]"); return Array.isArray(p) ? p.filter((x) => typeof x === "string") : []; } catch { return []; } };
+  const textVon = (z, k) => (typeof z[k] === "string" ? z[k].replace(/<br\s*\/?>/gi, "\n").trim() : "");
+  const hatMensch = (von) => !!von && !!von.trim() && !SYSTEMNAMEN.test(von.trim());
+
+  /** Eine Zeile der Ansicht «Inhalte». Die Namen der Spalten stehen in der Datenbank genau so. */
+  function modellInhalt(z) {
+    const t = (k) => textVon(z, k);
+    const tor = (p) => ({ entscheid: t(p + " Entscheid"), grund: t(p + " Grund"), von: t(p + " von"), am: t("date:" + p + " am:start") });
+    const url = typeof z.url === "string" ? z.url : "";
+    return {
+      art: "inhalt", id: t("Inhalt-ID"), titel: t("Titel"), format: t("Format"), plattformen: liste(z["Plattformen"]), markeUrls: liste(z["Marke"]),
+      quelle: t("Quelle"), referenz: t("Referenz"), hook: t("Hook"), winkel: t("Winkel"), beleg: t("Beleg"), aufwand: t("Aufwand"), status: t("Status"),
+      torI: tor("Tor I"), torP: tor("Tor P"), dateien: t("Dateien"), ziel: t("Ziel"),
+      offeneMarkierungen: typeof z["Offene Markierungen"] === "number" ? z["Offene Markierungen"] : 0, url, seite: seitenId(url),
+    };
+  }
+  /** Eine Zeile der Ansicht «Marken». */
+  function modellMarke(z) {
+    const t = (k) => textVon(z, k);
+    const url = typeof z.url === "string" ? z.url : "";
+    return { art: "marke", id: t("Marken-ID"), titel: t("Name"), typ: t("Typ"), gate0: t("Gate 0") || "offen", gate0Von: t("Gate 0 von"), gate0Am: t("date:Gate 0 am:start"), notizen: t("Notizen"), url, seite: seitenId(url) };
+  }
+  /** Gate 0 gilt nur mit einem Menschen mit Namen (wie im Code von Claude). */
+  const gate0Wirksam = (mk) => (mk && mk.gate0 === "freigegeben" && hatMensch(mk.gate0Von) ? "freigegeben" : mk ? mk.gate0 === "freigegeben" ? "offen" : mk.gate0 : "offen");
+  const markeVon = (c) => S.marken.find((mk) => c.markeUrls.some((u) => seitenId(u) === mk.seite)) || null;
+
+  const torOffen = (t) => !t.entscheid || t.entscheid === "offen";
+  function phaseInhalt(c) {
+    if (c.status === "Pitch bereit") return torOffen(c.torI) ? "tor-i" : "tor-i-gesendet";
+    if (c.status === "Entwurf fertig") return torOffen(c.torP) ? "tor-p" : "tor-p-gesendet";
+    return "sonst";
+  }
+  const ENTSCHEIDBAR_INHALT = new Set(["tor-i", "tor-p"]);
+
   async function laden(still) {
     S.laden = "laden";
     if (!still) zeichne();
     try {
-      const r = await alleZeilen();
+      const r = await alleZeilen(DATEN.notion.ansicht);
       S.zeilen = r.zeilen.map(modell).filter((m) => m.id).sort((a, b) => a.id.localeCompare(b.id));
       S.hatMehr = r.mehr;
       S.laden = "fertig"; S.fehler = null; S.stand = new Date();
     } catch (e) {
       S.laden = "fehler"; S.fehler = e;
     }
+    // Marken und Inhalte nacheinander und getrennt: Fällt eine Ansicht aus, bleibt der Rest benutzbar.
+    try {
+      const mk = await alleZeilen(DATEN.notion.marken);
+      S.marken = mk.zeilen.map(modellMarke).filter((m) => m.id);
+      const ih = await alleZeilen(DATEN.notion.inhalte);
+      S.inhalte = ih.zeilen.map(modellInhalt).filter((c) => c.id).sort((a, b) => a.id.localeCompare(b.id));
+      S.inhalteFehler = null;
+    } catch (e) {
+      S.inhalteFehler = e;
+    }
     zeichne();
   }
 
   /** Vor jedem Schreiben die Zeile frisch lesen: Ist sie schon entschieden oder weitergelaufen, wird nichts überschrieben. */
-  async function frisch(id) {
-    const r = await alleZeilen();
-    return r.zeilen.map(modell).find((m) => m.id === id) || null;
+  const ARTEN = {
+    idee: { ansicht: () => DATEN.notion.ansicht, modell },
+    inhalt: { ansicht: () => DATEN.notion.inhalte, modell: modellInhalt },
+    marke: { ansicht: () => DATEN.notion.marken, modell: modellMarke },
+  };
+  async function frisch(m) {
+    const a = ARTEN[m.art || "idee"];
+    const r = await alleZeilen(a.ansicht());
+    return r.zeilen.map(a.modell).find((x) => x.id === m.id) || null;
   }
 
   function jetzt() { return new Date().toISOString(); }
@@ -319,20 +378,21 @@ dd { margin: 0; overflow-wrap: anywhere; }
     if (SYSTEMNAMEN.test(name)) return melde("fehler", "Dieser Name gilt nicht", "Entscheide braucht ein Mensch mit seinem Namen, kein Systemname.");
     S.busy = true; S.meldung = null; zeichne();
     try {
-      const f = await frisch(m.id);
-      if (!f) throw { code: "weg", message: "Die Idee ist in Notion nicht mehr zu finden." };
+      const f = await frisch(m);
+      if (!f) throw { code: "weg", message: "Der Eintrag ist in Notion nicht mehr zu finden." };
       if (!erwartet(f)) {
         S.busy = false;
         await laden(true);
         return melde("fehler", "Schon weiter", "Bei «" + m.titel + "» hat sich inzwischen etwas geändert. Die Liste ist neu geladen, nichts wurde überschrieben.");
       }
       await aufruf("notion-update-page", { page_id: m.seite, command: "update_properties", properties: felder, allow_async: false });
-      const danach = await frisch(m.id);
+      const danach = await frisch(m);
       S.busy = false;
       await laden(true);
       if (danach && bestaetigt(danach)) {
-        S.offen = null; S.entwurf[m.id] = null; S.ablehnen[m.id] = false;
-        return melde("gut", "Gespeichert", "Dein Entscheid zu «" + m.titel + "» steht in Notion. Claude führt die Idee beim nächsten Lauf weiter.");
+        S.offen = null; S.entwurf[m.id] = null; S.ablehnen[m.id] = false; S.torModus[m.id] = false; S.gate0Frage[m.id] = false;
+        if (m.art === "marke") return melde("gut", "Gate 0 gespeichert", "Die Freigabe von «" + m.titel + "» steht in Notion. Tor I und Tor P gelten ab dem nächsten Abgleich für diese Marke.");
+        return melde("gut", "Gespeichert", "Dein Entscheid zu «" + m.titel + "» steht in Notion. Claude führt " + (m.art === "inhalt" ? "den Inhalt beim nächsten Abgleich" : "die Idee beim nächsten Lauf") + " weiter.");
       }
       return melde("fehler", "Nicht bestätigt", "Notion hat geantwortet, aber der Entscheid ist beim Nachlesen nicht zu sehen. Prüf die Zeile in Notion, bevor du es nochmal versuchst.");
     } catch (e) {
@@ -378,18 +438,20 @@ dd { margin: 0; overflow-wrap: anywhere; }
   function zeichne() {
     $("name").value !== S.name && document.activeElement !== $("name") && ($("name").value = S.name);
     document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === S.tab)));
-    for (const t of ["queue", "alle", "bib", "marke"]) $("p-" + t).hidden = S.tab !== t;
+    for (const t of ["queue", "inhalte", "alle", "bib", "marke"]) $("p-" + t).hidden = S.tab !== t;
     $("neu-laden").disabled = S.busy || S.laden === "laden";
 
     const offene = S.zeilen.filter((m) => ENTSCHEIDBAR.has(phase(m)));
-    zahl("z-queue", offene.length); zahl("z-alle", S.zeilen.length); zahl("z-bib", DATEN.bibliothek.length);
+    const offeneInhalte = S.inhalte.filter((c) => ENTSCHEIDBAR_INHALT.has(phaseInhalt(c)));
+    zahl("z-queue", offene.length + offeneInhalte.length); zahl("z-inhalte", S.inhalte.length); zahl("z-alle", S.zeilen.length); zahl("z-bib", DATEN.bibliothek.length);
 
     zeichneStatus();
-    if (S.tab === "queue") zeichneQueue(offene);
+    if (S.tab === "queue") zeichneQueue(offene, offeneInhalte);
+    if (S.tab === "inhalte") zeichneInhalte();
     if (S.tab === "alle") zeichneAlle();
     if (S.tab === "bib") zeichneBib();
     if (S.tab === "marke") zeichneMarke();
-    $("fuss").textContent = (S.stand ? "Ideen aus Notion gelesen um " + S.stand.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) + ". " : "") +
+    $("fuss").textContent = (S.stand ? "Notion gelesen um " + S.stand.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) + ". " : "") +
       "Bibliothek und Marke stehen im Stand vom " + (DATEN.erzeugt ? new Date(DATEN.erzeugt).toLocaleDateString("de-CH") : "unbekannt") + ".";
   }
   function zahl(id, n) { const e = $(id); e.textContent = String(n); e.dataset.null = String(n === 0); }
@@ -402,6 +464,10 @@ dd { margin: 0; overflow-wrap: anywhere; }
       const [titel, text] = fehlertext(S.fehler, false);
       box.append(h("div", { class: "meldung fehler" }, h("strong", { text: titel }), h("p", { text }), h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", onclick: () => laden() }, "Nochmal versuchen"))));
     }
+    if (S.inhalteFehler && S.laden !== "laden" && S.mcp) {
+      const [titel, text] = fehlertext(S.inhalteFehler, false);
+      box.append(h("div", { class: "meldung fehler" }, h("strong", { text: "Inhalte und Marken nicht gelesen: " + titel }), h("p", { text })));
+    }
     if (!S.mcp) box.append(h("div", { class: "meldung fehler" }, h("strong", { text: "Nur in Claude benutzbar" }), h("p", { text: "Dieser Prüfplatz liest und schreibt über deine Notion-Verbindung in claude.ai. Öffne ihn dort. Bibliothek und Marke siehst du auch ohne." })));
   }
 
@@ -411,17 +477,30 @@ dd { margin: 0; overflow-wrap: anywhere; }
     return m.quelle === "video" ? "Aus dem Video " + m.projekt : m.quelle === "inspiration" ? "Aus dem Inspirationsvideo «" + m.projekt + "»" : m.projekt;
   }
 
-  function zeichneQueue(offene) {
+  function zeichneQueue(offene, offeneInhalte) {
     const p = $("p-queue");
     p.replaceChildren();
-    if (!S.mcp) return p.append(leer("Hier erscheint, was auf dich wartet", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier Pitches, Looks und Abnahmen."));
-    if (S.laden === "laden" && S.zeilen.length === 0) return p.append(leer("Lade Ideen aus Notion", "Das dauert einen Moment."));
+    if (!S.mcp) return p.append(leer("Hier erscheint, was auf dich wartet", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier Ideen, Entwürfe, Pitches, Looks und Abnahmen."));
+    if (S.laden === "laden" && S.zeilen.length === 0 && S.inhalte.length === 0) return p.append(leer("Lade aus Notion", "Das dauert einen Moment."));
+    if (S.wochen) return zeichneWochen(p);
+    const torI = offeneInhalte.filter((c) => phaseInhalt(c) === "tor-i");
     const gesendet = S.zeilen.filter((m) => phase(m).endsWith("-gesendet") || phase(m) === "look-wartet");
-    if (offene.length === 0) p.append(leer("Nichts zu entscheiden", "Wenn Claude eine Idee pitcht, Looks zeigt oder ein Stück zur Abnahme bereit hat, erscheint es hier."));
-    for (const m of offene) p.append(karte(m));
-    if (gesendet.length) {
+    const gesendetInhalte = S.inhalte.filter((c) => phaseInhalt(c).endsWith("-gesendet"));
+    if (offene.length + offeneInhalte.length === 0) p.append(leer("Nichts zu entscheiden", "Wenn Claude eine Idee vorlegt, einen Entwurf fertig hat, Looks zeigt oder ein Stück zur Abnahme bereit hat, erscheint es hier."));
+    if (torI.length >= 2) {
+      p.append(h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "wochen-start", onclick: () => { S.wochen = { ids: torI.map((c) => c.id), uebersprungen: [] }; S.offen = null; zeichne(); } }, "Wochenmodus starten (" + torI.length + " Ideen nacheinander)")));
+    }
+    if (offeneInhalte.length) {
+      if (offene.length) p.append(h("p", { class: "eyebrow", text: "Inhalte" }));
+      for (const c of offeneInhalte) p.append(inhaltKarte(c, false));
+    }
+    if (offene.length) {
+      if (offeneInhalte.length) p.append(h("p", { class: "eyebrow", text: "Motion-Ideen" }));
+      for (const m of offene) p.append(karte(m));
+    }
+    if (gesendet.length || gesendetInhalte.length) {
       p.append(h("p", { class: "eyebrow", text: "Bei Claude" }));
-      p.append(h("div", { class: "karte tabelle" }, gesendet.map(zeileIdee)));
+      p.append(h("div", { class: "karte tabelle" }, gesendetInhalte.map(zeileInhalt), gesendet.map(zeileIdee)));
     }
     if (S.hatMehr) p.append(h("p", { class: "hinweis", text: "Es gibt mehr als 500 Ideen. Der Prüfplatz zeigt die ersten 500." }));
   }
@@ -525,6 +604,139 @@ dd { margin: 0; overflow-wrap: anywhere; }
     ];
   }
 
+  /* ---------- Inhalte: Tor I, Tor P ---------- */
+  const INHALTPHASE = { "tor-i": "Idee entscheiden", "tor-p": "Entwurf entscheiden", "tor-i-gesendet": "Wartet auf Claude", "tor-p-gesendet": "Wartet auf Claude" };
+  const STATI_INHALT = ["Neu", "Pitch bereit", "In Produktion", "Entwurf fertig", "Freigegeben", "Geplant", "Veröffentlicht", "Ausgewertet", "Pausiert", "Verworfen"];
+  const zeilenListe = (paare) => h("dl", null, paare.filter(([, v]) => v).flatMap(([k, v]) => [h("dt", { text: k }), h("dd", { text: v })]));
+
+  function inhaltKarte(c, fest) {
+    const ph = phaseInhalt(c);
+    const offen = fest || S.offen === c.id;
+    const mk = markeVon(c);
+    const g0 = mk ? gate0Wirksam(mk) : "offen";
+    const kopf = h("button", { class: "karte-kopf", type: "button", "aria-expanded": String(offen), "aria-controls": "k-" + c.id,
+      onclick: fest ? null : () => { if (offen) delete S.seitentext[c.id]; S.offen = offen ? null : c.id; zeichne(); } },
+      h("div", { class: "zeile" }, h("span", { class: "eyebrow", text: c.id }), chip(INHALTPHASE[ph] || c.status), c.format ? chip(c.format, "still") : null, g0 !== "freigegeben" ? chip(mk ? "Gate 0 offen" : "Marke fehlt", "stopp") : null),
+      h("h3", { text: c.titel }),
+      offen ? null : h("span", { class: "satz-kurz", text: c.hook ? "«" + c.hook + "»" : "" }));
+    const k = h("article", { class: "karte" }, kopf);
+    if (offen) k.append(h("div", { class: "karte-inhalt", id: "k-" + c.id }, ph === "tor-i" ? torIInhalt(c, mk, g0) : torPInhalt(c, mk, g0)));
+    return k;
+  }
+
+  function torIInhalt(c, mk, g0) {
+    const modus = S.torModus[c.id] || false; // false, "ablehnen" oder "rueckfrage"
+    const text = () => entwurfFeld(c, "text", "").trim();
+    const grundOk = () => text().length >= 10 && woerter(text()) >= 2;
+    const frageOk = () => text().length >= 5;
+    const nochOffen = (f) => f.status === "Pitch bereit" && torOffen(f.torI);
+    const sende = (e, grund) => senden(c, Object.assign({ "Tor I Entscheid": e, "Tor I Grund": grund || null, "Tor I von": S.name.trim() }, datum("Tor I am")), nochOffen, (d) => d.torI.entscheid === e);
+    const waehle = (m) => { setzeEntwurf(c, "text", ""); S.torModus[c.id] = m; zeichne(); };
+    const link = /^https?:\/\//.test(c.referenz) ? h("a", { href: c.referenz, target: "_blank", rel: "noopener", text: "Quelle öffnen" }) : null;
+    return [
+      g0 !== "freigegeben" ? h("p", { class: "warnung", text: mk ? "Gate 0 der Marke «" + mk.titel + "» ist noch nicht freigegeben. Dein Entscheid wird gespeichert, wirkt aber erst, wenn Gate 0 freigegeben ist." : "Diesem Inhalt ist keine Marke zugeordnet. Ohne Marke geht er nicht in Produktion." }) : null,
+      abschnitt("Der erste Satz", h("p", { class: "zitat", text: "«" + c.hook + "»" })),
+      abschnitt("Was ist neu oder anders", h("p", { class: "text", text: c.winkel })),
+      abschnitt("Beleg", h("p", { class: "text", text: c.beleg }), link),
+      abschnitt("Eckdaten", zeilenListe([["Format", c.format], ["Plattformen", c.plattformen.join(", ")], ["Marke", mk ? mk.titel : ""], ["Quelle", c.quelle], ["Aufwand", c.aufwand]])),
+      modus === "ablehnen" ? textfeld(c, "text", "Grund der Ablehnung", "Mindestens zwei Wörter. Der Grund verhindert, dass dieselbe Idee wiederkommt.") : null,
+      modus === "rueckfrage" ? textfeld(c, "text", "Deine Frage an Claude", "Claude beantwortet sie und legt die Idee neu vor.") : null,
+      h("p", { class: "hinweis" }, "Nach einer Freigabe entsteht der Inhalt. Zuerst prüft Claude Beleg und Dubletten. ", notionLink(c)),
+      h("div", { class: "aktionen" },
+        modus === "ablehnen" ? [knopf(c, "Ablehnung senden", "gold", grundOk, () => sende("abgelehnt", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
+        : modus === "rueckfrage" ? [knopf(c, "Frage senden", "gold", frageOk, () => sende("Rückfrage", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
+        : [knopf(c, "Freigeben", "gold", () => true, () => sende("freigegeben", "")), knopf(c, "Mit Frage zurück", "", () => true, () => waehle("rueckfrage")), knopf(c, "Ablehnen", "", () => true, () => waehle("ablehnen"))]),
+    ];
+  }
+
+  /** Der Text eines Entwurfs steht im Inhalt der Notion-Seite. Er wird beim Öffnen der Karte geladen. */
+  function seitentext(c) {
+    const vorhanden = S.seitentext[c.id];
+    if (vorhanden) return vorhanden;
+    S.seitentext[c.id] = { status: "laden" };
+    (async () => {
+      try {
+        const pg = await aufruf("notion-fetch", { id: c.seite });
+        const roh = pg && typeof pg.text === "string" ? pg.text : "";
+        const m = roh.match(/<content>([\s\S]*?)<\/content>/);
+        S.seitentext[c.id] = { status: "fertig", text: (m ? m[1] : "").trim() };
+      } catch (e) {
+        S.seitentext[c.id] = { status: "fehler", meldung: fehlertext(e, false)[1] };
+      }
+      zeichne();
+    })();
+    return S.seitentext[c.id];
+  }
+
+  function torPInhalt(c, mk, g0) {
+    const modus = S.torModus[c.id] || false; // false oder "aenderung"
+    const text = () => entwurfFeld(c, "text", "").trim();
+    const nochOffen = (f) => f.status === "Entwurf fertig" && torOffen(f.torP);
+    const sende = (e, grund) => senden(c, Object.assign({ "Tor P Entscheid": e, "Tor P Grund": grund || null, "Tor P von": S.name.trim() }, datum("Tor P am")), nochOffen, (d) => d.torP.entscheid === e);
+    const waehle = (m) => { setzeEntwurf(c, "text", ""); S.torModus[c.id] = m; zeichne(); };
+    const st = seitentext(c);
+    const entwurf = st.status === "fertig"
+      ? (st.text ? h("div", { class: "entwurf", text: st.text }) : h("p", { class: "hinweis", text: "Die Notion-Seite hat noch keinen Text. Bei Reels und Carousels liegt der Entwurf als Datei vor (siehe unten)." }))
+      : st.status === "fehler" ? h("p", { class: "warnung", text: "Der Entwurf liess sich nicht laden: " + st.meldung })
+      : h("p", { class: "hinweis", text: "Lade den Entwurf aus Notion …" });
+    return [
+      g0 !== "freigegeben" ? h("p", { class: "warnung", text: mk ? "Gate 0 der Marke «" + mk.titel + "» ist noch nicht freigegeben. Deine Freigabe wirkt erst danach." : "Diesem Inhalt ist keine Marke zugeordnet." }) : null,
+      c.offeneMarkierungen > 0 ? h("p", { class: "warnung", text: c.offeneMarkierungen + " offene Markierung(en) der Schwere «muss». Deine Freigabe wirkt erst, wenn sie erledigt sind." }) : null,
+      abschnitt("Der Entwurf", entwurf),
+      c.dateien ? abschnitt("Dateien", h("p", { class: "text", text: c.dateien })) : null,
+      c.ziel ? abschnitt("Ziel", h("p", { class: "text", text: c.ziel })) : null,
+      abschnitt("Beleg: Jede Zahl im Text muss hier stehen", h("p", { class: "text", text: c.beleg })),
+      modus === "aenderung" ? textfeld(c, "text", "Was soll anders sein", "Konkret, zum Beispiel: Schluss kürzer, Zahl im zweiten Satz streichen.") : null,
+      h("p", { class: "hinweis" }, "Mit der Freigabe darf der Inhalt geplant werden. ", notionLink(c)),
+      h("div", { class: "aktionen" },
+        modus === "aenderung" ? [knopf(c, "Änderung senden", "gold", () => text().length >= 5, () => sende("Änderung", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
+        : [knopf(c, "Freigeben", "gold", () => true, () => sende("freigegeben", "")), knopf(c, "Änderung nötig", "", () => true, () => waehle("aenderung"))]),
+    ];
+  }
+
+  /* ---------- Wochenmodus: alle neuen Ideen nacheinander ---------- */
+  function wochenListe() {
+    const w = S.wochen;
+    return w.ids.filter((id) => !w.uebersprungen.includes(id)).map((id) => S.inhalte.find((c) => c.id === id)).filter((c) => c && phaseInhalt(c) === "tor-i");
+  }
+  function zeichneWochen(p) {
+    const w = S.wochen, rest = wochenListe(), gesamt = w.ids.length, erledigt = gesamt - rest.length;
+    p.append(h("div", { class: "karte wochen-kopf", id: "wochen" },
+      h("div", { class: "zeile" }, h("span", { class: "eyebrow", text: "Wochenmodus" }), h("button", { class: "knopf klein", type: "button", id: "wochen-ende", onclick: () => { S.wochen = null; zeichne(); } }, "Beenden")),
+      h("p", { id: "wochen-stand", text: rest.length ? "Idee " + (erledigt + 1) + " von " + gesamt : "Alle " + gesamt + " Ideen durchgesehen" }),
+      h("div", { class: "fortschritt", role: "progressbar", "aria-label": "Fortschritt", "aria-valuemin": "0", "aria-valuemax": String(gesamt), "aria-valuenow": String(erledigt) }, h("i", { style: "width:" + Math.round((erledigt / gesamt) * 100) + "%" }))));
+    if (!rest.length) {
+      const ue = w.uebersprungen.length;
+      return p.append(leer("Fertig", ue ? ue + " übersprungen. Sie bleiben unter «Zu entscheiden», sobald du den Wochenmodus beendest." : "Alle Entscheide stehen in Notion."));
+    }
+    const c = rest[0];
+    p.append(inhaltKarte(c, true));
+    p.append(h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "wochen-weiter", disabled: S.busy, onclick: () => { w.uebersprungen.push(c.id); zeichne(); } }, "Überspringen")));
+  }
+
+  function zeileInhalt(c) {
+    const ph = phaseInhalt(c);
+    const art = c.status === "Verworfen" ? "stopp" : ["Freigegeben", "Geplant", "Veröffentlicht", "Ausgewertet"].includes(c.status) ? "ok" : ENTSCHEIDBAR_INHALT.has(ph) ? "" : "still";
+    const mk = markeVon(c);
+    return h("div", { class: "zeile-idee" },
+      h("span", { class: "id", text: c.id }),
+      h("span", { class: "titel" }, c.url ? h("a", { href: c.url, target: "_blank", rel: "noopener", text: c.titel }) : c.titel),
+      chip(ph.endsWith("-gesendet") ? "Wartet auf Claude" : c.status || "Neu", art),
+      h("span", { class: "satz", text: [c.format, mk && mk.titel, c.hook && "«" + c.hook + "»"].filter(Boolean).join(" · ") }));
+  }
+
+  function zeichneInhalte() {
+    const p = $("p-inhalte");
+    p.replaceChildren();
+    if (!S.mcp) return p.append(leer("Inhalte", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier jeden Inhalt mit seinem Stand."));
+    const sel = h("select", { id: "filter-inhalte", "aria-label": "Nach Stand filtern", onchange: (ev) => { S.inhaltFilter = ev.target.value; zeichne(); } },
+      h("option", { value: "alle", text: "Alle Stände" }), ...STATI_INHALT.map((k) => h("option", { value: k, text: k })));
+    sel.value = S.inhaltFilter;
+    p.append(h("div", { class: "feld", style: "max-width: 260px" }, h("label", { for: "filter-inhalte", text: "Stand" }), sel));
+    const liste = S.inhalte.filter((c) => S.inhaltFilter === "alle" || (c.status || "Neu") === S.inhaltFilter);
+    p.append(liste.length ? h("div", { class: "karte tabelle" }, liste.map(zeileInhalt)) : leer(S.inhalte.length ? "Keine Inhalte in diesem Stand" : "Noch keine Inhalte", S.inhalte.length ? "Wähle oben einen anderen Stand." : "Ideen für Reels, Carousels, Posts und Blogtexte erscheinen hier, sobald Claude sie in Notion anlegt."));
+  }
+
   function zeileIdee(m) {
     const ph = phase(m);
     const art = m.status === "abgelehnt" ? "stopp" : m.status === "in_bibliothek" ? "ok" : ENTSCHEIDBAR.has(ph) ? "" : "still";
@@ -570,15 +782,43 @@ dd { margin: 0; overflow-wrap: anywhere; }
         liste("Beispielsätze", s.beispiele)));
   }
 
+  /** Eine Marke aus Notion mit ihrem Gate 0. Die Freigabe gibt ein Mensch mit Namen, hier. */
+  function markenKarte(mk) {
+    const frei = gate0Wirksam(mk) === "freigegeben";
+    const profil = DATEN.marke && DATEN.marke.schluessel === mk.id ? DATEN.marke : null;
+    const luecken = profil ? profil.gate0Luecken || [] : [];
+    const frage = !!S.gate0Frage[mk.id];
+    const nochOffen = (f) => f.gate0 !== "freigegeben";
+    const sende = () => senden(mk, Object.assign({ "Gate 0": "freigegeben", "Gate 0 von": S.name.trim() }, datum("Gate 0 am")), nochOffen, (d) => d.gate0 === "freigegeben" && d.gate0Von === S.name.trim());
+    return h("article", { class: "karte", style: "padding:20px;display:grid;gap:14px" },
+      h("div", { style: "display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center" }, h("h3", { text: mk.titel }), chip(mk.typ || "Marke", "still"), chip(frei ? "Gate 0 freigegeben" : "Gate 0 offen", frei ? "ok" : "stopp")),
+      mk.notizen ? h("p", { class: "text", text: mk.notizen }) : null,
+      frei
+        ? h("p", { class: "hinweis", text: "Freigegeben von " + mk.gate0Von + (mk.gate0Am ? " am " + new Date(mk.gate0Am).toLocaleDateString("de-CH") : "") + "." })
+        : [
+          luecken.length ? h("p", { class: "warnung", text: "Das Markenprofil nennt noch: " + luecken.join(", ") + "." }) : null,
+          mk.gate0 === "freigegeben" ? h("p", { class: "warnung", text: "In Notion steht «freigegeben», aber ohne den Namen eines Menschen. So gilt es nicht." }) : null,
+          frage ? h("p", { id: "gate0-frage", text: "Du gibst «" + mk.titel + "» frei als " + (S.name.trim() || "…") + ". Ab dann gelten Tor I und Tor P für diese Marke." }) : null,
+          h("div", { class: "aktionen" }, frage
+            ? [knopf(mk, "Ja, Gate 0 freigeben", "gold", () => true, sende), knopf(mk, "Abbrechen", "", () => true, () => { S.gate0Frage[mk.id] = false; zeichne(); })]
+            : knopf(mk, "Gate 0 freigeben", "gold", () => true, () => { S.gate0Frage[mk.id] = true; zeichne(); })),
+        ]);
+  }
+
   function zeichneMarke() {
     const p = $("p-marke");
     p.replaceChildren();
+    if (S.mcp && S.marken.length) {
+      p.append(h("p", { class: "eyebrow", text: "Marken und Gate 0" }));
+      for (const mk of S.marken) p.append(markenKarte(mk));
+      p.append(h("p", { class: "eyebrow", text: "Profil im Repo" }));
+    }
     const m = DATEN.marke;
     if (!m) return p.append(leer("Kein Markenprofil", "Es liegt kein Markenprofil im Repo."));
     const frei = m.status === "freigegeben";
     p.append(h("div", { class: "karte", style: "padding:20px;display:grid;gap:18px" },
       h("div", { style: "display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center" }, h("h3", { text: m.name }), chip(frei ? "Freigegeben" : "Platzhalter", frei ? "ok" : "stopp")),
-      frei ? null : h("p", { text: "Dieses Profil ist noch nicht freigegeben (Gate 0). Bis dahin entstehen nur Entwürfe, nie ein finales Video." }),
+      frei ? null : h("p", { text: "Dieses Profil im Repo steht noch auf «Platzhalter». Bis Gate 0 übernommen ist, entstehen nur Entwürfe, nie ein finales Video." }),
       h("div", { class: "farben" }, Object.entries(m.farben).map(([k, v]) => h("div", { class: "farbe" }, h("i", { style: "background:" + v }), h("b", { text: k }), h("code", { text: v })))),
       h("dl", null,
         h("dt", { text: "Titelschrift" }), h("dd", { text: m.schriften.titel }),
@@ -587,12 +827,12 @@ dd { margin: 0; overflow-wrap: anywhere; }
         h("dt", { text: "Anrede" }), h("dd", { text: m.tonalitaet.anrede }),
         h("dt", { text: "Verbotene Wörter" }), h("dd", { text: (m.tonalitaet.verboteneWoerter || []).join(", ") }),
         h("dt", { text: "Hinweise" }), h("dd", { text: m.tonalitaet.hinweise || "" })),
-      h("p", { class: "hinweis", text: "Die Freigabe der Marke läuft nicht über diesen Prüfplatz, sie gehört in die Hände von Andrej und Leander." })));
+      h("p", { class: "hinweis", text: "Gate 0 gibst du oben frei. Das Profil im Repo ändert nur Claude Code, und es übernimmt dort die Freigabe erst nach deinem Eintrag in Notion." })));
   }
 
   /* ---------- Start ---------- */
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => { S.tab = b.dataset.tab; zeichne(); }));
-  $("neu-laden").addEventListener("click", () => { S.meldung = null; laden(); });
+  $("neu-laden").addEventListener("click", () => { S.meldung = null; S.seitentext = {}; laden(); });
   $("name").addEventListener("input", (ev) => { S.name = ev.target.value; speicher.schreibe("pp-name", S.name); document.querySelectorAll("[data-braucht]").forEach((b) => (b.disabled = S.busy || !b._ok())); });
   document.addEventListener("visibilitychange", () => {
     const tippt = document.activeElement && /^(TEXTAREA|INPUT|SELECT)$/.test(document.activeElement.tagName);

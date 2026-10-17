@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Markenprofil } from "./core/schemas";
+import { gate0Luecken, type Markenprofil } from "./core/schemas";
 import type { Bibliothek, GeladenesStueck } from "./motion/bibliothek";
 import type { NotionZiel } from "./notion/ziel";
 
@@ -27,9 +27,10 @@ export interface BibEintrag {
 }
 
 export interface PruefplatzDaten {
-  notion: { ansicht: string };
+  /** Adressen der gespeicherten Ansichten. Gelesen wird nur über sie (Modus view), nie per SQL. */
+  notion: { ansicht: string; inhalte: string; marken: string };
   bibliothek: BibEintrag[];
-  marke: Pick<Markenprofil, "name" | "status" | "farben" | "schriften" | "tonalitaet" | "look"> | null;
+  marke: (Pick<Markenprofil, "name" | "status" | "farben" | "schriften" | "tonalitaet" | "look" | "schluessel"> & { gate0Luecken: string[] }) | null;
   erzeugt: string;
 }
 
@@ -64,10 +65,10 @@ function eintrag(g: GeladenesStueck): BibEintrag {
 export function baueDaten(opt: { bibliothek: Bibliothek; marke: Markenprofil | null; notion: NotionZiel; jetzt: string }): PruefplatzDaten {
   const m = opt.marke;
   return {
-    notion: { ansicht: opt.notion.motionIdeen.ansicht },
+    notion: { ansicht: opt.notion.motionIdeen.ansicht, inhalte: opt.notion.inhalte.ansicht, marken: opt.notion.marken.ansicht },
     // Aktive zuerst; Entwürfe und Veraltetes erscheinen, damit niemand ein «fehlendes» Stück sucht
     bibliothek: opt.bibliothek.stuecke.map(eintrag).sort((a, b) => Number(b.status === "aktiv") - Number(a.status === "aktiv") || a.name.localeCompare(b.name, "de")),
-    marke: m ? { name: m.name, status: m.status, farben: m.farben, schriften: m.schriften, tonalitaet: m.tonalitaet, look: m.look } : null,
+    marke: m ? { schluessel: m.schluessel, name: m.name, status: m.status, farben: m.farben, schriften: m.schriften, tonalitaet: m.tonalitaet, look: m.look, gate0Luecken: gate0Luecken(m) } : null,
     erzeugt: opt.jetzt,
   };
 }
