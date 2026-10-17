@@ -1,4 +1,6 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -11,6 +13,9 @@ import { IDEE_STATI, Pitch, PruefRunde, Looks, type IdeeStatus } from "./motion/
 import { analysiere, entwurfAusKandidat, luecken, type Zeile } from "./motion/luecken";
 import { pitchText } from "./motion/pitch";
 import { Ideenprotokoll } from "./motion/protokoll";
+import { ideeZuZeile, leseAlle, zeilenAusAbfrage } from "./notion/abbild";
+import { ladeNotionZiel } from "./notion/ziel";
+import { formatiere, hatFehler, initialisiere, pruefeUmgebung, studioHome, type Sonde } from "./setup";
 import { pruefeRender, messeRender, parseHfCheck } from "./motion/render-pruefung";
 import { SIGNAL_TYPEN, type SignalTyp } from "./motion/stueck";
 import { Signal, splitSaetze } from "./motion/signale";
@@ -18,6 +23,10 @@ import { erzeugeDeklaration, loeseVariablen } from "./motion/stueck";
 import { checkStueck, erzeugeLookBogen, findeStueck, ladeMarke, rendereBatch, rendereStueck, umgebung, vorschauBilder, extrahiereJson, type Umgebung } from "./motion/werkstatt";
 
 const HILFE = `studio – Video-Editing-System der Alperna GmbH
+
+Einrichtung (einmal je Mac)
+  init [--home "<OneDrive>/Studio"]   Studio-Ordner in OneDrive anlegen und den Pfad für diesen Mac merken
+  doctor                              Prüft Node, ffmpeg, Studio-Ordner, OneDrive, Ideenprotokoll, Bibliothek, Notion-Ziel
 
 Motion-Bibliothek
   motion lint                         Alle Stücke prüfen (Datenblatt, index.html, Variablen, Einsatzbeispiele)
@@ -45,7 +54,14 @@ Ideenprotokoll
   ideen weiter <id> <status> (--mensch|--system) --by Name [--grund "…"] [--json daten.json] [--stueck slug] [--gewaehlt a|b|c]
   ideen pruefung <id> --json runde.json [--by Name]
 
-Umgebung: STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
+Notion (Ansicht und Entscheide; die Sitzung holt und schreibt die Zeilen mit den Notion-Werkzeugen)
+  ideen notion-zeile <id> [--bilder urls.json]   Eigenschaften und Seitentext einer Idee als JSON (für notion-create-pages / notion-update-page).
+                                      --bilder: {"a": "https://…", "b": …, "c": …} Adressen der Standbilder im Prüfplatz
+  ideen notion-alle                   Dasselbe für alle Ideen, dazu Ziel (Datenquelle)
+  ideen notion-lesen --json zeilen.json [--anwenden]   Entscheide aus den Notion-Zeilen lesen (Ergebnis von notion-query-data-sources, Modus rows).
+                                      Ohne --anwenden nur der Bericht. Mit --anwenden werden Entscheide im Protokoll nachgeführt.
+
+Umgebung: STUDIO_HOME (Studio-Ordner statt Konfiguration), STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse; sonst <Studio-Ordner>/daten), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
 `;
 
 const studioRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -319,6 +335,46 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
       console.log(`${neu.id}: ${neu.status}`);
       return 0;
     }
+    case "notion-zeile": {
+      const idee = pr.holen(id(a, 2));
+      const bildUrls = typeof a.opt["bilder"] === "string" ? lesJson<Record<string, string>>(a.opt["bilder"]) : undefined;
+      console.log(JSON.stringify(ideeZuZeile(idee, { onedriveOrdner: `daten/ideen/${idee.id}`, bildUrls }), null, 2));
+      return 0;
+    }
+    case "notion-alle": {
+      const ziel = ladeNotionZiel(studioRoot);
+      const zeilen = pr.liste().map((i) => ({ idee: i.id, ...ideeZuZeile(i, { onedriveOrdner: `daten/ideen/${i.id}` }) }));
+      console.log(JSON.stringify({ datenquelle: ziel.ideen.datenquelle, zeilen }, null, 2));
+      return 0;
+    }
+    case "notion-lesen": {
+      if (typeof a.opt["json"] !== "string") throw new Error("--json <zeilen.json> fehlt (Ergebnis von notion-query-data-sources im Modus rows)");
+      const bericht = leseAlle(pr.liste(), zeilenAusAbfrage(lesJson(a.opt["json"])), jetzt());
+      const anwenden = a.opt["anwenden"] === true;
+      const angewendet: { idee: string; nach: IdeeStatus; text: string }[] = [];
+      const fehler: { idee: string; fehler: string[] }[] = [];
+      const nachziehen = new Set<string>();
+      for (const b of bericht.befunde) {
+        if (b.hinweise.length) nachziehen.add(b.idee);
+        if (!b.aktion) continue;
+        const x = b.aktion;
+        if (!anwenden) {
+          angewendet.push({ idee: x.idee, nach: x.nach, text: `(Vorschau) ${x.text}` });
+          continue;
+        }
+        try {
+          const i = pr.holen(x.idee);
+          const g = x.nach === "in_bibliothek" ? ladeBibliothek(env.bibliothek).stuecke.find((s) => s.stueck.id === i.bau?.stueck) : undefined;
+          pr.weiter(x.idee, x.nach, x.akteur, x.wann, { grund: x.grund, daten: x.daten, stueckAktiviert: g?.stueck.status === "aktiv" });
+          angewendet.push({ idee: x.idee, nach: x.nach, text: x.text });
+          nachziehen.add(x.idee);
+        } catch (e) {
+          fehler.push({ idee: x.idee, fehler: [(e as Error).message] });
+        }
+      }
+      console.log(JSON.stringify({ anwenden, angewendet, fehler, hinweise: bericht.befunde.filter((b) => b.hinweise.length).map((b) => ({ idee: b.idee, hinweise: b.hinweise })), ohneIdee: bericht.ohneIdee, ohneZeile: bericht.ohneZeile, zeileNeuSchreiben: [...nachziehen] }, null, 2));
+      return fehler.length ? 1 : 0;
+    }
     case "pruefung": {
       if (typeof a.opt["json"] !== "string") throw new Error("--json <runde.json> fehlt");
       const runde = lesJson(a.opt["json"], PruefRunde.omit({ runde: true }));
@@ -333,6 +389,39 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
   }
 }
 
+function echteSonde(): Sonde {
+  return {
+    nodeVersion: process.version,
+    platform: process.platform,
+    env: process.env,
+    userHome: os.homedir(),
+    befehl(cmd, args) {
+      const r = spawnSync(cmd, args, { encoding: "utf8" });
+      return r.status === 0 ? r.stdout.trim() : undefined;
+    },
+    ideenProtokollPruefen(datei) {
+      try {
+        new Ideenprotokoll(datei).lade();
+        return undefined;
+      } catch (e) {
+        return (e as Error).message;
+      }
+    },
+    bibliothekPruefen() {
+      const b = lintBibliothek(ladeBibliothek(path.join(studioRoot, "library", "motion")));
+      return { fehler: b.filter((x) => x.stufe === "fehler").length, warnungen: b.filter((x) => x.stufe === "warnung").length };
+    },
+    notionZielPruefen() {
+      try {
+        ladeNotionZiel(studioRoot);
+        return undefined;
+      } catch (e) {
+        return (e as Error).message;
+      }
+    },
+  };
+}
+
 async function main(): Promise<number> {
   const a = parseArgs(process.argv.slice(2));
   const [gruppe, sub] = a.pos;
@@ -340,7 +429,18 @@ async function main(): Promise<number> {
     console.log(HILFE);
     return 0;
   }
-  const env = umgebung(studioRoot);
+  if (gruppe === "init") {
+    const r = initialisiere({ home: typeof a.opt["home"] === "string" ? a.opt["home"] : undefined });
+    console.log(`Studio-Ordner: ${r.home}${r.angelegt.length ? `\nAngelegt: ${r.angelegt.length} Ordner` : "\nBestand unverändert"}\nKonfiguration: ${r.config}\n\nNächste Schritte:\n  npm install\n  npx hyperframes browser ensure\n  npx hyperframes telemetry disable\n  npm run studio -- doctor`);
+    return 0;
+  }
+  if (gruppe === "doctor") {
+    const punkte = pruefeUmgebung(echteSonde());
+    console.log(formatiere(punkte));
+    return hatFehler(punkte) ? 1 : 0;
+  }
+  const home = studioHome();
+  const env = umgebung(studioRoot, home ? path.join(home.pfad, "daten") : undefined);
   if (gruppe === "motion" && sub) return motion(sub, a, env);
   if (gruppe === "ideen" && sub) return ideen(sub, a, env);
   console.error(HILFE);

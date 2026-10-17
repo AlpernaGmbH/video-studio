@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { pitch } from "./testing/fixtures";
+import { entwurf, pitch } from "./testing/fixtures";
 
 /**
  * Ruft die CLI als Prozess auf, so wie Claude Code und das Team sie benutzen.
@@ -143,5 +143,80 @@ describe("studio CLI", () => {
     const r = studio("motion", "gibt-es-nicht");
     expect(r.code).toBe(2);
     expect(r.err).toContain("Unbekannter Befehl");
+  });
+});
+
+describe("studio CLI: Notion", () => {
+  let daten: string;
+  const notion = (...args: string[]) => {
+    const r = spawnSync("npx", ["tsx", "src/cli.ts", ...args], { cwd: studioRoot, encoding: "utf8", env: { ...process.env, STUDIO_DATA_DIR: daten, STUDIO_LIBRARY_DIR: tmpLib } });
+    return { code: r.status, out: r.stdout, err: r.stderr };
+  };
+  const zeilen = (...z: Record<string, unknown>[]) => {
+    const datei = path.join(daten, "zeilen.json");
+    fs.writeFileSync(datei, JSON.stringify({ results: z, has_more: false }));
+    return datei;
+  };
+
+  beforeAll(() => {
+    daten = fs.mkdtempSync(path.join(os.tmpdir(), "studio-cli-notion-"));
+    fs.writeFileSync(path.join(daten, "entwurf.json"), JSON.stringify(entwurf()));
+    expect(notion("ideen", "neu", "--json", path.join(daten, "entwurf.json")).code).toBe(0);
+    expect(notion("ideen", "weiter", "m-001", "pitch", "--system", "--json", path.join(tmp, "pitch.json")).code).toBe(0);
+  });
+  afterAll(() => fs.rmSync(daten, { recursive: true, force: true }));
+
+  it("notion-zeile liefert Eigenschaften und Seitentext, aber keinen Entscheid", () => {
+    const r = notion("ideen", "notion-zeile", "m-001");
+    expect(r.code).toBe(0);
+    const z = JSON.parse(r.out) as { properties: Record<string, unknown>; inhalt: string };
+    expect(z.properties).toMatchObject({ "Idee-ID": "m-001", Status: "pitch", Quelle: "video", "OneDrive-Ordner": "Studio/daten/ideen/m-001" });
+    expect(z.properties).not.toHaveProperty("Entscheid");
+    expect(z.inhalt).toContain("## Pitch");
+  });
+
+  it("notion-alle nennt die Datenquelle aus notion.json", () => {
+    const r = JSON.parse(notion("ideen", "notion-alle").out) as { datenquelle: string; zeilen: { idee: string }[] };
+    expect(r.datenquelle).toMatch(/^collection:\/\/[0-9a-f-]{36}$/);
+    expect(r.zeilen.map((x) => x.idee)).toEqual(["m-001"]);
+  });
+
+  it("notion-lesen zeigt ohne --anwenden nur eine Vorschau und ändert nichts", () => {
+    const r = notion("ideen", "notion-lesen", "--json", zeilen({ "Idee-ID": "m-001", Status: "pitch", Entscheid: "freigegeben", "Entscheid von": "Andrej" }));
+    expect(r.code).toBe(0);
+    const b = JSON.parse(r.out) as { anwenden: boolean; angewendet: { text: string }[] };
+    expect(b.anwenden).toBe(false);
+    expect(b.angewendet[0]?.text).toMatch(/^\(Vorschau\)/);
+    expect(JSON.parse(notion("ideen", "zeigen", "m-001").out)).toMatchObject({ status: "pitch" });
+  });
+
+  it("notion-lesen ohne Namen übernimmt nichts und sagt warum", () => {
+    const r = notion("ideen", "notion-lesen", "--anwenden", "--json", zeilen({ "Idee-ID": "m-001", Status: "pitch", Entscheid: "freigegeben" }));
+    const b = JSON.parse(r.out) as { angewendet: unknown[]; hinweise: { hinweise: string[] }[] };
+    expect(b.angewendet).toEqual([]);
+    expect(b.hinweise[0]?.hinweise.join(" ")).toMatch(/ohne Namen/);
+    expect(JSON.parse(notion("ideen", "zeigen", "m-001").out)).toMatchObject({ status: "pitch" });
+  });
+
+  it("notion-lesen --anwenden führt die Freigabe eines Menschen nach, mit Name und Zeitpunkt", () => {
+    const r = notion("ideen", "notion-lesen", "--anwenden", "--json", zeilen({ "Idee-ID": "m-001", Status: "pitch", Entscheid: "freigegeben", "Entscheid von": "Andrej", "date:Entscheid am:start": "2026-10-17T09:30:00.000Z" }));
+    expect(r.code).toBe(0);
+    const b = JSON.parse(r.out) as { angewendet: { nach: string }[]; zeileNeuSchreiben: string[] };
+    expect(b.angewendet.map((x) => x.nach)).toEqual(["freigegeben"]);
+    expect(b.zeileNeuSchreiben).toEqual(["m-001"]);
+    const i = JSON.parse(notion("ideen", "zeigen", "m-001").out) as { status: string; entscheidung: { wer: string; wann: string } };
+    expect(i.status).toBe("freigegeben");
+    expect(i.entscheidung).toMatchObject({ wer: "Andrej", wann: "2026-10-17T09:30:00.000Z" });
+  });
+
+  it("notion-lesen ist wiederholbar: derselbe Entscheid ein zweites Mal ändert nichts", () => {
+    const r = notion("ideen", "notion-lesen", "--anwenden", "--json", zeilen({ "Idee-ID": "m-001", Status: "freigegeben", Entscheid: "freigegeben", "Entscheid von": "Andrej" }));
+    expect(r.code).toBe(0);
+    expect((JSON.parse(r.out) as { angewendet: unknown[] }).angewendet).toEqual([]);
+  });
+
+  it("notion-lesen meldet Zeilen ohne Idee, zum Beispiel einen Auftrag von Hand", () => {
+    const r = notion("ideen", "notion-lesen", "--json", zeilen({ Titel: "Karte mit Pin", url: "https://app.notion.com/p/abc" }));
+    expect((JSON.parse(r.out) as { ohneIdee: { titel: string }[] }).ohneIdee).toEqual([{ url: "https://app.notion.com/p/abc", titel: "Karte mit Pin" }]);
   });
 });

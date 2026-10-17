@@ -23,14 +23,15 @@ export interface Umgebung {
   datenDir: string;
 }
 
-export function umgebung(studioRoot: string): Umgebung {
+/** `standardDaten`: Datenordner, wenn STUDIO_DATA_DIR nicht gesetzt ist (im Betrieb der Ordner «daten» im Studio-Ordner auf OneDrive). */
+export function umgebung(studioRoot: string, standardDaten?: string): Umgebung {
   return {
     studioRoot,
     bibliothek: process.env["STUDIO_LIBRARY_DIR"] ?? path.join(studioRoot, "library", "motion"),
     schriftenDir: path.join(studioRoot, "assets", "fonts"),
     markenDir: path.join(studioRoot, "marken"),
     arbeitsDir: path.join(studioRoot, ".cache"),
-    datenDir: process.env["STUDIO_DATA_DIR"] ?? path.join(studioRoot, "data"),
+    datenDir: process.env["STUDIO_DATA_DIR"] ?? standardDaten ?? path.join(studioRoot, "data"),
   };
 }
 

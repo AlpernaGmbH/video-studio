@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "hinweis": "Nur Kennungen, keine Zugangsdaten. Zugriff regelt Notion selbst (Seite teilen).",
+  "wurzelSeite": "3fc6be18-6e9b-8104-82a1-f544b2dd2247",
+  "ideen": {
+    "datenbank": "15f84105-9237-4486-9cdf-4ffa7e3df519",
+    "datenquelle": "collection://eb7c05cf-3134-49aa-9989-b915027e8749"
+  }
+}
