@@ -55,6 +55,7 @@ const INHALTE = () => [
   inhalt(3, { Titel: "Entwurf Zahnarzt", Status: "Entwurf fertig", "Offene Markierungen": 0 }),
   inhalt(4, { Titel: "In Arbeit", Status: "In Produktion" }),
   inhalt(5, { Titel: "Wartet", "Tor I Entscheid": "freigegeben", "Tor I von": "Leander" }),
+  inhalt(6, { Titel: "Mit Rohstoff", Beleg: 'Illustration. Rohstoff: <mention-page url="https://app.notion.com/p/3fc6be186e9b81a0af4bfa3182e64f54">Marketing System</mention-page>', Hook: "Ganz anderer Satz ohne Bezug 6.", Status: "Neu" }),
 ];
 const SEITENTEXT = "Praxis Hofer in Herisau hat die Wartezeit von 32 auf 14 Minuten gesenkt.\n\nWie das ging, steht hier.";
 
@@ -338,7 +339,7 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
   await t("Inhalte: Tor-I- und Tor-P-Karten stehen in der Warteschlange, Gate 0 offen ist sichtbar, Wartende stehen bei Claude", async () => {
     const { page, ctx } = await mitInhalten();
     assert.equal(await page.locator("#z-queue").textContent(), "7"); // 4 Motion + 2 Tor I + 1 Tor P
-    assert.equal(await page.locator("#z-inhalte").textContent(), "5");
+    assert.equal(await page.locator("#z-inhalte").textContent(), "6");
     const q = await page.locator("#p-queue").textContent();
     assert.match(q, /Wartezeit/); assert.match(q, /Entwurf Zahnarzt/); assert.match(q, /Gate 0 offen/);
     assert.match(await page.locator("#p-queue .tabelle").textContent(), /Wartet/); // c-0005: Tor I schon entschieden
@@ -474,7 +475,7 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
   });
 
   await t("Wochenmodus: Idee für Idee, Fortschritt, Überspringen, am Ende die Zusammenfassung", async () => {
-    const rows = INHALTE(); rows.push(inhalt(6, { Titel: "Dritte Idee", Hook: "Ein neuer Satz mit anderem Inhalt." }));
+    const rows = INHALTE(); rows.push(inhalt(7, { Titel: "Dritte Idee", Hook: "Ein neuer Satz mit anderem Inhalt." }));
     const { page, ctx } = await seite({ inhalte: rows, marken: MARKEN("freigegeben", "Andrej"), optionen: { name: "Andrej" } });
     await page.click("#wochen-start");
     assert.equal(await page.locator("#wochen-stand").textContent(), "Idee 1 von 3");
@@ -539,10 +540,24 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     await ctx.close();
   });
 
+  await t("Eine Notion-Erwähnung im Beleg erscheint als Name, nicht als Rohtext", async () => {
+    const { page, ctx } = await mitInhalten();
+    await page.click("#t-inhalte");
+    await page.locator(".zeile-idee a", { hasText: "Mit Rohstoff" }).waitFor();
+    const rows = await page.evaluate(() => window.__inhalte[5].Beleg);
+    assert.match(rows, /<mention-page/); // so liefert es Notion
+    const { page: p2, ctx: c2 } = await seite({ inhalte: [inhalt(1, { Beleg: 'Rohstoff: <mention-page url="https://app.notion.com/p/3fc6be186e9b81a0af4bfa3182e64f54">Marketing System</mention-page>' })], marken: MARKEN(), optionen: { name: "Andrej" } });
+    await p2.locator(".karte-kopf", { hasText: "c-0001" }).click();
+    const t = await p2.locator("#p-queue .karte-inhalt").textContent();
+    assert.match(t, /Rohstoff: Marketing System/);
+    assert.doesNotMatch(t, /mention-page/);
+    await c2.close(); await ctx.close();
+  });
+
   await t("Inhalte-Tab: alle Zeilen, Filter nach Stand", async () => {
     const { page, ctx } = await mitInhalten();
     await page.click("#t-inhalte");
-    assert.equal(await page.locator("#p-inhalte .zeile-idee").count(), 5);
+    assert.equal(await page.locator("#p-inhalte .zeile-idee").count(), 6);
     await page.selectOption("#filter-inhalte", "In Produktion");
     assert.equal(await page.locator("#p-inhalte .zeile-idee").count(), 1);
     assert.match(await page.locator("#p-inhalte").textContent(), /In Arbeit/);

@@ -93,6 +93,9 @@ Gebaut in `src/inhalte/` (Plan v3, Kapitel 3 und 7), 150 Tests, jede Regel per M
 
 **Fund beim Bauen:** Ein Entscheid, der im selben Zeitraum fällt, in dem die Zeile die Stufe erreicht, wurde zuerst als «von früher» gelöscht. Behoben: Der Stand hält einen Entscheid erst beim Verlassen der Stufe fest.
 
+**Beispielzeilen in Notion** (angelegt am 17.10., alle als «Beispiel» gekennzeichnet, ohne Zahlen): `c-0001` Reel und `c-0002` LinkedIn-Post (beide «Pitch bereit», für Tor I und den Wochenmodus), `c-0003` Google-Beitrag mit Entwurf (für Tor P). Der **erste Abgleich auf dieser Datenbank muss mit `--erstlauf` laufen**, sonst setzt er die Beispiele auf «Neu» zurück (neue Zeilen beginnen immer in «Neu»). Später löschen oder verwerfen.
+Beim Anlegen gefunden und behoben: Der Rohstoff-Verweis erkannte `app.notion.com` nicht, und Notion macht aus einer Adresse im Textfeld eine Erwähnung (`<mention-page …>`), die der Code jetzt als «Name (Adresse)» liest und der Prüfplatz als Name zeigt.
+
 **Offen:**
 1. In der Notion-Datenbank «Inhalte» fehlen zwei Textspalten: **«Status von»** und **«Status-Grund»**. Ohne sie lassen sich Pausieren, Verwerfen aus der Produktion und «Veröffentlicht» bei Manuell/Paket nicht von Hand setzen (der Abgleich setzt sie zurück). Der Prüfplatz füllt sie später. Wird mit den übrigen Datenbanken ergänzt.
 2. `marken/alperna.json` hat `schnittprofil.textlaengen` leer: Die Längenprüfung des Texts ist damit aus. Zahlen dafür fehlen (keine Zahl ohne Quelle). Bitte Zielwerte je Format nennen.

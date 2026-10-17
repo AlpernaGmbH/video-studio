@@ -88,6 +88,16 @@ describe("Kein Post ohne Rohstoff", () => {
     expect(rohstoffFehlt(inhalt({ format: "LinkedIn-Post", quelle: "Rohstoff", referenz: "https://example.ch/x" }))).toBe(true);
   });
 
+  it("versteht die Adressen, die der Notion-Konnektor liefert (app.notion.com), und nur Notion", () => {
+    const post = (beleg: string) => inhalt({ format: "LinkedIn-Post", beleg });
+    expect(rohstoffFehlt(post("Wartezeit auf 14 Minuten, siehe https://app.notion.com/p/3fc6be186e9b81a0af4bfa3182e64f54"))).toBe(false);
+    expect(rohstoffFehlt(post("siehe https://www.notion.so/Rohstoff-3fc6be186e9b81a0af4b"))).toBe(false);
+    expect(rohstoffFehlt(post("siehe https://team.notion.site/Rohstoff-3fc6"))).toBe(false);
+    for (const falsch of ["https://notion.com.evil.ch/x", "https://evilnotion.com/x", "https://example.ch/notion.com/x", "notion.so/ohne-schema"]) {
+      expect(rohstoffFehlt(post("Wartezeit auf 14 Minuten, " + falsch)), falsch).toBe(true);
+    }
+  });
+
   it("andere Formate brauchen keinen Rohstoff-Eintrag", () => {
     expect(rohstoffFehlt(inhalt({ format: "Reel" }))).toBe(false);
   });

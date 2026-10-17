@@ -298,7 +298,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
 
   const seitenId = (u) => { const t = typeof u === "string" ? u.match(/[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}/gi) : null; return t ? t[t.length - 1].replace(/-/g, "").toLowerCase() : ""; };
   const liste = (v) => { if (Array.isArray(v)) return v.filter((x) => typeof x === "string"); try { const p = JSON.parse(v || "[]"); return Array.isArray(p) ? p.filter((x) => typeof x === "string") : []; } catch { return []; } };
-  const textVon = (z, k) => (typeof z[k] === "string" ? z[k].replace(/<br\s*\/?>/gi, "\n").trim() : "");
+  const textVon = (z, k) => (typeof z[k] === "string" ? z[k].replace(/<br\s*\/?>/gi, "\n").replace(/<mention-[a-z-]+ url="([^"]*)"[^>]*>([^<]*)<\/mention-[a-z-]+>/gi, (_m, u, n) => n.trim() || u).trim() : "");
   const hatMensch = (von) => !!von && !!von.trim() && !SYSTEMNAMEN.test(von.trim());
 
   /** Eine Zeile der Ansicht «Inhalte». Die Namen der Spalten stehen in der Datenbank genau so. */

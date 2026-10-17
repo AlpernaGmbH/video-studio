@@ -48,6 +48,12 @@ describe("zeileZuInhalt", () => {
     expect(i.erstellt).toBe("2026-10-10T08:00:00.000Z");
   });
 
+  it("macht aus einer Erwähnung, die Notion für eine Adresse einsetzt, lesbaren Text mit Adresse", () => {
+    const beleg = 'Illustration. Rohstoff: <mention-page url="https://app.notion.com/p/3fc6be186e9b81a0af4bfa3182e64f54">Marketing System</mention-page>';
+    expect(zeileZuInhalt(zeile({ Beleg: beleg })).beleg).toBe("Illustration. Rohstoff: Marketing System (https://app.notion.com/p/3fc6be186e9b81a0af4bfa3182e64f54)");
+    expect(zeileZuInhalt(zeile({ Beleg: '<mention-page url="https://x.ch/a"></mention-page>' })).beleg).toBe("https://x.ch/a");
+  });
+
   it("unbekannte Auswahlwerte werden zu leer, nicht zu etwas Gültigem", () => {
     const i = zeileZuInhalt(zeile({ Format: "Podcast", Status: "Fertig", "Tor I Entscheid": "ja" }), markenNachId);
     expect(i.format).toBeUndefined();

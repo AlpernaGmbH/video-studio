@@ -61,7 +61,7 @@ export function pflichtLuecken(i: Inhalt): string[] {
 /** «Kein Post ohne Rohstoff» (Cockpit, Plan v3, 5.2): Ein LinkedIn-Post braucht den Verweis auf einen Rohstoff-Eintrag in Notion. */
 export function rohstoffFehlt(i: Inhalt): boolean {
   if (i.format !== "LinkedIn-Post") return false;
-  const notion = /https?:\/\/(?:www\.)?notion\.(?:so|com)\//i;
+  const notion = /https?:\/\/(?:[\w-]+\.)*notion\.(?:so|com|site)\//i;
   return !(notion.test(i.beleg) || (i.quelle === "Rohstoff" && notion.test(i.referenz)));
 }
 

@@ -72,9 +72,12 @@ export interface Inhalt {
   erstellt: string;
 }
 
+/** Notion macht aus einer Adresse in einem Textfeld eine Erwähnung: `<mention-page url="…">Name</mention-page>`. Gelesen wird «Name (Adresse)». */
+const ERWAEHNUNG = /<mention-[a-z-]+ url="([^"]*)"[^>]*>([^<]*)<\/mention-[a-z-]+>/gi;
+
 function text(z: Zeile, name: string): string {
   const v = z[name];
-  return typeof v === "string" ? v.replace(/<br\s*\/?>/gi, "\n").trim() : "";
+  return typeof v === "string" ? v.replace(/<br\s*\/?>/gi, "\n").replace(ERWAEHNUNG, (_m, url: string, name: string) => (name.trim() ? `${name.trim()} (${url})` : url)).trim() : "";
 }
 
 function wahl<T extends string>(z: Zeile, name: string, erlaubt: readonly T[]): T | undefined {
