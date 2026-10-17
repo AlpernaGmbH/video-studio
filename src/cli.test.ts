@@ -38,9 +38,13 @@ describe("studio CLI", () => {
   });
 
   it("motion vars löst auf und lehnt unbekannte Parameter ab", () => {
-    const ok = studio("motion", "vars", "zahl-zaehler", "--set", "wert=7", "--set", "suffix= von 10", "--dauer", "2.6");
+    const ok = studio("motion", "vars", "zahl-zaehler", "--set", "wert=7", "--set", "suffix= von 10", "--set", "label=Termine vergeben", "--dauer", "2.6");
     expect(ok.code).toBe(0);
-    expect(JSON.parse(ok.out)).toMatchObject({ wert: 7, suffix: " von 10", dauer: 2.6 });
+    expect(JSON.parse(ok.out)).toMatchObject({ wert: 7, suffix: " von 10", label: "Termine vergeben", dauer: 2.6 });
+    // Marken-Regel «nie eine Zahl ohne Kontext»: ohne Beschriftung gibt es keinen Einsatz
+    const ohneKontext = studio("motion", "vars", "zahl-zaehler", "--set", "wert=7");
+    expect(ohneKontext.code).toBe(1);
+    expect(ohneKontext.err).toContain("Pflichtparameter «label» fehlt");
     const schlecht = studio("motion", "vars", "zahl-zaehler", "--set", "wert=7", "--set", "farbe=rot");
     expect(schlecht.code).toBe(1);
     expect(schlecht.err).toContain("Unbekannter Parameter «farbe»");
