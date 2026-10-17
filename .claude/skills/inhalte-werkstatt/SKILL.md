@@ -26,7 +26,9 @@ höchstens «offen». Notion erzwingt keine Übergangsregeln, deshalb prüft der
 
 ## Text schreiben und prüfen (LinkedIn-Post, Blog, Google-Beitrag)
 
-Ein Post braucht einen Rohstoff: Der Beleg verweist auf einen Eintrag in Notion, jede Zahl im Text steht im Beleg. Entwurf in eine Datei, dann:
+Ein Post braucht einen Rohstoff: Der Beleg verweist auf einen Eintrag in der Datenbank «Rohstoffe» (`notion.json`, `rohstoffe`), jede Zahl im Text steht im Beleg.
+Fehlt der Rohstoff, frag den Menschen nach dem Fakt, statt ihn zu erfinden. Neue Rohstoffe trägst du mit Marke, Konkretem und Beleg ein, «Bestätigt von» und «Bestätigt am» füllt ein Mensch.
+Ideen aus der Datenbank «Inspiration» übernimmst du nur als Struktur, nie als Text; der Link steht in «Referenz» (Quelle «Viral-Liste»). Entwurf in eine Datei, dann:
 `npm run studio -- inhalte textpruefen --marke alperna --format "LinkedIn-Post" --text-datei entwurf.txt --beleg-datei beleg.txt --id c-0007`
 Exit-Code 1 heisst: Fehler beheben, nicht abschwächen. Erst bei bestandener Prüfung den Status auf «Entwurf fertig» setzen. Die Prüfung ersetzt kein Urteil über Ton und Inhalt.
 Bei Reels und Carousels vermerkt die Render-Prüfung das Ergebnis: `inhalte pruefung c-0007 --bestanden` oder `--nicht-bestanden --text "…"`.

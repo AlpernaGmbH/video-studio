@@ -84,6 +84,11 @@ Wird die Ansicht in Notion gelöscht oder gefiltert, stimmt der Prüfplatz nicht
 - Ein Artifact mit Notion-Zugriff lässt sich nicht öffentlich teilen.
 - Notion liefert Zeilenumbrüche in Textfeldern als `<br>`. Der Code übersetzt sie beim Lesen.
 
+## Marketing System: Datenbanken
+
+Alle unter der Seite «Marketing System», Kennungen und Ansichten in `notion.json`: **Motion-Ideen** (Video-Studio), **Marken** (Gate 0), **Inhalte** (Lebenslauf mit Toren), **Rohstoffe** (echte Fakten als Beleg, «Kein Post ohne Rohstoff») und **Inspiration** (Viral-Liste, nur Struktur, nie Text).
+Bestand und Herkunft: `docs/marketing-system-bestand.md`. Die Verknüpfungen: Inhalte zu Marken, Rohstoffe zu Marken und Inhalten, Inspiration zu Marken und Inhalten.
+
 ## Inhalte, Tor I, Tor P und Gate 0 (Prüfplatz ab Version 3)
 
 Der Prüfplatz liest zusätzlich die Ansichten «Inhalte» und «Marken». Er schreibt dort nur die Entscheide eines Menschen mit Namen:

@@ -18,5 +18,15 @@
     "datenbank": "923dbb7b-98ef-4abd-bfca-cdd777367dbb",
     "datenquelle": "collection://a434b598-8c17-43d0-a1f6-05b422c70277",
     "ansicht": "view://3fc6be18-6e9b-817b-a388-000c00ccb158"
+  },
+  "rohstoffe": {
+    "datenbank": "55b97a2a-c063-48c4-bd42-49f511c8065b",
+    "datenquelle": "collection://42ac830b-738a-4413-9545-3b6844100ec0",
+    "ansicht": "view://47d7403d-223d-47c5-8e2f-3b03977487fb"
+  },
+  "inspiration": {
+    "datenbank": "d3e37a58-bf6b-4c71-9a92-a19ca8b6e342",
+    "datenquelle": "collection://daf9d673-35a6-4986-98bc-c2962e8cfab8",
+    "ansicht": "view://1a698f8d-db24-4555-a304-8053a0a4b350"
   }
 }

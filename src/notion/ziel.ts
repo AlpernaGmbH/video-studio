@@ -26,6 +26,10 @@ export const NotionZiel = z.object({
   motionIdeen: Datenbank,
   marken: Datenbank,
   inhalte: Datenbank,
+  /** Echte Fakten und Erlebnisse als Beleg. Kein Post ohne Rohstoff. */
+  rohstoffe: Datenbank,
+  /** Die Viral-Liste: fremde Beiträge mit dem Gerüst dahinter, nur Struktur, nie Text. */
+  inspiration: Datenbank,
 });
 export type NotionZiel = z.infer<typeof NotionZiel>;
 

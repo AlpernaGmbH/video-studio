@@ -93,6 +93,8 @@ Gebaut in `src/inhalte/` (Plan v3, Kapitel 3 und 7), 150 Tests, jede Regel per M
 
 **Fund beim Bauen:** Ein Entscheid, der im selben Zeitraum fällt, in dem die Zeile die Stufe erreicht, wurde zuerst als «von früher» gelöscht. Behoben: Der Stand hält einen Entscheid erst beim Verlassen der Stufe fest.
 
+**Marketing System in Notion** (17.10.): neu angelegt **Rohstoffe** (13 Spalten, Beleg mit Link, «Bestätigt von/am», Kundenfreigabe, Marke) und **Inspiration** (Viral-Liste), beide leer, mit Verknüpfung zu Marken und Inhalten, eingetragen in `notion.json`. Bestand der Seiten Instagram und LinkedIn ausgewertet: `docs/marketing-system-bestand.md`. Offen: Soll der Rohstoff-Speicher (48) und das Beiträge-Archiv (95) vom LinkedIn-Cockpit übernommen werden? Kundendaten darin.
+
 **Beispielzeilen in Notion** (angelegt am 17.10., alle als «Beispiel» gekennzeichnet, ohne Zahlen): `c-0001` Reel und `c-0002` LinkedIn-Post (beide «Pitch bereit», für Tor I und den Wochenmodus), `c-0003` Google-Beitrag mit Entwurf (für Tor P). Der **erste Abgleich auf dieser Datenbank muss mit `--erstlauf` laufen**, sonst setzt er die Beispiele auf «Neu» zurück (neue Zeilen beginnen immer in «Neu»). Später löschen oder verwerfen.
 Beim Anlegen gefunden und behoben: Der Rohstoff-Verweis erkannte `app.notion.com` nicht, und Notion macht aus einer Adresse im Textfeld eine Erwähnung (`<mention-page …>`), die der Code jetzt als «Name (Adresse)» liest und der Prüfplatz als Name zeigt.
 
