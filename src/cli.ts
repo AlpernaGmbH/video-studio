@@ -449,7 +449,7 @@ async function main(): Promise<number> {
   }
   if (gruppe === "init") {
     const r = initialisiere({ home: typeof a.opt["home"] === "string" ? a.opt["home"] : undefined, medien: typeof a.opt["medien"] === "string" ? a.opt["medien"] : undefined });
-    console.log(`Studio-Ordner: ${r.home}${r.medien ? `\nMedien-Ordner: ${r.medien}` : ""}${r.angelegt.length ? `\nAngelegt: ${r.angelegt.length} Ordner` : "\nBestand unverändert"}\nKonfiguration: ${r.config}\n\nNächste Schritte:\n  npm install\n  npx hyperframes browser ensure\n  npx hyperframes telemetry disable\n  npm run studio -- doctor`);
+    console.log(`Studio-Ordner: ${r.home}${r.medien ? `\nMedien-Ordner: ${r.medien}` : ""}${r.angelegt.length ? `\nAngelegt: ${r.angelegt.length} Ordner` : "\nBestand unverändert"}\nKonfiguration: ${r.config}\n\nNächste Schritte:\n  npm install\n  npx hyperframes@0.8.164 browser ensure\n  npx hyperframes@0.8.164 telemetry disable\n  npm run studio -- doctor`);
     return 0;
   }
   if (gruppe === "doctor") {

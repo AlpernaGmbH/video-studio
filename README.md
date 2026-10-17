@@ -10,8 +10,8 @@ Stand und offene Punkte: `STATUS.md`.
 git clone https://github.com/AlpernaGmbH/video-studio.git && cd video-studio
 npm install
 npm run studio -- init              # Studio-Ordner in OneDrive anlegen, Pfad für diesen Mac merken
-npx hyperframes browser ensure      # lädt Chrome Headless Shell
-npx hyperframes telemetry disable   # wegen Kundenmaterial
+npx hyperframes@0.8.164 browser ensure      # lädt Chrome Headless Shell
+npx hyperframes@0.8.164 telemetry disable   # wegen Kundenmaterial
 npm run studio -- doctor            # prüft Node, ffmpeg, OneDrive, Protokoll, Bibliothek, Notion-Ziel
 npm run check                       # Typecheck, Tests, Lint der Bibliothek
 npm run selftest:render             # rendert jedes Stück wirklich und prüft das Ergebnis

@@ -40,8 +40,8 @@ Entschieden und übernommen: Marke gilt, Schnittstil als Feld im Markenprofil (A
 
 | Test | Stand |
 |---|---|
-| T1 | Teilwert Overlay (`npm run selftest:render`), Gesamttest erst mit Pipeline |
-| T1b | Messskript `npm run t1b` gebaut. Linux: 8,3 s fest plus 1,8 s je Sekunde Video, sechs Overlays einzeln 77 s, als eine Komposition 35 s. **Mac fehlt** |
+| T1 | Teilwert Overlay auf Mac mini M4: 2,0- bis 2,5-fache Echtzeit, vier Beispiele bestanden. Gesamttest (10 s mit Captions, Zoom, Effekt) erst mit Pipeline. M5 fehlt |
+| T1b | Mac mini M4 (16 GB): 2,4 s fest plus 0,85 s je Sekunde Video, sechs Overlays einzeln 27 s, als eine Komposition 15 s. Empfehlung: eine Datei je Overlay (siehe «Gemessen»). Zweiter Mac (M5) fehlt |
 | T2 | braucht Skript-Abgleich (nicht gebaut) |
 | T3 | bestanden für eine Person (Andrej), Leander offen |
 | T4, T5 | Anleitung in `docs/phase0-mac.md`, **Mac fehlt** |
@@ -93,7 +93,23 @@ Ausgang, kein waagrechtes Scrollen bei 390 px, Tastaturbedienung, keine Konsolen
 - ob `Notion` der richtige Anzeigename deines Konnektors ist (Erwartung: ja, so heisst er in dieser Session).
 Beim ersten Gebrauch bitte genau einen Pitch freigeben und in Notion nachsehen, ob die Felder stimmen.
 
-## Gemessen (Linux x64, 4 Kerne Xeon, 16 GB, Software-GL, HyperFrames 0.8.164, Chrome Headless Shell 152)
+## Gemessen auf dem Mac mini (Apple M4, 10 Kerne, 16 GB, darwin arm64, HyperFrames 0.8.164 (gepinnt), Chrome Headless Shell 152, 17.10.2026)
+
+`npm run selftest:render`: bestanden. `npm run t1b`: bestanden.
+
+| Was | Wert |
+|---|---|
+| Overlay 2,4 bis 3,0 s als WebM mit Alpha (vier Beispiele) | 4,9 bis 7,4 s Renderzeit (2,0- bis 2,5-fache Echtzeit) |
+| `hyperframes check` | 9,9 s |
+| T1b, Modell | Renderzeit = 2,4 s fest + 0,85 s je Sekunde Video |
+| T1b, sechs Overlays zu 2,5 s (15 s) | einzeln 27 s, als eine Komposition 15 s, Unterschied 12 s |
+
+**Einordnung.** [Sicher] Das ist ein einzelnes transparentes Overlay, nicht T1. T1 verlangt höchstens 3-fache Echtzeit für 10 s mit Captions, Zoom und einem Effekt.
+[Wahrscheinlich] Das Overlay allein liegt schon bei 2,0 bis 2,5, die Reserve bis 3 ist klein; ob T1 hält, zeigt erst die Pipeline mit echtem Reel.
+**T1b-Empfehlung:** Der feste Aufwand ist auf dem Mac klein (2,4 s). Eine Datei je Overlay kostet bei sechs Overlays 12 s mehr, bleibt cachefähig und engine-neutral.
+Entscheid für «eine Datei je Overlay», solange T1 mit der Pipeline nicht das Gegenteil zeigt. **Wartet auf dein Ja.** Der M5 fehlt noch.
+
+## Gemessen auf Linux (Container, nicht der Zielrechner; x64, 4 Kerne Xeon, 16 GB, Software-GL, HyperFrames 0.8.164, Chrome Headless Shell 152)
 
 | Was | Wert |
 |---|---|
@@ -130,7 +146,7 @@ ist, alle Overlays in einer einzigen Komposition zu rendern (ein Render, aber ke
 ## Datenschutz
 
 - `hyperframes snapshot` schickt Bilder an Gemini, **sobald `GEMINI_API_KEY` gesetzt ist**. Der Code schaltet das fest ab (`--describe false`). Die Variable bleibt auf Render-Rechnern ungesetzt.
-- HyperFrames sendet standardmässig anonyme Nutzungsdaten. Pro Rechner `npx hyperframes telemetry disable` (im Container dieser Session ist es abgeschaltet, auf den Macs noch zu tun).
+- HyperFrames sendet standardmässig anonyme Nutzungsdaten. Pro Rechner `npx hyperframes@0.8.164 telemetry disable` (im Container dieser Session ist es abgeschaltet, auf den Macs noch zu tun).
 
 ## Neue Abhängigkeiten (Begründung)
 

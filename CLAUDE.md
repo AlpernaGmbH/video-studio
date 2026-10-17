@@ -32,7 +32,7 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 3. **Das Storyboard benutzt nur aktive Stücke und nur B-Roll mit gültigem Katalog-Schlüssel.**
 4. **Kein Netz beim Rendern.** Keine externen Skripte, Schriften oder Bilder im HTML (der Lint verbietet es). GSAP liegt lokal.
 5. **Keine Kundenbilder an externe Dienste.** `snapshot` läuft fest mit `--describe false`. `GEMINI_API_KEY` bleibt ungesetzt.
-   HyperFrames-Telemetrie pro Rechner abschalten: `npx hyperframes telemetry disable`.
+   HyperFrames-Telemetrie pro Rechner abschalten: `npx hyperframes@0.8.164 telemetry disable`.
 6. **Der genaue Satz einer Idee steht wörtlich im Protokoll.** Nie umformulieren.
 7. **Keine Zahl ohne Quelle.** Beispiele in Datenblättern sind erfundene Illustrationen.
 8. Pfade im Katalog sind relativ zu `Studio/` und NFC-normalisiert (`src/core/paths.ts`).
@@ -43,7 +43,7 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 
 1. `STATUS.md` lesen, dann arbeiten. Eine Aufgabe, ein Commit.
 2. Vor jedem Commit: `npm run check` (Typecheck, Tests, Lint der Bibliothek). **Den Exit-Code prüfen**, nicht nur die Ausgabe: Eine Pipe mit `grep` oder `tail` verschluckt ihn. Bei Änderungen an Stücken oder Render-Code zusätzlich
-   `npm run selftest:render` (rendert wirklich, braucht Chrome Headless Shell: `npx hyperframes browser ensure`).
+   `npm run selftest:render` (rendert wirklich, braucht Chrome Headless Shell: `npx hyperframes@0.8.164 browser ensure`).
 3. Neue Stücke nur über `npm run studio -- motion neu …`. Das Gerüst erfüllt den Stück-Vertrag (Kopf von `src/motion/stueck.ts`).
 4. Neue Regel im Code heisst: Test, der ohne die Regel scheitert. Tests, die nur die Fixture prüfen, sind keine Tests.
 5. Keine neuen Abhängigkeiten ohne Eintrag in `STATUS.md` mit Begründung und Lizenz.

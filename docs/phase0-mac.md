@@ -20,8 +20,8 @@ Erwartet: «Studio-Ordner: …/OneDrive-…/Studio». Bei «Mehrere OneDrive-Ord
 Dann im **Finder**: OneDrive → `Studio` → Rechtsklick → «Immer auf diesem Gerät behalten». Sonst sind Dateien nur Platzhalter.
 
 ```sh
-npx hyperframes browser ensure        # lädt den Browser zum Rendern, einmalig
-npx hyperframes telemetry disable     # wegen Kundenmaterial
+npx hyperframes@0.8.164 browser ensure        # lädt den Browser zum Rendern, einmalig
+npx hyperframes@0.8.164 telemetry disable     # wegen Kundenmaterial
 npm run studio -- doctor              # Erwartet: kein «FEHLER»; «Hinweis» ist in Ordnung
 npm run check                         # Erwartet: alle Tests grün, «0 Fehler» beim Lint (rund 1 Minute)
 ```

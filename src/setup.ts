@@ -237,7 +237,7 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
   if (nz) add("fehler", "Notion", nz);
   else add("ok", "Notion", "notion.json ist gültig. Zugriff hängt am Notion-Konto in Claude (Seite «Video-Studio» muss geteilt sein)");
 
-  add("hinweis", "HyperFrames", "Einmal je Mac: «npx hyperframes browser ensure» und «npx hyperframes telemetry disable» (wegen Kundenmaterial)");
+  add("hinweis", "HyperFrames", "Einmal je Mac: «npx hyperframes@0.8.164 browser ensure» und «npx hyperframes@0.8.164 telemetry disable» (wegen Kundenmaterial)");
   return p;
 }
 

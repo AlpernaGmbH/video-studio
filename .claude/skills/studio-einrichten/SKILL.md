@@ -15,7 +15,7 @@ Der steht in `~/.config/video-studio/config.json` (ausserhalb von Repo und OneDr
 2. Voraussetzungen: Node 22 oder neuer (`node -v`), ffmpeg und ffprobe (`brew install ffmpeg`).
 3. Repo holen: `git clone https://github.com/AlpernaGmbH/video-studio.git`, dann `cd video-studio && npm install`.
 4. `npm run studio -- init`. Er findet den OneDrive-Ordner. Gibt es mehrere, nennt er sie, und du gibst `--home "<Ordner>/Studio"` an. Rate den Pfad nie.
-5. HyperFrames einmal je Mac: `npx hyperframes browser ensure` und `npx hyperframes telemetry disable` (wegen Kundenmaterial). `GEMINI_API_KEY` bleibt ungesetzt.
+5. HyperFrames einmal je Mac: `npx hyperframes@0.8.164 browser ensure` und `npx hyperframes@0.8.164 telemetry disable` (wegen Kundenmaterial). `GEMINI_API_KEY` bleibt ungesetzt.
 6. `npm run studio -- doctor`. Alles muss «ok» oder «Hinweis» sein. Bei «FEHLER» zuerst dort ansetzen.
 7. `npm run check` (Typecheck, Tests, Lint der Bibliothek). Danach `npm run selftest:render` und die Zeiten in `STATUS.md` eintragen (Test T1 des Bauplans).
 8. Notion: Claude (App oder Claude Code) braucht die Notion-Verbindung des Kontos, und die Seite «Video-Studio» muss mit dem Konto geteilt sein.
