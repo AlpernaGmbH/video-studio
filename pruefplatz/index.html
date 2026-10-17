@@ -196,7 +196,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   <p class="fuss" id="fuss"></p>
 </div>
 
-<script type="application/json" id="daten">/*__DATEN__*/{"notion":{"datenquelle":"collection://00000000-0000-0000-0000-000000000000"},"bibliothek":[],"marke":null,"erzeugt":""}</script>
+<script type="application/json" id="daten">/*__DATEN__*/{"notion":{"ansicht":"view://00000000-0000-0000-0000-000000000000"},"bibliothek":[],"marke":null,"erzeugt":""}</script>
 <script>
 (() => {
   "use strict";
@@ -240,7 +240,24 @@ dd { margin: 0; overflow-wrap: anywhere; }
   async function aufruf(tool, input) {
     return ergebnis(await S.mcp.callTool(SERVER, tool, input, { cache: false }));
   }
-  const abfrage = (extra) => ({ data: Object.assign({ mode: "rows", data_source_url: DATEN.notion.datenquelle, limit: 100 }, extra || {}) });
+  /**
+   * Gelesen wird über eine gespeicherte Ansicht (Modus «view»). SQL und der Modus «rows» zählen gegen ein knappes Kontingent des
+   * Arbeitsbereichs; die Ansicht nicht. Die Ansicht zeigt alle Eigenschaften und hat keinen Filter.
+   */
+  const abfrage = (cursor) => ({ data: Object.assign({ mode: "view", view_url: DATEN.notion.ansicht, page_size: 100 }, cursor ? { start_cursor: cursor } : {}) });
+  /** Liest die Ansicht seitenweise bis zu 5 Seiten (500 Ideen). Gibt Zeilen und die Angabe zurück, ob es mehr gäbe. */
+  async function alleZeilen() {
+    let cursor = null, zeilen = [], mehr = false;
+    for (let seite = 0; seite < 5; seite++) {
+      const p = await aufruf("notion-query-data-sources", abfrage(cursor));
+      if (!p || !Array.isArray(p.results)) throw { code: "form", message: "Die Antwort von Notion hat nicht das erwartete Format." };
+      zeilen = zeilen.concat(p.results);
+      mehr = !!p.has_more;
+      cursor = p.next_cursor || null;
+      if (!mehr || !cursor) break;
+    }
+    return { zeilen, mehr };
+  }
 
   function modell(z) {
     const t = (k) => (typeof z[k] === "string" ? z[k].replace(/<br\s*\/?>/gi, "\n").trim() : "");
@@ -275,10 +292,9 @@ dd { margin: 0; overflow-wrap: anywhere; }
     S.laden = "laden";
     if (!still) zeichne();
     try {
-      const p = await aufruf("notion-query-data-sources", abfrage());
-      if (!p || !Array.isArray(p.results)) throw { code: "form", message: "Die Antwort von Notion hat nicht das erwartete Format." };
-      S.zeilen = p.results.map(modell).filter((m) => m.id).sort((a, b) => a.id.localeCompare(b.id));
-      S.hatMehr = !!p.has_more;
+      const r = await alleZeilen();
+      S.zeilen = r.zeilen.map(modell).filter((m) => m.id).sort((a, b) => a.id.localeCompare(b.id));
+      S.hatMehr = r.mehr;
       S.laden = "fertig"; S.fehler = null; S.stand = new Date();
     } catch (e) {
       S.laden = "fehler"; S.fehler = e;
@@ -288,12 +304,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
 
   /** Vor jedem Schreiben die Zeile frisch lesen: Ist sie schon entschieden oder weitergelaufen, wird nichts überschrieben. */
   async function frisch(id) {
-    const p = await aufruf("notion-query-data-sources", abfrage({
-      limit: 2,
-      filter: { type: "group", operator: "and", filters: [{ type: "property", property: "Idee-ID", propertyType: "text", operator: "string_is", value: { type: "exact", value: id } }] },
-    }));
-    const z = p && Array.isArray(p.results) ? p.results.map(modell)[0] : null;
-    return z || null;
+    const r = await alleZeilen();
+    return r.zeilen.map(modell).find((m) => m.id === id) || null;
   }
 
   function jetzt() { return new Date().toISOString(); }
@@ -411,7 +423,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
       p.append(h("p", { class: "eyebrow", text: "Bei Claude" }));
       p.append(h("div", { class: "karte tabelle" }, gesendet.map(zeileIdee)));
     }
-    if (S.hatMehr) p.append(h("p", { class: "hinweis", text: "Es gibt mehr als 100 Ideen. Der Prüfplatz zeigt die ersten 100." }));
+    if (S.hatMehr) p.append(h("p", { class: "hinweis", text: "Es gibt mehr als 500 Ideen. Der Prüfplatz zeigt die ersten 500." }));
   }
 
   function karte(m) {

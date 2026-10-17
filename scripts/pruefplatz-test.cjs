@@ -1,6 +1,6 @@
 /*
  * Browser-Test des Prüfplatzes mit nachgebautem Notion-Konnektor (window.claude).
- * Der Mock liefert die Formen, die notion-query-data-sources (Modus rows) und notion-update-page wirklich liefern
+ * Der Mock liefert die Formen, die notion-query-data-sources (Modus view) und notion-update-page wirklich liefern
  * (beobachtet an der echten Datenbank). Er ersetzt NICHT den echten Konnektor: Die Zustimmungsabfrage von claude.ai
  * und echte Fehlerfälle des Konnektors lassen sich hier nicht prüfen.
  *
@@ -49,10 +49,13 @@ function initSkript({ mitMcp, ZEILEN, optionen }) {
       if (window.__hook.vor) await window.__hook.vor(tool, input, rows);
       if (optionen.fehlerBeimSchreiben && tool === "notion-update-page") throw { code: optionen.fehlerBeimSchreiben, message: "x" };
       if (tool === "notion-query-data-sources") {
-        const f = input.data.filter;
-        let res = rows;
-        if (f) { const id = f.filters[0].value.value; res = rows.filter((r) => r["Idee-ID"] === id); }
-        return antwort({ results: JSON.parse(JSON.stringify(res)), has_more: false });
+        // Nur der Modus «view» ist erlaubt: SQL und «rows» zählen gegen das knappe Kontingent des Arbeitsbereichs.
+        if (input.data.mode !== "view") throw { code: "tool_error", message: "usage_limit_reached" };
+        const start = input.data.start_cursor ? Number(input.data.start_cursor) : 0;
+        const size = optionen.seitenGroesse || 100;
+        const seite = rows.slice(start, start + size);
+        const mehr = start + size < rows.length;
+        return antwort({ results: JSON.parse(JSON.stringify(seite)), has_more: mehr, ...(mehr ? { next_cursor: String(start + size) } : {}) });
       }
       if (tool === "notion-update-page") {
         const r = rows.find((x) => x.url.replace(/\W/g, "").includes(input.page_id.replace(/-/g, "")));
@@ -108,8 +111,8 @@ function initSkript({ mitMcp, ZEILEN, optionen }) {
     assert.match(await page.locator("#p-queue").textContent(), /Wartet auf Claude/);
     const erster = (await calls(page))[0];
     assert.equal(erster.tool, "notion-query-data-sources");
-    assert.equal(erster.input.data.mode, "rows");
-    assert.match(erster.input.data.data_source_url, /^collection:\/\//);
+    assert.equal(erster.input.data.mode, "view"); // nie «rows» oder SQL: Kontingent
+    assert.match(erster.input.data.view_url, /^view:\/\//);
     assert.deepEqual(konsole.filter((k) => !/fonts|ERR_FAILED|Failed to load resource/.test(k)), []);
     await ctx.close();
   });
@@ -222,6 +225,19 @@ function initSkript({ mitMcp, ZEILEN, optionen }) {
     assert.match(await page.locator("#status").textContent(), /Schon weiter/);
     assert.equal((await schreibaufrufe(page)).length, 0);
     assert.equal(await page.evaluate(() => window.__rows[0].Entscheid), "abgelehnt");
+    await ctx.close();
+  });
+
+  await t("Mehr als eine Seite: alle Zeilen werden gelesen, auch die Freigabe findet die Zeile auf Seite 2", async () => {
+    const { page, ctx } = await seite({ optionen: { name: "Andrej", seitenGroesse: 2 } });
+    assert.equal(await page.locator("#z-alle").textContent(), "6");
+    await page.locator(".karte-kopf", { hasText: "Checkliste" }).click(); // m-006 liegt auf Seite 3
+    await page.getByRole("button", { name: "Freigeben" }).click();
+    await page.waitForSelector("#status .meldung.gut");
+    assert.equal((await schreibaufrufe(page)).length, 1);
+    const q = (await calls(page)).filter((c) => c.tool === "notion-query-data-sources");
+    assert.ok(q.every((c) => c.input.data.mode === "view"));
+    assert.ok(q.some((c) => c.input.data.start_cursor), "Seite 2 wurde angefordert");
     await ctx.close();
   });
 

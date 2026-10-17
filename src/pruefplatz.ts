@@ -27,7 +27,7 @@ export interface BibEintrag {
 }
 
 export interface PruefplatzDaten {
-  notion: { datenquelle: string };
+  notion: { ansicht: string };
   bibliothek: BibEintrag[];
   marke: Pick<Markenprofil, "name" | "status" | "farben" | "schriften" | "tonalitaet" | "look"> | null;
   erzeugt: string;
@@ -64,7 +64,7 @@ function eintrag(g: GeladenesStueck): BibEintrag {
 export function baueDaten(opt: { bibliothek: Bibliothek; marke: Markenprofil | null; notion: NotionZiel; jetzt: string }): PruefplatzDaten {
   const m = opt.marke;
   return {
-    notion: { datenquelle: opt.notion.ideen.datenquelle },
+    notion: { ansicht: opt.notion.ideen.ansicht },
     // Aktive zuerst; Entwürfe und Veraltetes erscheinen, damit niemand ein «fehlendes» Stück sucht
     bibliothek: opt.bibliothek.stuecke.map(eintrag).sort((a, b) => Number(b.status === "aktiv") - Number(a.status === "aktiv") || a.name.localeCompare(b.name, "de")),
     marke: m ? { name: m.name, status: m.status, farben: m.farben, schriften: m.schriften, tonalitaet: m.tonalitaet, look: m.look } : null,

@@ -63,7 +63,7 @@ Notion (Ansicht und Entscheide; die Sitzung holt und schreibt die Zeilen mit den
                                       --bilder: {"a": "https://…", "b": …, "c": …} Adressen der Look-Standbilder im Prüfplatz
                                       --render-bilder: [{"id":"r1","url":"https://…","text":"bei 1,2 s"}] Standbilder des Renders für die Abnahme
   ideen notion-alle                   Dasselbe für alle Ideen, dazu Ziel (Datenquelle)
-  ideen notion-lesen --json zeilen.json [--anwenden]   Entscheide aus den Notion-Zeilen lesen (Ergebnis von notion-query-data-sources, Modus rows).
+  ideen notion-lesen --json zeilen.json [--anwenden]   Entscheide aus den Notion-Zeilen lesen (Ergebnis von notion-query-data-sources, Modus view).
                                       Ohne --anwenden nur der Bericht. Mit --anwenden werden Entscheide im Protokoll nachgeführt;
                                       eine Abnahme aktiviert dabei auch das Stück (mit dem Namen aus «Abnahme von»).
 
@@ -355,7 +355,7 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
       return 0;
     }
     case "notion-lesen": {
-      if (typeof a.opt["json"] !== "string") throw new Error("--json <zeilen.json> fehlt (Ergebnis von notion-query-data-sources im Modus rows)");
+      if (typeof a.opt["json"] !== "string") throw new Error("--json <zeilen.json> fehlt (Ergebnis von notion-query-data-sources im Modus view)");
       const bericht = leseAlle(pr.liste(), zeilenAusAbfrage(lesJson(a.opt["json"])), jetzt());
       const anwenden = a.opt["anwenden"] === true;
       const angewendet: { idee: string; nach: IdeeStatus; text: string }[] = [];

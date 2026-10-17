@@ -25,7 +25,7 @@ describe("Prüfplatz: Daten", () => {
     expect(z!.vorschau).toMatch(/^data:image\/png;base64,/);
     expect(z!.wann.length).toBeGreaterThan(0);
     expect(z!.parameter.some((p) => p.pflicht)).toBe(true);
-    expect(d.notion.datenquelle).toMatch(/^collection:\/\//);
+    expect(d.notion.ansicht).toMatch(/^view:\/\//);
   });
 
   it("gibt von der Marke nur Anzeigefelder weiter", () => {

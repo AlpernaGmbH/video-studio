@@ -11,6 +11,11 @@ export const NotionZiel = z.object({
   ideen: z.object({
     datenbank: z.string().uuid(),
     datenquelle: z.string().regex(/^collection:\/\/[0-9a-f-]{36}$/),
+    /**
+     * Gespeicherte Ansicht mit allen Eigenschaften und ohne Filter. Gelesen wird damit im Modus «view»: Der braucht kein
+     * Abfrage-Kontingent. SQL und Modus «rows» zählen gegen ein knappes Kontingent des Notion-Arbeitsbereichs (beobachtet).
+     */
+    ansicht: z.string().regex(/^view:\/\/[0-9a-f-]{36}$/),
   }),
 });
 export type NotionZiel = z.infer<typeof NotionZiel>;

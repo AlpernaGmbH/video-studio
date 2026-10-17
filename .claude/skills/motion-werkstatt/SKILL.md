@@ -95,7 +95,7 @@ Mehrere Fassungen auf einmal geht mit dem Batch-Befehl von HyperFrames (`batchAr
 Ziel (Datenquelle) und Adresse des Prüfplatzes stehen in `notion.json`. Notion-Werkzeuge: `notion-query-data-sources`, `notion-create-pages`, `notion-update-page`.
 
 **Rein (zu Beginn jeder Sitzung, und wenn jemand «entschieden» sagt):**
-1. `notion-query-data-sources` mit `mode: "rows"`, `data_source_url` aus `notion.json`, `limit: 100`. Die Antwort in eine Datei speichern.
+1. `notion-query-data-sources` mit `data: {"mode": "view", "view_url": <ideen.ansicht aus notion.json>, "page_size": 100}`. **Nie SQL oder Modus `rows`:** Die zählen gegen ein knappes Kontingent des Notion-Arbeitsbereichs (beobachtet am 17.10., Meldung `usage_limit_reached`), der Modus `view` nicht. Bei `has_more` mit `start_cursor` weiterlesen. Die Antwort in eine Datei speichern.
 2. `npm run studio -- ideen notion-lesen --json <datei>` (Vorschau), dann mit `--anwenden`. Fehler und Hinweise dem Menschen sagen
    (Entscheid ohne Namen, zu früh gesetzt, Abweichung zwischen Notion und Protokoll).
 3. Für jede Idee in `zeileNeuSchreiben` die Zeile neu schreiben (unten).
@@ -104,8 +104,8 @@ Ziel (Datenquelle) und Adresse des Prüfplatzes stehen in `notion.json`. Notion-
 
 **Raus (nach jedem Übergang, den du auslöst):**
 1. `npm run studio -- ideen notion-zeile <id> [--bilder …] [--render-bilder …]` gibt `properties` und `inhalt`.
-2. Keine Zeile: `notion-create-pages` mit `parent: {type: "data_source_id", data_source_id: <aus notion.json>}`, `properties`, `content`.
-   Sonst `notion-update-page` mit `update_properties` und `replace_content` (Zeilen-Seite finden: Abfrage mit Filter auf `Idee-ID`).
+2. Keine Zeile: `notion-create-pages` mit `parent: {type: "data_source_id", data_source_id: <datenquelle aus notion.json>}`, `properties`, `content`.
+   Sonst `notion-update-page` mit `update_properties` und `replace_content`. Die Seiten-Kennung steht in der `url` der Zeile aus der Ansicht (die letzten 32 Zeichen).
 3. Nach dem Schreiben kurz nachlesen: Steht `Status` richtig?
 
 **Prüfplatz neu veröffentlichen**, wenn ein Stück aktiviert oder die Marke geändert wurde: `npm run studio -- pruefplatz bauen`, dann das Artifact-Werkzeug mit

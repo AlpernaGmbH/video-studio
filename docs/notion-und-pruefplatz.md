@@ -45,7 +45,7 @@ Felder von Stufen, die noch nicht erreicht sind. So gilt kein zu früh gesetzter
 
 **Rein: Entscheide lesen** (zu Beginn jeder Sitzung und wenn jemand sagt «ich habe entschieden»)
 
-1. `notion-query-data-sources` im Modus `rows`, `data_source_url` aus `notion.json`, `limit` 100. Ergebnis als Datei speichern.
+1. `notion-query-data-sources` im Modus `view` mit `view_url` (`ideen.ansicht` in `notion.json`) und `page_size` 100, bei `has_more` mit `start_cursor` weiter. Ergebnis als Datei speichern.
 2. `npm run studio -- ideen notion-lesen --json zeilen.json` zeigt die Vorschau. Danach mit `--anwenden`.
    Die Abnahme führt das Protokoll nach und aktiviert das Stück mit dem Namen aus «Abnahme von».
 3. Für jede Idee in `zeileNeuSchreiben` die Zeile aktualisieren (nächster Absatz).
@@ -70,6 +70,13 @@ Felder von Stufen, die noch nicht erreicht sind. So gilt kein zu früh gesetzter
 - Freigabe für Menschen: Das Artifact ist privat. Wer entscheiden soll, braucht Zugriff auf das Artifact (Teilen-Menü) **und** auf die
   Notion-Seite. Die Notion-Verbindung muss jeder in claude.ai selbst herstellen. Beim ersten Speichern fragt claude.ai um Erlaubnis.
 - Browser-Test mit nachgebautem Notion: `scripts/pruefplatz-test.cjs`. Er prüft die Logik, **nicht** die echte Zustimmungsabfrage.
+
+## Abfrage-Kontingent von Notion
+
+Beobachtet am 17.10.2026: Der Notion-Arbeitsbereich hat ein knappes Kontingent für SQL und den Modus `rows` von `notion-query-data-sources`. Es war nach wenigen Abfragen
+verbraucht («usage_limit_reached», Rückkehr innerhalb von 60 Minuten). Der Modus `view` mit einer gespeicherten Ansicht zählt nicht dagegen und liefert dieselben Zeilen.
+Darum liest der Prüfplatz (seit Version 2) und jede Sitzung nur über die Ansicht `ideen.ansicht` in `notion.json`. Die Ansicht muss alle Eigenschaften zeigen und darf keinen Filter haben.
+Wird die Ansicht in Notion gelöscht oder gefiltert, stimmt der Prüfplatz nicht mehr. **Nicht beobachtet:** wie `next_cursor` bei mehr als 100 Zeilen aussieht (der Code liest `next_cursor`).
 
 ## Grenzen
 

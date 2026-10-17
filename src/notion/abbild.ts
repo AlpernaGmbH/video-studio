@@ -42,7 +42,7 @@ export interface ZeilenInhalt {
   inhalt: string;
 }
 
-/** Eine Zeile so, wie notion-query-data-sources im Modus «rows» sie liefert. */
+/** Eine Zeile so, wie notion-query-data-sources im Modus «view» (und «rows») sie liefert. */
 export type Zeile = Record<string, unknown>;
 
 /** Notion kürzt Texteigenschaften bei 2000 Zeichen. Der volle Text steht im Seitentext. */
@@ -304,10 +304,10 @@ export interface Lesebericht {
   ohneZeile: string[];
 }
 
-/** Ergebnis von notion-query-data-sources im Modus «rows»: `{ results: [...] }` oder direkt das Array. */
+/** Ergebnis von notion-query-data-sources im Modus «view»: `{ results: [...] }` oder direkt das Array. */
 export function zeilenAusAbfrage(roh: unknown): Zeile[] {
   const liste = Array.isArray(roh) ? roh : (roh as { results?: unknown })?.results;
-  if (!Array.isArray(liste)) throw new Error("Erwartet wird das Ergebnis von notion-query-data-sources (Modus «rows») mit einer Liste «results»");
+  if (!Array.isArray(liste)) throw new Error("Erwartet wird das Ergebnis von notion-query-data-sources (Modus «view») mit einer Liste «results»");
   return liste.filter((x): x is Zeile => typeof x === "object" && x !== null);
 }
 

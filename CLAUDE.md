@@ -3,7 +3,8 @@
 Eigenes Repo, **nicht** die Website (`alperna-website-v2`). Dessen Regeln (Next.js, Lead-Gate, Seitentexte) gelten hier nicht.
 Gemeinsam sind Sprache und Ton: Deutsch (Schweiz), ss statt ß, «» als Anführungszeichen, Du-Form, ruhig und konkret, keine Ausrufezeichen,
 keine Emojis, keine Superlative, keine Gedankenstriche als Satzzeichen.
-Plan und Entscheide: `Video-Editing-System-Bauplan-v2` (Stand 16.10.2026), Abweichungen und Stand in `STATUS.md`.
+Plan: `docs/plan/bauplan-v3.md` (Content-System, 17.10.2026) gilt zusätzlich zu `docs/plan/bauplan-v2.md` (Video-Editing-System, 16.10.2026). Bei Widerspruch gilt v3.
+Abweichungen, Funde und Stand in `STATUS.md`. Erster Rechner: `docs/phase0-mac.md`.
 Marke: Alperna Design System v2 (zweites, 17.9.): gedämpftes Blau, Gold als einziger Akzent. Profil in `marken/alperna.json`.
 
 **Alles läuft über Claude und Claude Code, nie über die Claude-API.** Texte und Entscheide liegen in Notion, Medien in OneDrive (`Studio/`),
@@ -35,6 +36,8 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 6. **Der genaue Satz einer Idee steht wörtlich im Protokoll.** Nie umformulieren.
 7. **Keine Zahl ohne Quelle.** Beispiele in Datenblättern sind erfundene Illustrationen.
 8. Pfade im Katalog sind relativ zu `Studio/` und NFC-normalisiert (`src/core/paths.ts`).
+9. **Notion nur über die gespeicherte Ansicht lesen** (`notion-query-data-sources`, Modus `view`, `ideen.ansicht` in `notion.json`). SQL und Modus `rows` zählen gegen ein knappes Kontingent und fallen aus.
+10. **Keine Claude-API.** Auch nicht in n8n oder anderen Automationen. Analysen macht Claude in einer Sitzung. Das Tor-Modell des Plans v3 (Tor 0 Marke, Tor I Idee, Tor P Produkt) gilt: Tore gehören Menschen und laufen über den Prüfplatz.
 
 ## Arbeitsweise
 

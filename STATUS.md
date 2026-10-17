@@ -1,10 +1,10 @@
 # STATUS.md – video-studio
 
-Stand: 17.10.2026. Etappe 1 (**Fundament und Motion-Werkstatt**) ist fertig, Etappe 2 (**Notion, OneDrive, Prüfplatz, Einrichtung je Mac**) auch.
+Stand: 17.10.2026, nach Eingang von **Bauplan v3** (`docs/plan/`). Etappe 1 (**Fundament und Motion-Werkstatt**) und Etappe 2 (**Notion, OneDrive, Prüfplatz, Einrichtung je Mac**) sind fertig. Als Nächstes: Phase 0 auf dem ersten Mac (`docs/phase0-mac.md`).
 Phase 0 des Bauplans (Tests T1 bis T6) ist **nicht** gelaufen, weil sie M4/M5-Macs, echte Clips, Instagram und Notion-Praxis braucht.
 
-`npm run check`: 361 Tests in 24 Dateien grün, Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
-Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion), 13 Prüfungen bestanden. Er gehört nicht zu `npm run check`, weil er Playwright braucht.
+`npm run check`: 364 Tests in 25 Dateien grün, Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
+Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion, Modus `view`), 14 Prüfungen bestanden. Er gehört nicht zu `npm run check`, weil er Playwright braucht.
 
 ## Entscheide aus dem Chat (17.10.)
 
@@ -12,6 +12,44 @@ Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion)
 - Marke: **Alperna Design System (zweites, 17.9.)**: gedämpftes Blau ohne schwarzen Hauptgrund, Gold `#FFD700` als einziger Akzent. Profil `marken/alperna.json`.
 - Alles über Claude und Claude Code, **nie über die Claude-API**. Darum ist der Prüfplatz ein Artifact, das die Notion-Verbindung des Menschen benutzt.
 - Texte in Notion, Medien in OneDrive, Code im Repo. Ein zweiter Mac wird mit `init` und `doctor` eingerichtet (Skill `studio-einrichten`).
+
+## Plan v3: Geltung, Funde, Widersprüche
+
+Plan v3 (`docs/plan/bauplan-v3.md`, Quelle `.docx` daneben) gilt zusätzlich zu v2 (`docs/plan/bauplan-v2.md`); bei Widerspruch gilt v3. Aus dem Video-Editing-System wird ein Content-System:
+Rückgrat (Inhalte, Tor 0, Tor I, Tor P) zuerst, dann ein Reel mit Editor, dann Textformate, Carousel, Lernen, Automationen. Der Prüfplatz hat Tor P schon in Form der Abnahme.
+Entschieden und übernommen: Marke gilt, Schnittstil als Feld im Markenprofil (Abschnitt 9.1, noch nicht im Code), Start an einem Computer.
+
+**Gefunden beim Lesen von Notion und n8n (17.10., nur gelesen):**
+
+1. **Content-Ideen hat keine Zeilen** [Wahrscheinlich]: Die Standardansicht liefert weder aktive noch archivierte Zeilen, und Notion zeigt keine Beispielseiten. Plan 13.1 und 13.2 und Kapitel 8 (Umzug mit Stichtag) erledigen sich dann.
+2. **Viral Watcher** sind zwei n8n-Workflows («Viral Watcher · LinkedIn», «… · Instagram»), beide **nicht aktiv** (letzte Änderung 26. und 27.06.2026) [Sicher]. Sie schreiben **nicht** in Content-Ideen, sondern in eine andere Notion-Datenbank
+   (Kennung `f4eda334…`, Status «Neu») und schicken einen Mail-Digest. Der Plan vermutete anderes («Läuft [Vermutung]»).
+3. **Die Analyse im Viral Watcher ruft die Claude-API direkt auf** (`api.anthropic.com/v1/messages`, Modell `claude-sonnet-4-6`, Zugang über ein Header-Credential) [Sicher]. Das widerspricht der Regel «nie über die Claude-API». Plan 4.4 würde ihn «umhängen».
+4. **Notion-Kontingent:** SQL und der Modus `rows` von `notion-query-data-sources` sind nach wenigen Abfragen aufgebraucht («usage_limit_reached»). Der Prüfplatz fragte so ab und wäre im Betrieb daran gescheitert. Er liest seit Version 2 über eine gespeicherte Ansicht (Modus `view`, ohne Kontingent). Siehe `docs/notion-und-pruefplatz.md`.
+5. Dein Test des Prüfplatzes steht in Notion: Beispielzeile mit Entscheid «freigegeben», Name Andrej, 17.10. 09:44 UTC. Damit ist T3 für **eine** Person belegt. Nicht belegt: Leander, Handy, Safari.
+
+**Wo ich dem Plan widerspreche** (Begründung, Alternative, Risiko):
+
+- **Neue Datenbank «Inhalte» statt Erweiterung.** Weil Content-Ideen leer ist (Fund 1), gibt es nichts umzuziehen und keinen Stichtag. Alternative: Content-Ideen in «Inhalte» umbenennen und die Felder aus Abschnitt 3.2 ergänzen.
+  Risiko: Verweise des Cockpits zeigen weiter auf dieselbe Datenbank (gut), aber der «Rückweg» des Plans entfällt. Bei einer leeren Datenbank ist er unnötig. Vor dem Entscheid bitte bestätigen, dass Content-Ideen wirklich leer ist.
+- **Viral Watcher umhängen.** Alternative: Scrapen und Erkennen (Apify, Median-Regel) darf in n8n bleiben, die Analyse macht Claude in einer Sitzung (claude.ai oder Claude Code), nicht n8n. Risiko: mehr Handarbeit je Woche. Vorteil: keine zweite Claude-Abrechnung neben euren Abos.
+- **Phase 0 enthält T2 und T7, die Code brauchen.** T2 misst den Skript-Abgleich, T7 den Markierungs-Kreislauf mit Editor. Beides baut der Plan erst in Phase 2. Alternative: Phase 0 sind T1, T1b, T3, T4, T5, T8. T2 und T6 sind die ersten Aufgaben von Phase 2, T7 die Abnahme von Editor 1.
+- **«Phase beginnt erst nach Abnahme der vorigen.»** Das Rückgrat braucht keinen Mac. Alternative: Teile von Phase 1, die nicht von T1 bis T5 abhängen (Schema «Inhalte», Schnittprofil im Markenprofil, Gate 0 auslösbar, Tor I im Prüfplatz), parallel starten. Risiko: Fallen T1 oder T1b durch, ändert sich nur das Reel-Modul, nicht das Rückgrat. **Wartet auf dein Ja.**
+
+**Stand der Phase-0-Tests**
+
+| Test | Stand |
+|---|---|
+| T1 | Teilwert Overlay (`npm run selftest:render`), Gesamttest erst mit Pipeline |
+| T1b | Messskript `npm run t1b` gebaut. Linux: 8,3 s fest plus 1,8 s je Sekunde Video, sechs Overlays einzeln 77 s, als eine Komposition 35 s. **Mac fehlt** |
+| T2 | braucht Skript-Abgleich (nicht gebaut) |
+| T3 | bestanden für eine Person (Andrej), Leander offen |
+| T4, T5 | Anleitung in `docs/phase0-mac.md`, **Mac fehlt** |
+| T6, T7 | brauchen Code und Testprojekt |
+| T8 | Teilweise erledigt: `docs/t8-google-maps.md` (Beitragstypen, Fotoregeln, Verbote, Branchen mit Einschränkung). Lücke: maximale Textlänge |
+
+**Offene Punkte aus Kapitel 13 des Plans:** 1 und 2 beantwortet (Funde 1 und 2, Bestätigung nötig), 3 bis 4 offen, 5 (leere Datenbank «Ideen» und Beispielzeile löschen, Umbenennung in «Motion-Ideen») wartet auf dein Ja,
+6 (Zahl-Zähler aktivieren) wartet auf dich, 7 (altes Claude-Docs-Dokument) wartet auf dein Ja, 8 (GSAP-Lizenz): bitte `gsap.com/standard-license` lesen, 9 und 10 offen.
 
 ## Fertig
 
