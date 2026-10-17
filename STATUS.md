@@ -97,9 +97,17 @@ Gebaut in `src/inhalte/` (Plan v3, Kapitel 3 und 7), 150 Tests, jede Regel per M
 1. In der Notion-Datenbank «Inhalte» fehlen zwei Textspalten: **«Status von»** und **«Status-Grund»**. Ohne sie lassen sich Pausieren, Verwerfen aus der Produktion und «Veröffentlicht» bei Manuell/Paket nicht von Hand setzen (der Abgleich setzt sie zurück). Der Prüfplatz füllt sie später. Wird mit den übrigen Datenbanken ergänzt.
 2. `marken/alperna.json` hat `schnittprofil.textlaengen` leer: Die Längenprüfung des Texts ist damit aus. Zahlen dafür fehlen (keine Zahl ohne Quelle). Bitte Zielwerte je Format nennen.
 3. Ein Name im Entscheid ist keine Anmeldung. Wer in Notion schreiben darf, kann jeden Namen eintragen. Der Code verhindert Systemnamen und leere Namen, nicht Fälschung. Das ist die Grenze des Modells ohne Konten.
-4. Prüfplatz: Karten für Tor I (Wochenmodus) und Tor P, Gate 0 als Handlung und die Auswahl der Marke fehlen noch.
+4. Prüfplatz (Version 3): Tor I, Tor P, Wochenmodus und Gate 0 stehen. Es fehlen die Handlungen **Pausieren, Verwerfen und «Veröffentlicht» bestätigen** (sie schreiben «Status von» und «Status-Grund», siehe 1.), die Auswahl der Marke je Kunde und Räume.
+5. **Gate 0 → Repo:** Die Freigabe in Notion setzt `marken/alperna.json` nicht auf «freigegeben». Dafür fehlt noch ein Befehl, der die Freigabe mit Namen aus der Ansicht «Marken» ins Profil übernimmt (`status`, `freigabe`). Bis dahin bleibt `--final` gesperrt.
+6. Wer Gate 0 für Alperna freigibt, entscheidet ihr. Es fehlen laut Profil Logo, Caption-Preset und Schlusskarte.
 
 ## Prüfplatz: was geprüft ist und was nicht
+
+Stand: **Version 3** (17.10.2026) liest drei Ansichten (Ideen, Inhalte, Marken) und braucht zusätzlich das Notion-Werkzeug `notion-fetch` (Entwurfstext). Die Deklaration des Artifacts ist erweitert,
+claude.ai fragt deshalb beim nächsten Öffnen neu nach der Zustimmung.
+Neu seit Version 2: Tor I (Freigeben, Mit Frage zurück, Ablehnen), Tor P (Entwurf aus der Notion-Seite, Freigeben, Änderung nötig), Wochenmodus (alle neuen Ideen nacheinander, mit Fortschritt und Überspringen),
+Gate 0 als Handlung mit Bestätigung und Namen, Tab «Inhalte». Eine ausgefallene Ansicht «Inhalte» oder «Marken» legt die Motion-Ideen nicht lahm.
+29 Browser-Prüfungen, 14 Mutationen der Seitenlogik einzeln ausgeschaltet und erkannt. Spaltennamen und Auswahlwerte gegen die echten Datenbanken «Inhalte» und «Marken» geprüft.
 
 Geprüft (Headless-Chrome mit nachgebautem Notion, das die an der echten Datenbank beobachteten Antwortformen liefert): Karten, Pflichtfelder, genaue Schreibfelder,
 frisch lesen vor Schreiben, Nachlesen, veralteter Entscheid wird nicht überschrieben, getrennte Texte für verweigerten Zugriff, fehlende Verbindung, Richtlinie und unklaren
@@ -107,6 +115,7 @@ Ausgang, kein waagrechtes Scrollen bei 390 px, Tastaturbedienung, keine Konsolen
 
 **Nicht geprüft** (geht von hier aus nicht):
 - die echte Zustimmungsabfrage von claude.ai beim ersten Speichern und die echten Fehlercodes des Konnektors;
+- die Form der Antwort von `notion-fetch` im Viewer: Der Code sucht `<content>…</content>` im Feld `text` (so liefert es das Werkzeug in dieser Sitzung, beobachtet an einer echten Seite);
 - die tatsächliche Form von `result.payload` im Viewer (der Code liest `payload`, sonst den Text des ersten Blocks als JSON);
 - Schriften Poppins und Montserrat (im Test gesperrt, es erscheint der Ersatz), Safari und echtes Handy;
 - ob `Notion` der richtige Anzeigename deines Konnektors ist (Erwartung: ja, so heisst er in dieser Session).
@@ -192,7 +201,7 @@ beschreiben das Gegenteil: ruhig, Bewegungen von 200 bis 400 ms ohne Federn, kü
    Der Prototyp der Skript-Zuordnung (Bauplan 3.2) existiert nicht (Antwort aus dem Chat: «keine Ahnung»). Er wird in Phase 2 neu gebaut.
 4. **Welle 1** (8 weitere Stücke), danach Welle 2 und 3 und die ersten echten Ideen aus echten Videos.
 5. Lernsystem: Regelvorschläge aus den Ereignissen (Schema und Ereignisse stehen, der Vorschlags-Aufruf nicht).
-6. Gate 0 im Prüfplatz: Die Marke ist dort nur zu sehen. Die Freigabe fehlt noch als Handlung. Dazu Tor I und Tor P als Karten (siehe «Inhalte-Modul»).
+6. Gate 0 im Prüfplatz ist gebaut (Version 3). Offen: die Übernahme der Freigabe ins Repo-Profil (siehe «Inhalte-Modul», Punkt 5).
 
 ## Offen in Notion (bitte entscheiden)
 

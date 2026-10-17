@@ -75,7 +75,7 @@ Felder von Stufen, die noch nicht erreicht sind. So gilt kein zu früh gesetzter
 
 Beobachtet am 17.10.2026: Der Notion-Arbeitsbereich hat ein knappes Kontingent für SQL und den Modus `rows` von `notion-query-data-sources`. Es war nach wenigen Abfragen
 verbraucht («usage_limit_reached», Rückkehr innerhalb von 60 Minuten). Der Modus `view` mit einer gespeicherten Ansicht zählt nicht dagegen und liefert dieselben Zeilen.
-Darum liest der Prüfplatz (seit Version 2) und jede Sitzung nur über die Ansicht `motionIdeen.ansicht` in `notion.json`. Die Ansicht muss alle Eigenschaften zeigen und darf keinen Filter haben.
+Darum liest der Prüfplatz (seit Version 2) und jede Sitzung nur über die Ansichten in `notion.json` (`motionIdeen.ansicht`, `inhalte.ansicht`, `marken.ansicht`). Die Ansicht muss alle Eigenschaften zeigen und darf keinen Filter haben.
 Wird die Ansicht in Notion gelöscht oder gefiltert, stimmt der Prüfplatz nicht mehr. **Nicht beobachtet:** wie `next_cursor` bei mehr als 100 Zeilen aussieht (der Code liest `next_cursor`).
 
 ## Grenzen
@@ -83,3 +83,16 @@ Wird die Ansicht in Notion gelöscht oder gefiltert, stimmt der Prüfplatz nicht
 - Der Name beim Entscheid ist nicht authentifiziert. Echten Schutz bieten nur die Rechte in Notion und im Artifact.
 - Ein Artifact mit Notion-Zugriff lässt sich nicht öffentlich teilen.
 - Notion liefert Zeilenumbrüche in Textfeldern als `<br>`. Der Code übersetzt sie beim Lesen.
+
+## Inhalte, Tor I, Tor P und Gate 0 (Prüfplatz ab Version 3)
+
+Der Prüfplatz liest zusätzlich die Ansichten «Inhalte» und «Marken». Er schreibt dort nur die Entscheide eines Menschen mit Namen:
+
+| Karte | Schreibt | Bedingung |
+|---|---|---|
+| Tor I (Pitch bereit) | `Tor I Entscheid` (freigegeben, abgelehnt, Rückfrage), `Tor I Grund`, `Tor I von`, `Tor I am` | Zeile noch «Pitch bereit» und Tor I offen (vorher frisch gelesen). Ablehnung: Grund aus zwei Wörtern, Rückfrage: eine Frage |
+| Tor P (Entwurf fertig) | `Tor P Entscheid` (freigegeben, Änderung), `Tor P Grund`, `Tor P von`, `Tor P am` | Zeile noch «Entwurf fertig» und Tor P offen. Änderung: Anweisung, mindestens fünf Zeichen |
+| Marke | `Gate 0` (freigegeben), `Gate 0 von`, `Gate 0 am` | Gate 0 noch nicht freigegeben, mit Bestätigung und Namen |
+
+Den Status ändert der Prüfplatz nie. Den Wechsel nach einem Entscheid führt der Abgleich aus (`studio inhalte abgleich`, Skill `inhalte-werkstatt`), wenn die Regeln es erlauben.
+Wartet ein Tor-Entscheid auf Gate 0, bleibt er stehen und wirkt, sobald Gate 0 freigegeben ist. Der Entwurf eines Texts steht im Inhalt der Notion-Seite und wird beim Öffnen der Karte mit `notion-fetch` geladen.
