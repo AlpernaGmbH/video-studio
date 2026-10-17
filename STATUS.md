@@ -44,7 +44,9 @@ Entschieden und übernommen: Marke gilt, Schnittstil als Feld im Markenprofil (A
 | T1b | Mac mini M4 (16 GB): 2,4 s fest plus 0,85 s je Sekunde Video, sechs Overlays einzeln 27 s, als eine Komposition 15 s. Empfehlung: eine Datei je Overlay (siehe «Gemessen»). Zweiter Mac (M5) fehlt |
 | T2 | braucht Skript-Abgleich (nicht gebaut) |
 | T3 | bestanden für eine Person (Andrej), Leander offen |
-| T4, T5 | Anleitung in `docs/phase0-mac.md`, **Mac fehlt** |
+| T4 | **Entschieden ohne Test (Andrej, 17.10.2026): 25p.** Instagram-Vergleich 25p/30p nicht gemacht. Risiko: Ruckeln bei Kameraschwenk nach der Neukodierung durch Instagram bleibt ungeprüft. Falls Reels später ruckeln, ist der Test in zehn Minuten nachzuholen (`docs/phase0-mac.md`, Abschnitt 4) |
+| T5 | Einrichtung auf dem Mac mini erledigt (Studio in `OneDrive-Royalsocials(2)/03_Marketing/Studio`, eine Videodatei in `rohmaterial`). Die Zeitmessung «Speicherplatz freigeben» steht aus. Entfällt, wenn die Medien über `init --medien` auf ein Laufwerk ausserhalb von OneDrive gehen (frei: 30 GB auf dem Mac) |
+| Notion-Ansicht | Aus einer Cloud-Sitzung gelesen: 1 Zeile («Beispiel: Wert-Verlauf», Entscheid freigegeben von Andrej). Claude Code auf dem Mac mit Notion ist **nicht** geprüft (wird erst mit der Pipeline gebraucht) |
 | T6, T7 | brauchen Code und Testprojekt |
 | T8 | Teilweise erledigt: `docs/t8-google-maps.md` (Beitragstypen, Fotoregeln, Verbote, Branchen mit Einschränkung). Lücke: maximale Textlänge |
 

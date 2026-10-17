@@ -61,6 +61,8 @@ Dann im Finder auf der Datei Rechtsklick → «Speicherplatz freigeben», und de
 
 ## 4. Instagram 25p oder 30p (T4)
 
+*Entschieden am 17.10.2026: 25p, ohne Test. Der Abschnitt bleibt für den Fall, dass Reels später ruckeln.*
+
 Ein Video mit Kamerabewegung (Schwenk) nehmen:
 ```sh
 for r in 25 30; do ffmpeg -y -i DEINE_DATEI.mov -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2" -r $r -c:v libx264 -crf 18 -pix_fmt yuv420p -c:a aac t4-${r}p.mp4; done
