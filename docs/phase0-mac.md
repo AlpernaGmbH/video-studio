@@ -15,7 +15,7 @@ cd ~/video-studio && npm install
 npm run studio -- init
 ```
 Das Repo gehört **nicht** in den OneDrive-Ordner (viele kleine Dateien). `init` legt `Studio/` in OneDrive an und merkt den Pfad.
-Erwartet: «Studio-Ordner: …/OneDrive-…/Studio». Bei «Mehrere OneDrive-Ordner gefunden» den Firmenordner mit `--home "<Ordner>/Studio"` angeben.
+Erwartet: «Studio-Ordner: …/OneDrive-…/Studio». Bei «Mehrere OneDrive-Ordner gefunden» den Firmenordner mit `--home "<Ordner>/Studio"` angeben. Vorher mit `ls ~/Library/CloudStorage/<Ordner>` prüfen, dass er Inhalt hat: Ein Name mit «(2)» ist oft ein leerer Doppel-Eintrag.
 
 Dann im **Finder**: OneDrive → `Studio` → Rechtsklick → «Immer auf diesem Gerät behalten». Sonst sind Dateien nur Platzhalter.
 

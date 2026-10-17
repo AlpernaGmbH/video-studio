@@ -36,6 +36,8 @@ Laufwerk von der Platte nehmen: Nie ohne «Auswerfen» im Finder. Ein einzelnes 
 | `doctor`: nicht eingerichtet | `init` fehlt auf diesem Mac | `npm run studio -- init` |
 | Render findet Datei nicht, Datei ist 0 Byte oder Wolke | OneDrive Dateien auf Abruf | «Immer auf diesem Gerät behalten» auf `Studio` |
 | `Mehrere OneDrive-Ordner gefunden` | Privat und Firma angemeldet | `--home` mit dem Firmenordner |
+| `init`: «Der Ordner … gibt es nicht» | Tippfehler im Pfad oder Konto nicht synchronisiert. `init` legt keine Elternordner an | `ls` auf den Elternordner, Pfad korrigieren |
+| `init` oder `doctor`: OneDrive-Ordner «liegt sonst nichts» / `OneDrive-Doppel` | macOS zeigt dasselbe Konto doppelt (Name mit «(2)»), einer ist leer und nicht angemeldet | `ls ~/Library/CloudStorage/OneDrive-…`, den Eintrag mit Inhalt nehmen, `init --home` dort neu |
 | Ideenprotokoll «wurde inzwischen geändert» | Zwei Macs schreiben gleichzeitig | Neu laden und wiederholen. Nie beide gleichzeitig mit Ideen arbeiten lassen |
 | `doctor`: Medien-Ordner existiert nicht | Laufwerk nicht angeschlossen oder umbenannt | Anschliessen, `ls /Volumes`, bei neuem Namen `init --medien` wiederholen |
 | Notion-Abfrage schlägt fehl | Verbindung fehlt oder Seite nicht geteilt | In claude.ai unter Einstellungen, Konnektoren verbinden, Seite teilen |

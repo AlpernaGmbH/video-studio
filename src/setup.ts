@@ -69,15 +69,58 @@ export function findeOneDrive(home = os.homedir()): string[] {
   return treffer;
 }
 
-/** Meldung bei mehreren OneDrive-Ordnern: je Ordner ein fertiger Befehl, dazu was nicht in Frage kommt. */
+/** Einträge eines Ordners ohne versteckte Dateien (.DS_Store u. ä.). undefined, wenn er sich nicht lesen lässt. */
+export function eintraege(dir: string): string[] | undefined {
+  try {
+    return fs.readdirSync(dir).filter((n) => !n.startsWith("."));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Der OneDrive-Ordner, in dem `pfad` liegt: direkt unter ~/Library/CloudStorage oder im Home, Name beginnt mit «OneDrive». */
+export function onedriveWurzel(pfad: string, userHome = os.homedir()): string | undefined {
+  const erlaubt = [path.join(userHome, "Library", "CloudStorage"), userHome];
+  let d = path.resolve(pfad);
+  for (;;) {
+    const eltern = path.dirname(d);
+    if (eltern === d) return undefined;
+    if (erlaubt.includes(eltern) && /^OneDrive/i.test(path.basename(d))) return d;
+    d = eltern;
+  }
+}
+
+/** True, wenn im Ordner nichts liegt ausser dem Weg zu `ziel` (Ordner, die nur der Weg zu Studio sind). Dann ist das Konto vermutlich nicht angemeldet. */
+export function nurWegZu(wurzel: string, ziel: string): boolean {
+  let d = wurzel;
+  const rest = path.relative(wurzel, ziel).split(path.sep).filter(Boolean);
+  for (const naechster of rest) {
+    const e = eintraege(d);
+    if (!e || e.length === 0) return true;
+    if (e.length !== 1 || e[0] !== naechster) return false;
+    d = path.join(d, naechster);
+  }
+  return true;
+}
+
+const OHNE_ZAEHLER = (n: string): string => n.replace(/\s*\(\d+\)$/, "");
+
+/** Meldung bei mehreren OneDrive-Ordnern: je Ordner ein fertiger Befehl mit Angabe, ob etwas darin liegt, dazu was nicht in Frage kommt. */
 export function mehrereOrdner(kandidaten: string[]): string {
-  const befehle = kandidaten.map((k) => `  npm run studio -- init --home "${k}/Studio"`).join("\n");
+  const befehle = kandidaten
+    .map((k) => {
+      const e = eintraege(k);
+      const inhalt = e === undefined ? "nicht lesbar" : e.length === 0 ? "LEER: vermutlich nicht angemeldet oder ein Doppel-Eintrag" : `${e.length} Einträge`;
+      return `  ${path.basename(k)} (${inhalt})\n    npm run studio -- init --home "${k}/Studio"`;
+    })
+    .join("\n\n");
   return [
     "Mehrere OneDrive-Ordner gefunden. Welcher gilt, entscheidest du, ich rate nicht. Befehl für den gewählten Ordner kopieren:",
     "",
     befehle,
     "",
     "Nicht in Frage kommen Schulkonten, Konten anderer Firmen und Ordner mit «FreigegebeneBibliotheken» im Namen (Systemordner).",
+    "Ein Name mit «(2)» am Ende entsteht, wenn macOS ein Konto ein zweites Mal verbindet. Meist ist der Eintrag mit Inhalt der angemeldete.",
     "Firmendaten gehören in das OneDrive der Firma. Ist keines angemeldet, nimmst du für einen Test das persönliche Konto und verschiebst den Ordner später.",
     "Enthält der Name ein «ö» und das Einfügen klappt nicht, hilft: --home \"$(ls -d ~/Library/CloudStorage/OneDrive-Pers*)/Studio\"",
   ].join("\n");
@@ -88,6 +131,8 @@ export interface InitErgebnis {
   medien?: string;
   config: string;
   angelegt: string[];
+  /** Dinge, die nach dem Anlegen auffallen und die ein Mensch ansehen soll. */
+  hinweise: string[];
 }
 
 /** Legt den Studio-Ordner an und merkt sich den Pfad. Bestehendes bleibt unberührt. */
@@ -100,6 +145,15 @@ export function initialisiere(opt: { home?: string; medien?: string; env?: NodeJ
     if (kandidaten.length === 0) throw new Error("Kein OneDrive-Ordner gefunden. OneDrive installieren und anmelden, oder den Pfad mit --home angeben");
     if (kandidaten.length > 1) throw new Error(mehrereOrdner(kandidaten));
     home = path.join(kandidaten[0]!, "Studio");
+  }
+  const eltern = path.dirname(home);
+  if (!fs.existsSync(eltern)) {
+    throw new Error(`Der Ordner ${eltern} gibt es nicht. Tippfehler im Pfad? Prüfen mit: ls "${path.dirname(eltern)}". Ich lege keine Elternordner an, sonst entsteht still ein zweiter Ordner neben deinem echten`);
+  }
+  const hinweise: string[] = [];
+  const wurzel = onedriveWurzel(home, userHome);
+  if (wurzel && !fs.existsSync(home) && nurWegZu(wurzel, home)) {
+    hinweise.push(`Im OneDrive-Ordner «${path.basename(wurzel)}» liegt sonst nichts. Ist das Konto angemeldet und fertig synchronisiert? Gibt es einen zweiten Eintrag mit «(2)»? Prüfen mit: ls ~/Library/CloudStorage`);
   }
   const medien = opt.medien ? path.resolve(opt.medien) : undefined;
   if (medien && !fs.existsSync(path.dirname(medien))) {
@@ -118,7 +172,7 @@ export function initialisiere(opt: { home?: string; medien?: string; env?: NodeJ
   const datei = configPfad(env, userHome);
   fs.mkdirSync(path.dirname(datei), { recursive: true });
   fs.writeFileSync(datei, JSON.stringify({ schema: 1, studioHome: home, ...(medien ? { medienHome: medien } : {}) } satisfies Config, null, 2) + "\n");
-  return { home, medien, config: datei, angelegt };
+  return { home, medien, config: datei, angelegt, hinweise };
 }
 
 /* ---------- doctor ---------- */
@@ -180,6 +234,18 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
 
   if (/onedrive/i.test(home.pfad)) add("ok", "OneDrive", "Der Ordner liegt in OneDrive und ist auf jedem Mac derselbe");
   else add("warnung", "OneDrive", "Der Ordner liegt nicht in OneDrive. Auf einem anderen Mac fehlen Daten und Medien");
+  const wurzel = onedriveWurzel(home.pfad, s.userHome);
+  if (wurzel) {
+    if (nurWegZu(wurzel, home.pfad)) {
+      add("warnung", "OneDrive-Konto", `Im OneDrive-Ordner «${path.basename(wurzel)}» liegt ausser dem Weg zu Studio nichts. Vermutlich ist das Konto nicht angemeldet oder der Eintrag ein Doppel. Der Ordner würde auf keinem anderen Mac erscheinen («ls ~/Library/CloudStorage» zeigt alle Einträge)`);
+    }
+    const basis = OHNE_ZAEHLER(path.basename(wurzel));
+    const doppelt = findeOneDrive(s.userHome).filter((k) => OHNE_ZAEHLER(path.basename(k)) === basis);
+    if (doppelt.length > 1) {
+      const liste = doppelt.map((k) => `${path.basename(k)} (${eintraege(k)?.length ?? "nicht lesbar"} Einträge)`).join(", ");
+      add("hinweis", "OneDrive-Doppel", `Dasselbe Konto erscheint mehrfach: ${liste}. Studio soll im Eintrag liegen, in dem deine Ordner wirklich sind`);
+    }
+  }
   if (s.platform === "darwin") {
     add("hinweis", "OneDrive-Dateien", "Im Finder Rechtsklick auf «Studio» → «Immer auf diesem Gerät behalten». Sonst sind Dateien nur Platzhalter, und das Rendern findet sie nicht");
   }

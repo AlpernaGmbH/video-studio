@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { findeOneDrive, formatiere, hatFehler, initialisiere, medienOrdner, pruefeUmgebung, studioHome, UNTERORDNER, type Sonde } from "./setup";
+import { findeOneDrive, formatiere, hatFehler, initialisiere, medienOrdner, nurWegZu, onedriveWurzel, pruefeUmgebung, studioHome, UNTERORDNER, type Sonde } from "./setup";
 
 let user: string;
 beforeEach(() => {
@@ -15,6 +15,13 @@ const onedrive = (name = "OneDrive-AlpernaGmbH") => {
   const d = path.join(user, "Library", "CloudStorage", name);
   fs.mkdirSync(d, { recursive: true });
   return d;
+};
+
+/** Studio-Pfad in einem bestehenden Ordner: init legt keine Elternordner an. */
+const studioIn = (...teile: string[]): string => {
+  const eltern = path.join(user, ...teile);
+  fs.mkdirSync(eltern, { recursive: true });
+  return path.join(eltern, "Studio");
 };
 
 describe("init", () => {
@@ -63,7 +70,7 @@ describe("init", () => {
   });
 
   it("nimmt einen angegebenen Pfad ohne zu suchen", () => {
-    const eigen = path.join(user, "Irgendwo", "Studio");
+    const eigen = studioIn("Irgendwo");
     const r = initialisiere({ home: eigen, env: env(), userHome: user });
     expect(r.home).toBe(eigen);
     expect(fs.existsSync(path.join(eigen, "renders"))).toBe(true);
@@ -132,7 +139,7 @@ describe("doctor", () => {
   });
 
   it("ein Studio-Ordner ausserhalb von OneDrive ist eine Warnung, kein Fehler", () => {
-    initialisiere({ home: path.join(user, "Lokal", "Studio"), env: env(), userHome: user });
+    initialisiere({ home: studioIn("Lokal"), env: env(), userHome: user });
     const p = pruefeUmgebung(sonde());
     expect(p.find((x) => x.name === "OneDrive")?.stufe).toBe("warnung");
     expect(hatFehler(p)).toBe(false);
@@ -182,7 +189,7 @@ describe("Medien auf einem eigenen Laufwerk", () => {
   };
 
   it("init --medien legt daten im Studio-Ordner an, die grossen Ordner auf dem Laufwerk, und merkt beides", () => {
-    const od = path.join(user, "OneDrive-Firma", "Studio");
+    const od = studioIn("OneDrive-Firma");
     const medien = path.join(laufwerk(), "Studio-Medien");
     const r = initialisiere({ home: od, medien, env: env(), userHome: user });
     expect(fs.existsSync(path.join(od, "daten"))).toBe(true);
@@ -197,7 +204,7 @@ describe("Medien auf einem eigenen Laufwerk", () => {
   });
 
   it("ohne --medien liegt alles im Studio-Ordner wie bisher", () => {
-    const od = path.join(user, "OneDrive-Firma", "Studio");
+    const od = studioIn("OneDrive-Firma");
     initialisiere({ home: od, env: env(), userHome: user });
     const h = studioHome(env(), user)!;
     expect(h.medien).toBeUndefined();
@@ -206,19 +213,19 @@ describe("Medien auf einem eigenen Laufwerk", () => {
   });
 
   it("ein Laufwerk, das nicht angeschlossen ist, wird nicht stillschweigend als Ordner im Home angelegt", () => {
-    expect(() => initialisiere({ home: path.join(user, "OneDrive-Firma", "Studio"), medien: path.join(user, "Volumes", "Nicht-da", "Studio-Medien"), env: env(), userHome: user })).toThrow(/Laufwerk angeschlossen/);
+    expect(() => initialisiere({ home: studioIn("OneDrive-Firma"), medien: path.join(user, "Volumes", "Nicht-da", "Studio-Medien"), env: env(), userHome: user })).toThrow(/Laufwerk angeschlossen/);
     expect(fs.existsSync(path.join(user, "Volumes", "Nicht-da"))).toBe(false);
     expect(fs.existsSync(path.join(user, ".config"))).toBe(false);
   });
 
   it("STUDIO_MEDIEN gilt vor der Konfiguration", () => {
-    initialisiere({ home: path.join(user, "OneDrive-Firma", "Studio"), medien: path.join(laufwerk(), "A"), env: env(), userHome: user });
+    initialisiere({ home: studioIn("OneDrive-Firma"), medien: path.join(laufwerk(), "A"), env: env(), userHome: user });
     expect(studioHome({ STUDIO_MEDIEN: "/Volumes/B" }, user)!.medien).toBe("/Volumes/B");
   });
 
   it("doctor: Laufwerk abgezogen ist ein Fehler mit dem Hinweis, nachzusehen", () => {
     const medien = path.join(laufwerk(), "Studio-Medien");
-    initialisiere({ home: path.join(user, "OneDrive-Firma", "Studio"), medien, env: env(), userHome: user });
+    initialisiere({ home: studioIn("OneDrive-Firma"), medien, env: env(), userHome: user });
     fs.rmSync(path.join(user, "Volumes"), { recursive: true });
     const p = pruefeUmgebung(sonde());
     expect(p.find((x) => x.name === "Medien-Ordner")).toMatchObject({ stufe: "fehler" });
@@ -227,7 +234,7 @@ describe("Medien auf einem eigenen Laufwerk", () => {
 
   it("doctor: Platz je Datenträger, Warnung unter 100 GB, Fehler unter 10 GB, Meldung nennt den Ausweg", () => {
     const medien = path.join(laufwerk(), "Studio-Medien");
-    const od = path.join(user, "OneDrive-Firma", "Studio");
+    const od = studioIn("OneDrive-Firma");
     initialisiere({ home: od, medien, env: env(), userHome: user });
     const frei: Record<string, number> = { [od]: 80, [medien]: 3000 };
     let p = pruefeUmgebung(sonde({ freierPlatzGB: (pfad) => frei[pfad] }));
@@ -241,9 +248,104 @@ describe("Medien auf einem eigenen Laufwerk", () => {
   });
 
   it("doctor ohne Medien-Ordner: Warnung bei knappem Platz verweist auf init --medien", () => {
-    initialisiere({ home: path.join(user, "OneDrive-Firma", "Studio"), env: env(), userHome: user });
+    initialisiere({ home: studioIn("OneDrive-Firma"), env: env(), userHome: user });
     const p = pruefeUmgebung(sonde({ freierPlatzGB: () => 80 }));
     expect(p.find((x) => x.name === "Platz")).toMatchObject({ stufe: "warnung" });
     expect(p.find((x) => x.name === "Platz")?.text).toMatch(/init --medien/);
+  });
+});
+
+describe("OneDrive-Konto: leere oder doppelte Einträge", () => {
+  it("init legt keine Elternordner an: ein Tippfehler im Pfad erzeugt keinen zweiten Ordner", () => {
+    const od = onedrive("OneDrive-Royalsocials");
+    fs.mkdirSync(path.join(od, "03_marketing"));
+    const falsch = path.join(od, "03_Marketing", "Studio");
+    expect(() => initialisiere({ home: falsch, env: env(), userHome: user })).toThrow(/gibt es nicht.*Ich lege keine Elternordner an/);
+    expect(fs.existsSync(path.join(od, "03_Marketing"))).toBe(false);
+    expect(fs.existsSync(path.join(user, ".config"))).toBe(false);
+  });
+
+  it("init warnt, wenn der OneDrive-Ordner sonst leer ist (nicht angemeldet oder Doppel-Eintrag)", () => {
+    onedrive("OneDrive-Royalsocials");
+    const r = initialisiere({ env: env(), userHome: user });
+    expect(r.hinweise).toHaveLength(1);
+    expect(r.hinweise[0]).toMatch(/OneDrive-Royalsocials.*liegt sonst nichts.*\(2\)/);
+  });
+
+  it("init warnt nicht, wenn im OneDrive-Ordner schon andere Dinge liegen", () => {
+    const od = onedrive("OneDrive-Royalsocials");
+    fs.mkdirSync(path.join(od, "03_marketing"));
+    fs.mkdirSync(path.join(od, "01_verwaltung"));
+    const r = initialisiere({ home: path.join(od, "03_marketing", "Studio"), env: env(), userHome: user });
+    expect(r.hinweise).toEqual([]);
+  });
+
+  it("versteckte Dateien zählen nicht als Inhalt", () => {
+    const od = onedrive("OneDrive-Royalsocials");
+    fs.writeFileSync(path.join(od, ".DS_Store"), "");
+    expect(initialisiere({ env: env(), userHome: user }).hinweise).toHaveLength(1);
+  });
+
+  it("doctor warnt, wenn im OneDrive-Ordner ausser Studio nichts liegt", () => {
+    onedrive("OneDrive-Royalsocials");
+    initialisiere({ env: env(), userHome: user });
+    const p = pruefeUmgebung(sonde());
+    expect(hatFehler(p)).toBe(false);
+    const k = p.find((x) => x.name === "OneDrive-Konto");
+    expect(k?.stufe).toBe("warnung");
+    expect(k?.text).toMatch(/nicht angemeldet oder der Eintrag ein Doppel/);
+  });
+
+  it("doctor warnt nicht, wenn der Ordner echten Inhalt hat", () => {
+    const od = onedrive("OneDrive-Royalsocials");
+    fs.mkdirSync(path.join(od, "Rechnungen"));
+    initialisiere({ env: env(), userHome: user });
+    expect(pruefeUmgebung(sonde()).find((x) => x.name === "OneDrive-Konto")).toBeUndefined();
+  });
+
+  it("doctor weist auf zwei Einträge desselben Kontos hin und nennt die Zahl der Einträge", () => {
+    const leer = onedrive("OneDrive-Royalsocials");
+    const echt = onedrive("OneDrive-Royalsocials(2)");
+    fs.mkdirSync(path.join(echt, "03_marketing"));
+    initialisiere({ home: path.join(echt, "03_marketing", "Studio"), env: env(), userHome: user });
+    const d = pruefeUmgebung(sonde()).find((x) => x.name === "OneDrive-Doppel");
+    expect(d?.stufe).toBe("hinweis");
+    expect(d?.text).toContain("OneDrive-Royalsocials (0 Einträge)");
+    expect(d?.text).toContain("OneDrive-Royalsocials(2) (1 Einträge)");
+    expect(fs.readdirSync(leer)).toEqual([]);
+  });
+
+  it("die Auswahl bei mehreren Ordnern sagt, welcher leer ist", () => {
+    onedrive("OneDrive-Royalsocials");
+    const echt = onedrive("OneDrive-Royalsocials(2)");
+    fs.mkdirSync(path.join(echt, "03_marketing"));
+    let meldung = "";
+    try {
+      initialisiere({ env: env(), userHome: user });
+    } catch (e) {
+      meldung = (e as Error).message;
+    }
+    expect(meldung).toMatch(/OneDrive-Royalsocials \(LEER/);
+    expect(meldung).toMatch(/OneDrive-Royalsocials\(2\) \(1 Einträge\)/);
+  });
+
+  it("onedriveWurzel findet den Ordner unter CloudStorage und im Home, sonst nichts", () => {
+    const od = onedrive("OneDrive-X");
+    expect(onedriveWurzel(path.join(od, "a", "b", "Studio"), user)).toBe(od);
+    expect(onedriveWurzel(path.join(user, "Lokal", "Studio"), user)).toBeUndefined();
+    const alt = path.join(user, "OneDrive - Firma");
+    expect(onedriveWurzel(path.join(alt, "Studio"), user)).toBe(alt);
+  });
+
+  it("nurWegZu: wahr, wenn jede Ebene nur den Weg zum Ziel enthält", () => {
+    const od = onedrive("OneDrive-X");
+    const ziel = path.join(od, "a", "Studio");
+    fs.mkdirSync(ziel, { recursive: true });
+    expect(nurWegZu(od, ziel)).toBe(true);
+    fs.mkdirSync(path.join(od, "andere"));
+    expect(nurWegZu(od, ziel)).toBe(false);
+    fs.rmdirSync(path.join(od, "andere"));
+    fs.writeFileSync(path.join(od, "a", "Notiz.txt"), "");
+    expect(nurWegZu(od, ziel)).toBe(false);
   });
 });
