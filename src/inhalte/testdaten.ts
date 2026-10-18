@@ -28,6 +28,7 @@ export function inhalt(p: Partial<Inhalt> = {}): Inhalt {
     statusVon: "",
     statusGrund: "",
     statusAm: "",
+    statusVorPause: "",
     dateien: "Footage: rohmaterial/praxis-hofer/empfang-01.mov | Empfang, Totale",
     ziel: "",
     publishing: undefined,

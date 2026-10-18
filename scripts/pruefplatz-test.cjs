@@ -738,7 +738,8 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     assert.deepEqual((await titelIn(gruppe(page, "bereit"))).sort(), ["Freigegeben LI", "Geplant LI"]); // Freigegeben und Geplant
     const text = await page.locator("#ansicht").textContent();
     for (const nie of ["Gepostet", "Ausgewertet", "Verworfen", "Pausiert"]) assert.doesNotMatch(await page.locator(".liste").allTextContents().then((l) => l.join(" ")), new RegExp(nie), nie + " steht in keiner Liste");
-    assert.match(text, /4 abgeschlossene Inhalte ausgeblendet/);
+    assert.match(text, /3 abgeschlossene Inhalte ausgeblendet/); // gepostet, ausgewertet, verworfen; Pausiertes hat einen eigenen Hinweis
+    assert.match(text, /1 Inhalt pausiert: ansehen/);
     const link = page.locator("#ausgeblendet a");
     assert.equal(await link.getAttribute("href"), ARCHIV);
     assert.equal(await link.getAttribute("target"), "_blank");
@@ -881,8 +882,9 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     await page.waitForSelector("#status .meldung.gut");
     const w = (await eigenschaften(page))[0];
     assert.equal(w.page_id, inhaltId(4));
-    assert.deepEqual(Object.keys(w.properties).sort(), ["Status", "date:Status am:is_datetime", "date:Status am:start", "Status von", "Status-Grund"].sort());
+    assert.deepEqual(Object.keys(w.properties).sort(), ["Status", "Status vor Pause", "date:Status am:is_datetime", "date:Status am:start", "Status von", "Status-Grund"].sort());
     assert.equal(w.properties.Status, "Pausiert");
+    assert.equal(w.properties["Status vor Pause"], "In Produktion"); // damit das Fortsetzen dorthin zurückführt
     assert.equal(w.properties["Status von"], "Andrej");
     assert.equal(w.properties["Status-Grund"], "Kunde wartet auf den Dreh");
     assert.equal(w.properties["date:Status am:is_datetime"], 1);
@@ -951,6 +953,95 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     await page.waitForSelector("#status .meldung.fehler");
     assert.match(await page.locator("#status").textContent(), /Schon weiter/);
     assert.equal((await schreibaufrufe(page)).length, 0);
+    await ctx.close();
+  });
+
+
+  /* ---------- Pausiertes fortsetzen ---------- */
+
+  const mitPause = (zeilen, o = {}) => seite({ ideen: [], inhalte: zeilen, marken: MARKEN("freigegeben", "Andrej"), optionen: { name: "Andrej" }, ...o });
+  const pausiertZeile = (n, o = {}) => inhalt(n, { Titel: "Wartet auf den Dreh", Status: "Pausiert", "Status vor Pause": "In Produktion", "Status von": "Leander", "Status-Grund": "Kunde wartet auf den Dreh", ...o });
+
+  await t("Pausiertes steht in keiner Gruppe, aber hinter einem Knopf: ansehen, öffnen, fortsetzen", async () => {
+    const { page, ctx } = await mitPause([pausiertZeile(1), inhalt(2, { Titel: "Läuft", Status: "In Produktion" })]);
+    await page.click("#n-linkedin");
+    assert.equal(await reihe(page, "Wartet auf den Dreh").count(), 0); // zugeklappt
+    assert.equal(await page.locator('[data-gruppe] .reihe').filter({ hasText: "Wartet auf den Dreh" }).count(), 0);
+    const knopf = page.locator("#pausierte-knopf-linkedin");
+    assert.equal(await knopf.getAttribute("aria-expanded"), "false");
+    await knopf.click();
+    assert.equal(await knopf.getAttribute("aria-expanded"), "true");
+    const r = reihe(page, "Wartet auf den Dreh");
+    assert.equal(await r.count(), 1);
+    assert.match(await r.textContent(), /Pausiert/);
+    assert.match(await r.textContent(), /vorher «In Produktion»/);
+    assert.equal(await page.locator('[data-gruppe] .reihe').filter({ hasText: "Wartet auf den Dreh" }).count(), 0); // auch aufgeklappt nicht in den Gruppen
+    await r.click();
+    const t = await detailText(page);
+    assert.match(t, /Pausiert von Leander: Kunde wartet auf den Dreh/);
+    assert.match(t, /Fortsetzen führt zurück zu «In Produktion»/);
+    await page.getByRole("button", { name: "Fortsetzen", exact: true }).click();
+    await page.waitForSelector("#status .meldung.gut");
+    const w = (await eigenschaften(page))[0];
+    assert.equal(w.page_id, inhaltId(1));
+    assert.deepEqual(Object.keys(w.properties).sort(), ["Status", "Status vor Pause", "date:Status am:is_datetime", "date:Status am:start", "Status von", "Status-Grund"].sort());
+    assert.equal(w.properties.Status, "In Produktion");
+    assert.equal(w.properties["Status von"], "Andrej");
+    assert.equal(w.properties["Status vor Pause"], null); // das Feld wird geleert
+    assert.match(w.properties["Status-Grund"], /Fortgesetzt/);
+    await page.click("#n-linkedin");
+    assert.equal(await page.locator("#pausierte-linkedin").count(), 0); // nichts mehr pausiert
+    assert.ok((await titelIn(gruppe(page, "arbeit"))).includes("Wartet auf den Dreh")); // zurück in «In Arbeit»
+    await ctx.close();
+  });
+
+  await t("Auf «Heute» erreicht man Pausiertes auch ohne Plattform; Beispiele zählen nicht", async () => {
+    const { page, ctx } = await mitPause([pausiertZeile(1, { Plattformen: "[]", Format: "Sonstiges" }), pausiertZeile(2, { Titel: "Beispiel: Pause" })]);
+    await page.waitForSelector("#pausierte-knopf-heute");
+    assert.match(await page.locator("#pausierte-heute").textContent(), /^1 Inhalt pausiert: ansehen/);
+    await page.click("#pausierte-knopf-heute");
+    assert.equal(await reihe(page, "Wartet auf den Dreh").count(), 1);
+    assert.equal(await reihe(page, "Beispiel: Pause").count(), 0);
+    await ctx.close();
+  });
+
+  await t("Fortsetzen braucht einen Namen und schreibt nichts, wenn der Inhalt inzwischen weiter ist oder das Feld sich geändert hat", async () => {
+    const n = await mitPause([pausiertZeile(1)], { optionen: { name: "" } });
+    await n.page.click("#n-linkedin"); await n.page.click("#pausierte-knopf-linkedin"); await reihe(n.page, "Wartet auf den Dreh").click();
+    await n.page.getByRole("button", { name: "Fortsetzen", exact: true }).click();
+    assert.match(await n.page.locator("#status").textContent(), /Name fehlt/);
+    assert.equal((await schreibaufrufe(n.page)).length, 0);
+    await n.ctx.close();
+    const m = await mitPause([pausiertZeile(1)]);
+    await m.page.click("#n-linkedin"); await m.page.click("#pausierte-knopf-linkedin"); await reihe(m.page, "Wartet auf den Dreh").click();
+    await m.page.evaluate(() => { window.__inhalte[0]["Status vor Pause"] = "Freigegeben"; });
+    await m.page.getByRole("button", { name: "Fortsetzen", exact: true }).click();
+    await m.page.waitForSelector("#status .meldung.fehler");
+    assert.match(await m.page.locator("#status").textContent(), /Schon weiter/);
+    assert.equal((await schreibaufrufe(m.page)).length, 0);
+    await m.ctx.close();
+  });
+
+  await t("Ist der Status vor der Pause nicht gespeichert, gibt es kein Fortsetzen, sondern den Hinweis, Claude zu fragen", async () => {
+    const { page, ctx } = await mitPause([pausiertZeile(1, { "Status vor Pause": "" })]);
+    await page.click("#n-linkedin"); await page.click("#pausierte-knopf-linkedin"); await reihe(page, "Wartet auf den Dreh").click();
+    assert.equal(await page.getByRole("button", { name: "Fortsetzen", exact: true }).count(), 0);
+    assert.match(await page.locator("#ohne-vorstatus").textContent(), /nicht gespeichert/);
+    await ctx.close();
+  });
+
+  await t("Aus der Pause verwerfen leert das Feld «Status vor Pause»; Pausieren ist dort nicht mehr angeboten", async () => {
+    const { page, ctx } = await mitPause([pausiertZeile(1)]);
+    await page.click("#n-linkedin"); await page.click("#pausierte-knopf-linkedin"); await reihe(page, "Wartet auf den Dreh").click();
+    assert.equal(await page.getByRole("button", { name: "Pausieren oder verwerfen" }).count(), 0);
+    await page.click("#verwalten-c-0001");
+    assert.equal(await page.getByRole("button", { name: "Pausieren", exact: true }).count(), 0);
+    await page.fill("textarea", "Kunde sagt ab");
+    await page.getByRole("button", { name: "Verwerfen", exact: true }).click();
+    await page.waitForSelector("#status .meldung.gut");
+    const w = (await eigenschaften(page))[0];
+    assert.equal(w.properties.Status, "Verworfen");
+    assert.equal(w.properties["Status vor Pause"], null);
     await ctx.close();
   });
 

@@ -14,8 +14,8 @@ Referenz: `pruefplatz-neu-entwurf.html` (Entwurf mit Beispieldaten, im Stil von 
    * **Heute: Zu entscheiden.** Nur Karten, auf die ein Mensch wartet (Tor I, Tor P, Gate 0, Look, Abnahme). Pro Karte genau eine Hauptaktion. Der Knopf «Der Reihe nach durchgehen» ersetzt den Wochenmodus.
    * **Plattformen:** Instagram, LinkedIn, Blog, Google Maps. Je Plattform eine Seite. Darauf nur laufende Inhalte in drei Gruppen: Idee, In Arbeit, Bereit zum Posten. Zuordnung der Stati: Neu und Pitch bereit = Idee; In Produktion und Entwurf fertig = In Arbeit; Freigegeben und Geplant = Bereit zum Posten. Plattform kommt aus «Plattformen», Reels und Carousels gehören zu Instagram, ein Inhalt für mehrere Plattformen erscheint auf jeder.
    * **Werkstatt:** Motion-Bibliothek, Motion-Ideen, Marke. Eine Seite mit drei Kacheln. Das ist Systempflege, kein Tagesgeschäft.
-2. Gepostetes, Ausgewertetes, Verworfenes, Pausiertes steht nie in einer Liste. Nur ein Hinweis «64 Gepostete ausgeblendet» mit Link ins Archiv (Archiv = Notion-Ansicht, nicht im Prüfplatz).
-3. Kein Import von Altbeiträgen. Das Archiv bleibt im Cockpit (Beiträge · Archiv und Analytics). In «Inhalte» gehören nur Ideen und laufende Arbeit. Bereits importierte Zeilen im Status Gepostet bzw. Veröffentlicht werden aus «Inhalte» entfernt, erst nach Andrejs Ja (die Originale im Cockpit bleiben). Ideen und Entwürfe aus dem Cockpit bleiben.
+2. Gepostetes, Ausgewertetes, Verworfenes, Pausiertes steht nie in einer Liste. Nur ein Hinweis «64 Gepostete ausgeblendet» mit Link ins Archiv (Archiv = Notion-Ansicht, nicht im Prüfplatz). **Ergänzt am 18.10.:** Pausiertes hat einen eigenen Hinweis mit Knopf, der die Liste aufklappt, damit man es fortsetzen kann.
+3. **Geändert am 18.10. (Andrej): Die Altbeiträge bleiben in «Inhalte» und in Notion, nichts wird entfernt; sie werden bei der Ideenfindung und der Dublettenprüfung genutzt (`studio inhalte archiv`).** Ursprünglicher Wortlaut: Kein Import von Altbeiträgen. Das Archiv bleibt im Cockpit (Beiträge · Archiv und Analytics). In «Inhalte» gehören nur Ideen und laufende Arbeit. Bereits importierte Zeilen im Status Gepostet bzw. Veröffentlicht werden aus «Inhalte» entfernt, erst nach Andrejs Ja (die Originale im Cockpit bleiben). Ideen und Entwürfe aus dem Cockpit bleiben.
 4. Eine Zeile zeigt: Titel, Format und Person, einen Status. Kein «Verwalten»-Knopf in der Zeile, keine Inhalt-ID, kein Hook, wenn er dem Titel gleicht. Details und Aktionen öffnen in einem Seitenfenster (Handy: volle Breite).
 5. Beispielzeilen («Beispiel: …») sind markiert und erscheinen nicht in den Plattformlisten. Löschen nur mit Andrejs Ja.
 6. Name: Feld «Entscheiden als» unten in der Seitenleiste, nicht oben auf jeder Seite.
@@ -69,11 +69,14 @@ Gebaut und geprüft: `pruefplatz/index.html` neu, 51 Browser-Prüfungen in `scri
 
 **Nicht umgesetzt, bewusst**
 
-* Das Entfernen der importierten Altbeiträge aus «Inhalte» (Regel 3) und das Löschen der Beispiele (Regel 5): Beides löscht Seiten in Notion und wartet auf Andrejs ausdrückliches Ja zur genauen Liste.
+* ~~Das Entfernen der importierten Altbeiträge aus «Inhalte» (Regel 3)~~ **erledigt durch Entscheid am 18.10.: Sie bleiben.** Die Dublettenprüfung rechnet seitdem mit dem Erscheinungsdatum («Geplant für»), und `studio inhalte archiv` macht den Bestand für die Ideenfindung nutzbar.
+* Das Löschen der Beispiele (Regel 5) löscht Seiten in Notion und wartet auf Andrejs ausdrückliches Ja zur genauen Liste.
 * Die Referenzdatei `pruefplatz-neu-entwurf.html` lag der Sitzung nicht vor. Das Design folgt dem Wortlaut oben und den Quellen `app/globals.css` und CLAUDE.md von `AlpernaGmbH/tool`. Wer die Datei hat, legt sie unter `docs/` ab, und Abweichungen werden nachgezogen.
 * `marken/alperna.json` ist nicht angefasst (offene Frage).
 
 ## Einwände und Risiken
+
+**Stand 18.10.:** Die Punkte 1 und 2 unten sind überholt, weil die Altbeiträge bleiben. Sie stehen noch da, weil sie die Folgen eines Entfernens beschreiben.
 
 1. **Altbeiträge entfernen schwächt die Dublettenprüfung.** Die Regel «Kein Fakt der letzten 90 Tage» (Plan v3, Kapitel 3.1, `regeln.ts`) vergleicht mit den Zeilen in «Inhalte». Von den 75 importierten «Ausgewertet»-Zeilen liegen 38 innerhalb der letzten 90 Tage (Stand 18.10.2026). Ohne sie sieht die Prüfung diese Beiträge nicht, und ein Fakt könnte nochmals auftauchen. Vorschlag: nur die 37 älteren «Ausgewertet»-Zeilen entfernen. Die 38 jüngeren bleiben (sie sind in keiner Liste sichtbar) und gehen mit der Zeit von selbst aus dem 90-Tage-Fenster. Die 9 verworfenen Zeilen nennt der Auftrag nicht, sie bleiben ebenfalls unsichtbar stehen. Alternative: die Prüfung liest zusätzlich das Cockpit-Archiv. Das ist mehr Aufwand.
 2. **Reihenfolge:** Erst entfernen, dann den ersten Abgleich mit `--erstlauf`. Sonst steht jede entfernte Zeile im Stand und der Abgleich meldet sie als «nicht mehr in Notion».

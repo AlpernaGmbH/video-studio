@@ -234,6 +234,37 @@ describe("Von Hand gesetzter Status: Name und Grund gelten nur mit neuem Zeitpun
   });
 });
 
+describe("Pause und Fortsetzen: das Feld «Status vor Pause»", () => {
+  const AM3 = "2026-10-19T10:00:00Z";
+  const pausiertMit = (vor: Status | "", p: Partial<Inhalt> = {}) => inhalt({ id: "c-0001", status: "Pausiert", statusVon: "Andrej", statusGrund: "Kunde wartet auf den Dreh", statusAm: AM3, statusVorPause: vor, ...p });
+
+  it("im Erstlauf übernimmt der Stand den Status vor der Pause aus Notion, und das Fortsetzen führt dorthin", () => {
+    const erst = lauf(standMit({}), [pausiertMit("Freigegeben")], { ...frei, erstlauf: true });
+    expect(erst.stand.inhalte["c-0001"]).toMatchObject({ status: "Pausiert", vorPause: "Freigegeben" });
+    expect(lauf(erst.stand, [inhalt({ id: "c-0001", status: "Freigegeben" })]).befunde[0]!.art).toBe("uebernommen");
+    expect(lauf(erst.stand, [inhalt({ id: "c-0001", status: "In Produktion" })]).befunde[0]!.art).toBe("zurueckgesetzt");
+  });
+
+  it("weiss der Stand nichts über die Pause, springt das Feld ein; ohne Feld bleibt das Fortsetzen verboten", () => {
+    const s = standMit({ "c-0001": eintrag("Pausiert") });
+    expect(lauf(s, [inhalt({ id: "c-0001", status: "In Produktion", statusVorPause: "In Produktion" })]).befunde[0]!.art).toBe("uebernommen");
+    expect(lauf(s, [inhalt({ id: "c-0001", status: "In Produktion" })]).befunde[0]!.art).toBe("zurueckgesetzt");
+  });
+
+  it("der Stand gilt vor Notion: Ein selbst gesetztes Feld öffnet keinen Weg an einem Tor vorbei", () => {
+    // Pausiert aus «Neu», aber im Feld steht «Freigegeben». Fortsetzen nach «Freigegeben» würde Tor I und Tor P überspringen.
+    const s = standMit({ "c-0001": eintrag("Pausiert", { vorPause: "Neu" }) });
+    expect(lauf(s, [inhalt({ id: "c-0001", status: "Freigegeben", statusVorPause: "Freigegeben" })]).befunde[0]!.art).toBe("zurueckgesetzt");
+    expect(lauf(s, [inhalt({ id: "c-0001", status: "Neu", statusVorPause: "Freigegeben" })]).befunde[0]!.art).toBe("uebernommen");
+  });
+
+  it("das Pausieren über den Prüfplatz mit dem Feld bleibt ein gewöhnlicher Wechsel: Name, Grund und Zeit zählen, der Stand merkt sich den alten Status", () => {
+    const r = lauf(standMit({ "c-0001": eintrag("In Produktion") }), [pausiertMit("In Produktion")]);
+    expect(r.befunde[0]!.art).toBe("uebernommen");
+    expect(r.stand.inhalte["c-0001"]).toMatchObject({ status: "Pausiert", vorPause: "In Produktion" });
+  });
+});
+
 describe("Tor P", () => {
   const entwurf = (p: Partial<Inhalt> = {}) => inhalt({ id: "c-0001", status: "Entwurf fertig", ...p });
   const stand = (geprueft = true) => standMit({ "c-0001": eintrag("Entwurf fertig") }, geprueft ? { "c-0001": { bestanden: true, am: JETZT } } : {});

@@ -62,6 +62,8 @@ export interface Inhalt {
   statusGrund: string;
   /** Zeitpunkt, an dem der Prüfplatz den Status gesetzt hat. Ein von Hand geänderter Status gilt nur mit einem neuen Zeitpunkt. */
   statusAm: string;
+  /** Status, in dem der Inhalt vor der Pause stand. Der Prüfplatz schreibt ihn beim Pausieren und leert ihn beim Fortsetzen. */
+  statusVorPause: Status | "";
   dateien: string;
   ziel: string;
   publishing?: string;
@@ -147,6 +149,7 @@ export function zeileZuInhalt(z: Zeile, markenNachId: ReadonlyMap<string, string
     statusVon: text(z, "Status von"),
     statusGrund: text(z, "Status-Grund"),
     statusAm: text(z, "date:Status am:start"),
+    statusVorPause: wahl(z, "Status vor Pause", STATI) ?? "",
     dateien: textMitLinks(z, "Dateien"),
     ziel: text(z, "Ziel"),
     publishing: text(z, "Publishing") || undefined,

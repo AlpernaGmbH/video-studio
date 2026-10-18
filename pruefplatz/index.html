@@ -155,6 +155,8 @@ input::placeholder, textarea::placeholder { color: var(--gedaempft); opacity: 0.
 .reihe .kurz { grid-column: 1 / -1; font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .reihe .chip { grid-column: 2; grid-row: 1; }
 .ausgeblendet { font-size: 14px; color: var(--gedaempft); }
+.pausierte { display: grid; gap: 10px; justify-items: start; margin-top: 8px; }
+.pausierte .liste { justify-self: stretch; }
 .warnung { border: 1px solid var(--stopp); border-radius: 10px; padding: 10px 14px; color: var(--stopp); font-size: 14px; }
 .meldung { border: 1px solid var(--linie-stark); border-radius: 10px; padding: 12px 14px; background: var(--karte); display: grid; gap: 8px; }
 .meldung.fehler { border-color: var(--stopp); }
@@ -393,7 +395,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   const S = {
     mcp: null, zeilen: [], inhalte: [], marken: [], inhalteFehler: null, hatMehr: false,
     ansicht: "heute", werk: null, detail: null, durchgang: null, fokus: null, opener: null,
-    torModus: {}, gate0Frage: {}, seitentext: {}, verwalten: null, entwurf: {}, ablehnen: {}, filter: "alle",
+    torModus: {}, gate0Frage: {}, seitentext: {}, pauseOffen: {}, verwalten: null, entwurf: {}, ablehnen: {}, filter: "alle",
     laden: "idle", fehler: null, name: "", busy: false, stand: null, meldung: null,
   };
 
@@ -475,7 +477,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
       art: "inhalt", id: t("Inhalt-ID"), titel, beispiel: /^Beispiel:/i.test(titel), format: t("Format"), plattformen: liste(z["Plattformen"]), markeUrls: liste(z["Marke"]), profil: t("Profil"),
       quelle: t("Quelle"), referenz: t("Referenz"), hook: t("Hook"), winkel: t("Winkel"), beleg: t("Beleg"), aufwand: t("Aufwand"), status: t("Status"),
       torI: tor("Tor I"), torP: tor("Tor P"), dateien: textMitLinks(z, "Dateien"), ziel: t("Ziel"), publishing: t("Publishing"), geplantFuer: t("date:Geplant für:start"),
-      statusVon: t("Status von"), statusGrund: t("Status-Grund"), statusAm: t("date:Status am:start"),
+      statusVon: t("Status von"), statusGrund: t("Status-Grund"), statusAm: t("date:Status am:start"), statusVorPause: t("Status vor Pause"),
       offeneMarkierungen: typeof z["Offene Markierungen"] === "number" ? z["Offene Markierungen"] : 0, url, seite: seitenId(url),
     };
   }
@@ -517,8 +519,12 @@ dd { margin: 0; overflow-wrap: anywhere; }
     { k: "arbeit", name: "In Arbeit", stati: ["In Produktion", "Entwurf fertig"] },
     { k: "bereit", name: "Bereit zum Posten", stati: ["Freigegeben", "Geplant"] },
   ];
-  /** Gepostetes, Ausgewertetes, Verworfenes und Pausiertes steht nie in einer Liste, nur als Hinweis mit Link ins Archiv. */
+  /**
+   * Gepostetes, Ausgewertetes und Verworfenes steht nie in einer Liste, nur als Hinweis mit Link ins Archiv.
+   * Pausiertes steht ebenfalls in keiner Gruppe; es hat einen eigenen Hinweis, der die Liste auf Wunsch aufklappt, damit man es fortsetzen kann.
+   */
   const ABGESCHLOSSEN = ["Veröffentlicht", "Ausgewertet", "Verworfen", "Pausiert"];
+  const ENDGUELTIG = ["Veröffentlicht", "Ausgewertet", "Verworfen"];
   const inListe = (c) => !c.beispiel && GRUPPEN.some((g) => g.stati.includes(stand(c)));
 
   async function laden(still) {
@@ -733,6 +739,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
     if (bei) a.append(h("p", { class: "hinweis", id: "bei-claude", text: bei + (bei === 1 ? " Entscheid liegt" : " Entscheide liegen") + " bei Claude und " + (bei === 1 ? "wird" : "werden") + " beim nächsten Lauf weitergeführt." }));
     const ohne = S.inhalte.filter((c) => inListe(c) && plattformenVon(c).length === 0).length;
     if (ohne) a.append(h("p", { class: "hinweis", text: ohne + (ohne === 1 ? " laufender Inhalt hat" : " laufende Inhalte haben") + " keine Plattform und " + (ohne === 1 ? "steht" : "stehen") + " auf keiner Plattformseite." }));
+    a.append(pausierteBlock("heute", pausierte(() => true)));
     if (S.hatMehr) a.append(h("p", { class: "hinweis", text: "Es gibt mehr als 500 Ideen. Der Prüfplatz zeigt die ersten 500." }));
   }
 
@@ -792,9 +799,20 @@ dd { margin: 0; overflow-wrap: anywhere; }
     return h("button", { class: "reihe", type: "button", "data-id": c.id, onclick: (ev) => oeffne("inhalt", c.id, ev.currentTarget) },
       h("span", { class: "titel", text: c.titel }),
       wartet ? chip("Wartet auf dich", "wartet") : bei ? chip("Wartet auf Claude", "still") : chip(stand(c), "still"),
-      h("span", { class: "meta", text: [c.format, c.profil].filter(Boolean).join(" · ") }),
+      h("span", { class: "meta", text: [c.format, c.profil, stand(c) === "Pausiert" && c.statusVorPause ? "vorher «" + c.statusVorPause + "»" : ""].filter(Boolean).join(" · ") }),
       hook ? h("span", { class: "kurz", text: "«" + hook + "»" }) : null);
   }
+
+  /** Die pausierten Inhalte hinter einem Knopf: nicht in den Gruppen, aber erreichbar, damit man sie fortsetzen kann. */
+  function pausierteBlock(id, liste) {
+    if (!liste.length) return null;
+    const offen = !!S.pauseOffen[id];
+    return h("div", { class: "pausierte", id: "pausierte-" + id },
+      h("button", { class: "knopf klein", type: "button", id: "pausierte-knopf-" + id, "aria-expanded": String(offen), "aria-controls": "pausierte-liste-" + id, onclick: () => { S.pauseOffen[id] = !offen; S.fokus = "#pausierte-knopf-" + id; zeichne(); } },
+        liste.length + (liste.length === 1 ? " Inhalt pausiert" : " Inhalte pausiert") + (offen ? ": ausblenden" : ": ansehen")),
+      offen ? h("div", { class: "karte liste", id: "pausierte-liste-" + id }, liste.map(reihe)) : null);
+  }
+  const pausierte = (filter) => S.inhalte.filter((c) => !c.beispiel && stand(c) === "Pausiert" && filter(c));
 
   function zeichnePlattform(a, p) {
     a.append(kopf(h("h1", null, p.name), "Laufende Inhalte in drei Schritten: Idee, in Arbeit, bereit zum Posten."));
@@ -809,11 +827,12 @@ dd { margin: 0; overflow-wrap: anywhere; }
         h("div", { class: "gruppe-kopf" }, h("h2", { text: g.name }), h("span", { class: "zahl", text: String(inGruppe.length) })),
         inGruppe.length ? h("div", { class: "karte liste" }, inGruppe.map(reihe)) : h("p", { class: "hinweis", text: "Nichts in dieser Gruppe." })));
     }
-    const zu = S.inhalte.filter((c) => !c.beispiel && ABGESCHLOSSEN.includes(stand(c)) && plattformenVon(c).includes(p.k)).length;
+    const zu = S.inhalte.filter((c) => !c.beispiel && ENDGUELTIG.includes(stand(c)) && plattformenVon(c).includes(p.k)).length;
     if (zu) {
-      a.append(h("p", { class: "ausgeblendet", id: "ausgeblendet" }, zu + (zu === 1 ? " abgeschlossener Inhalt" : " abgeschlossene Inhalte") + " ausgeblendet (gepostet, ausgewertet, verworfen oder pausiert). ",
+      a.append(h("p", { class: "ausgeblendet", id: "ausgeblendet" }, zu + (zu === 1 ? " abgeschlossener Inhalt" : " abgeschlossene Inhalte") + " ausgeblendet (gepostet, ausgewertet oder verworfen). ",
         DATEN.notion.archiv ? h("a", { href: DATEN.notion.archiv, target: "_blank", rel: "noopener", text: "Archiv in Notion öffnen" }) : null));
     }
+    a.append(pausierteBlock(p.k, pausierte((c) => plattformenVon(c).includes(p.k))));
   }
 
   /* ---------- Werkstatt ---------- */
@@ -1265,23 +1284,33 @@ dd { margin: 0; overflow-wrap: anywhere; }
     pausieren: !NICHT_PAUSIERBAR.includes(stand(c)),
     verwerfen: !NICHT_VERWERFBAR.includes(stand(c)),
     bestaetigen: c.status === "Geplant" && ["Manuell", "Paket"].includes(c.publishing),
+    fortsetzen: stand(c) === "Pausiert",
   });
 
   /** Im Seitenfenster: «Veröffentlicht bestätigen» als Hauptaktion bei geplanten Beiträgen, Pausieren und Verwerfen hinter einem Knopf. */
   function verwaltenBlock(c) {
     const a = verwaltenAktionen(c);
-    if (!a.pausieren && !a.verwerfen && !a.bestaetigen) return null;
+    if (!a.pausieren && !a.verwerfen && !a.bestaetigen && !a.fortsetzen) return null;
     const offen = S.verwalten === c.id;
     const grund = () => entwurfFeld(c, "grund", "").trim();
     const kurz = () => grund().length >= 5;
     const lang = () => grund().length >= 10 && woerter(grund()) >= 2;
     const st = stand(c);
-    const sende = (neu, g) => senden(c, Object.assign({ Status: neu, "Status von": S.name.trim(), "Status-Grund": g || null }, datum("Status am")), (f) => stand(f) === st, (d) => d.status === neu && d.statusVon === S.name.trim());
-    return abschnitt("Weitere Handlungen",
+    // Beim Pausieren merkt sich die Zeile den bisherigen Status, damit das Fortsetzen dorthin zurückführt. Wer aus der Pause verwirft, leert das Feld.
+    const pause = (neu) => (neu === "Pausiert" ? { "Status vor Pause": st } : st === "Pausiert" ? { "Status vor Pause": null } : {});
+    const sende = (neu, g) => senden(c, Object.assign({ Status: neu, "Status von": S.name.trim(), "Status-Grund": g || null }, pause(neu), datum("Status am")), (f) => stand(f) === st,
+      (d) => d.status === neu && d.statusVon === S.name.trim() && (neu !== "Pausiert" || d.statusVorPause === st));
+    const ziel = c.statusVorPause;
+    const fortsetzen = () => senden(c, Object.assign({ Status: ziel, "Status von": S.name.trim(), "Status-Grund": "Fortgesetzt nach der Pause", "Status vor Pause": null }, datum("Status am")),
+      (f) => stand(f) === "Pausiert" && f.statusVorPause === ziel, (d) => d.status === ziel && d.statusVon === S.name.trim());
+    return abschnitt(a.fortsetzen ? "Pausiert" : "Weitere Handlungen",
+      a.fortsetzen ? h("p", { class: "hinweis", text: "Pausiert" + (c.statusVon ? " von " + c.statusVon : "") + (c.statusGrund ? ": " + c.statusGrund : "") + "." }) : null,
+      a.fortsetzen && ziel ? [h("p", { text: "Fortsetzen führt zurück zu «" + ziel + "»." }), h("div", { class: "aktionen" }, knopf(c, "Fortsetzen", "primaer", () => true, fortsetzen))] : null,
+      a.fortsetzen && !ziel ? h("p", { class: "warnung", id: "ohne-vorstatus", text: "Der Status vor der Pause ist nicht gespeichert. Sag Claude im Chat, wohin der Inhalt zurück soll." }) : null,
       a.bestaetigen ? h("p", { class: "hinweis", text: "Geplant" + (c.geplantFuer ? " für " + new Date(c.geplantFuer).toLocaleDateString("de-CH") : "") + (c.publishing ? ", Veröffentlichung: " + c.publishing : "") + ". Bestätige erst, wenn der Beitrag wirklich draussen ist." }) : null,
       a.bestaetigen ? h("div", { class: "aktionen" }, knopf(c, "Veröffentlicht bestätigen", "primaer", () => true, () => sende("Veröffentlicht", ""))) : null,
       a.pausieren || a.verwerfen
-        ? h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "verwalten-" + c.id, "aria-expanded": String(offen), onclick: () => { S.verwalten = offen ? null : c.id; if (!offen) S.fokus = "textarea"; zeichne(); } }, offen ? "Pausieren oder verwerfen schliessen" : "Pausieren oder verwerfen"))
+        ? h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "verwalten-" + c.id, "aria-expanded": String(offen), onclick: () => { S.verwalten = offen ? null : c.id; if (!offen) S.fokus = "textarea"; zeichne(); } }, (a.pausieren ? "Pausieren oder verwerfen" : "Verwerfen") + (offen ? " schliessen" : "")))
         : null,
       offen && (a.pausieren || a.verwerfen) ? [
         textfeld(c, "grund", "Grund", a.verwerfen ? "Pausieren: ein kurzer Grund. Verwerfen: mindestens zwei Wörter, der Grund verhindert, dass dieselbe Idee wiederkommt." : "Ein kurzer Grund, warum es pausiert."),

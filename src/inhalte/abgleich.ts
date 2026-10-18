@@ -116,7 +116,10 @@ export function abgleich(stand: Stand, inhalte: Inhalt[], ctx: AbgleichKontext):
     const p = stand.pruefungen[i.id];
     const k: UebergangsKontext = { jetzt: ctx.jetzt, akteur, andere: inhalte.filter((x) => x !== i), gate0: ctx.gate0(i.marke) };
     if (grund) k.grund = grund;
+    // Der Stand gilt vor Notion: Das Feld «Status vor Pause» springt nur ein, wo der Stand nichts weiss (Erstlauf, Pause an einem anderen Rechner),
+    // damit niemand mit einem selbst gesetzten Feld an einem Tor vorbei fortsetzt.
     if (s?.vorPause) k.vorPause = s.vorPause;
+    else if (s?.status === "Pausiert" && i.statusVorPause) k.vorPause = i.statusVorPause;
     if (p) k.entwurfGeprueft = p.text ? { bestanden: p.bestanden, text: p.text } : { bestanden: p.bestanden };
     return k;
   };
@@ -219,7 +222,7 @@ export function abgleich(stand: Stand, inhalte: Inhalt[], ctx: AbgleichKontext):
 
     if (!alt) {
       if (status === "Neu" || ctx.erstlauf) {
-        neu.inhalte[i.id] = eintrag(i, status, undefined);
+        neu.inhalte[i.id] = eintrag(i, status, undefined, status === "Pausiert" && i.statusVorPause ? i.statusVorPause : undefined);
         const gehandelt = tore(i, status, undefined, undefined);
         if (!gehandelt) befund(i, "neu", status === "Neu" ? "Neu übernommen" : `Erstlauf: Status «${status}» übernommen`);
       } else {

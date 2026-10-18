@@ -77,7 +77,8 @@ export function dubletten(i: Inhalt, andere: Inhalt[], jetzt: string): Dublette[
   const treffer: Dublette[] = [];
   for (const a of andere) {
     if (a.id === i.id || a.status === "Verworfen") continue;
-    const t = Date.parse(a.erstellt);
+    // Bei Beiträgen aus dem Archiv zählt, wann sie erschienen sind («Geplant für»), nicht wann die Zeile in Notion entstand.
+    const t = Date.parse(a.geplantFuer || a.erstellt);
     if (!Number.isNaN(t) && t < grenze) continue;
     const s = aehnlichkeit(i.beleg, a.beleg);
     if (s >= DUBLETTE_SCHWELLE) treffer.push({ id: a.id, titel: a.titel, aehnlichkeit: Math.round(s * 100) / 100 });

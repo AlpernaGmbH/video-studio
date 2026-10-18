@@ -155,3 +155,11 @@ describe("inhaltZuProperties", () => {
     expect(zeileZuInhalt(z).dateien).toBe("Footage: rohmaterial/a.mov\nFoto: https://onedrive.test/s/abc | Frau Hofer");
   });
 });
+
+describe("Status vor Pause", () => {
+  it("wird aus der Zeile gelesen, ein unbekannter oder leerer Wert ergibt «»", () => {
+    expect(zeileZuInhalt({ "Inhalt-ID": "c-0001", Status: "Pausiert", "Status vor Pause": "In Produktion" }).statusVorPause).toBe("In Produktion");
+    expect(zeileZuInhalt({ "Inhalt-ID": "c-0001", Status: "Pausiert" }).statusVorPause).toBe("");
+    expect(zeileZuInhalt({ "Inhalt-ID": "c-0001", Status: "Pausiert", "Status vor Pause": "irgendwas" }).statusVorPause).toBe("");
+  });
+});

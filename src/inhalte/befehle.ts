@@ -4,6 +4,7 @@ import type { Args } from "../args";
 import { ladeMarke, type Umgebung } from "../motion/werkstatt";
 import { zeilenAusAbfrage } from "../notion/abbild";
 import { abgleich, zaehle } from "./abgleich";
+import { archivBericht } from "./archiv";
 import { FORMATE, zeileZuInhalt, type Format } from "./inhalt";
 import { gate0Abgleich } from "./gate0";
 import { liesMaterial, materialFehlt, pruefeVorhanden } from "./material";
@@ -25,6 +26,10 @@ export const INHALTE_HILFE = `Inhalte (Plan v3; die Sitzung holt die Zeilen und 
   inhalte material --inhalte zeilen.json [--alle]
                                       Material (Feld «Dateien») laufender Inhalte: je Eintrag Art, Ziel und ob die Datei auf diesem Rechner liegt
                                       (Links kann der Rechner nicht prüfen). Nennt auch «Dreh nötig» ohne Footage oder Foto. --alle: auch Ausgewertetes.
+  inhalte archiv --inhalte zeilen.json [--thema "…"] [--max 8]
+                                      Der Bestand für die Ideenfindung: Archiv (veröffentlicht, ausgewertet) je Pillar, Hook-Muster, Format und Plattform, und wann jeder Pillar
+                                      zuletzt dran war. Mit --thema die ähnlichen Beiträge jeden Alters, mit Datum, Alter, Status und bei Verworfenen dem Grund.
+                                      Zeigt, was es schon gibt; entscheiden tut ein Mensch. Leistungszahlen stehen im Cockpit «Beiträge · Archiv & Analytics».
   inhalte pruefung <id> (--bestanden | --nicht-bestanden) [--text "…"]
                                       Ergebnis der Prüfung eines Entwurfs (zum Beispiel Render-Prüfung) im Stand vermerken.
 `;
@@ -114,6 +119,14 @@ export function inhalteBefehl(sub: string, a: Args, env: Umgebung, jetzt: () => 
       const fehlen = eintraege.flatMap((e) => e.eintraege.filter((x) => x.vorhanden === false && x.art !== "frei").map((x) => ({ id: e.id, art: x.art, ziel: x.ziel })));
       console.log(JSON.stringify({ studioOrdner: home ? home.pfad : null, hinweis: home ? undefined : "Studio-Ordner nicht eingerichtet: Dateien wurden nicht geprüft", inhalte: eintraege, dateienFehlen: fehlen }, null, 2));
       return fehlen.length || eintraege.some((e) => e.materialFehlt) ? 1 : 0;
+    }
+    case "archiv": {
+      const zeilen = zeilenAusAbfrage(lesJson(pflicht(a, "inhalte", "Ergebnis der Ansicht «Inhalte», Modus view")));
+      const max = typeof a.opt["max"] === "string" ? Number(a.opt["max"]) : undefined;
+      if (max !== undefined && (!Number.isInteger(max) || max < 1)) throw new Error("--max erwartet eine ganze Zahl ab 1");
+      const thema = typeof a.opt["thema"] === "string" ? a.opt["thema"] : undefined;
+      console.log(JSON.stringify(archivBericht(zeilen.map((z) => zeileZuInhalt(z)), jetzt(), { thema, max }), null, 2));
+      return 0;
     }
     case "pruefung": {
       const id = gueltigeId(a.pos[2]);

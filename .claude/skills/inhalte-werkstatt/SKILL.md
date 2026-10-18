@@ -34,16 +34,31 @@ Ein Mensch hängt Material im Prüfplatz an: Im Feld «Dateien» steht je Eintra
 
 Ein Post braucht einen Rohstoff: Der Beleg verweist auf einen Eintrag in der Datenbank «Rohstoffe» (`notion.json`, `rohstoffe`), jede Zahl im Text steht im Beleg.
 Fehlt der Rohstoff, frag den Menschen nach dem Fakt, statt ihn zu erfinden. Neue Rohstoffe trägst du mit Marke, Konkretem und Beleg ein, «Bestätigt von» und «Bestätigt am» füllt ein Mensch.
-Ideen aus der Datenbank «Inspiration» übernimmst du nur als Struktur, nie als Text; der Link steht in «Referenz» (Quelle «Viral-Liste»). Entwurf in eine Datei, dann:
+Ideen aus der Datenbank «Inspiration» übernimmst du nur als Struktur, nie als Text; der Link steht in «Referenz» (Quelle «Viral-Liste»). Der Viral Watcher ist ausgeschaltet (Taplio entfällt), neue Zeilen entstehen nur von Hand. Entwurf in eine Datei, dann:
 `npm run studio -- inhalte textpruefen --marke alperna --format "LinkedIn-Post" --text-datei entwurf.txt --beleg-datei beleg.txt --id c-0007`
 Exit-Code 1 heisst: Fehler beheben, nicht abschwächen. Erst bei bestandener Prüfung den Status auf «Entwurf fertig» setzen. Die Prüfung ersetzt kein Urteil über Ton und Inhalt.
 Bei Reels und Carousels vermerkt die Render-Prüfung das Ergebnis: `inhalte pruefung c-0007 --bestanden` oder `--nicht-bestanden --text "…"`.
+
+## Ideenfindung mit dem Bestand (Altbeiträge)
+
+Die Altbeiträge bleiben in Notion (Entscheid Andrej, 18.10.2026) und sind Teil jeder Ideenfindung. Bevor du eine Idee vorschlägst:
+`npm run studio -- inhalte archiv --inhalte .cache/inhalte.json --thema "<Thema der Idee in einem Satz>"`
+Die Ausgabe zeigt, **was es schon gibt**: ähnliche Beiträge jeden Alters mit Datum, Alter, Status und bei Verworfenen dem Grund, dazu den Bestand je Pillar, Hook-Muster, Format und Plattform und wann jeder Pillar zuletzt dran war.
+- `imFenster: true`: Das Thema lief in den letzten 90 Tagen. Gleicher Fakt blockiert Tor I, ein neuer Winkel mit anderem Fakt nicht. Sag dem Menschen, was schon da war.
+- `imFenster: false`: Das Thema darf mit neuem Winkel wiederkommen. Nenne im Pitch den früheren Beitrag («aufgreifen, weil …») und was jetzt neu ist.
+- Verworfen mit Grund: Der Grund steht da, damit dieselbe Idee nicht wiederkommt. Bring sie nur mit neuer Begründung zurück.
+- Der Überblick zeigt Zahlen und Abstände, kein Urteil. Ob ein Pillar zu kurz kommt, entscheidet ein Mensch. Leistungszahlen (Likes, Reichweite) hat dieser Befehl nicht; sie stehen im Cockpit «Beiträge · Archiv & Analytics» (`notion.json`, `archiv`). Wenn du sie brauchst, lies sie dort und nenne die Quelle, sonst gibt es keine Zahl.
+Altbeiträge gelten nie als freigegeben (kein Tor-Entscheid) und werden nicht verändert.
 
 ## Gate 0 ins Profil übernehmen
 
 Gate 0 gibt ein Mensch im Prüfplatz frei (Ansicht «Marken»). Damit der finale Export freigeschaltet wird, muss das Profil im Repo nachziehen:
 Ansicht «Marken» als JSON ablegen, `npm run studio -- marken gate0 --marken .cache/marken.json` (Vorschau), dann mit `--anwenden`, danach `marken/<id>.json` committen und pushen.
 Du setzt Gate 0 nie selbst. Steht «freigegeben» ohne Namen in Notion, übernimmt der Befehl nichts und sagt es.
+
+## Pausiert und Fortsetzen
+
+Pausieren schreibt der Prüfplatz mit dem Feld «Status vor Pause». Der Abgleich merkt sich den Vorstatus im Stand; fortgesetzt wird nur dorthin zurück. Das Feld in Notion gilt nur, wo der Stand nichts weiss (Erstlauf). Ein pausierter Inhalt ohne Vorstatus lässt sich nicht fortsetzen: sag dem Menschen, dass er dir den Status nennen muss, und trag ihn nicht selbst ein.
 
 ## Von Hand geänderte Status
 
