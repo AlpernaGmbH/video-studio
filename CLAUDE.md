@@ -5,7 +5,7 @@ Gemeinsam sind Sprache und Ton: Deutsch (Schweiz), ss statt ß, «» als Anführ
 keine Emojis, keine Superlative, keine Gedankenstriche als Satzzeichen.
 Plan: `docs/plan/bauplan-v3.md` (Content-System, 17.10.2026) gilt zusätzlich zu `docs/plan/bauplan-v2.md` (Video-Editing-System, 16.10.2026). Bei Widerspruch gilt v3.
 Abweichungen, Funde und Stand in `STATUS.md`. Erster Rechner: `docs/phase0-mac.md`.
-Marke der Videos: Alperna Design System v2 (zweites, 17.9.): gedämpftes Blau, Gold als einziger Akzent. Profil in `marken/alperna.json`. Die Oberfläche des Prüfplatzes folgt seit 18.10. dem Design von alperna-tool (Papier, Tinte, Orange, Geist), Auftrag `docs/plan/auftrag-pruefplatz-neu.md`. Welche Farben für Alperna-Reels gelten, ist offen und Andrejs Entscheid.
+Marke der Videos: Alperna Design System v2 (zweites, 17.9.): gedämpftes Blau, Gold als einziger Akzent. Profil in `marken/alperna.json`. Die Oberfläche des Prüfplatzes folgt seit 18.10. dem Design von alperna-tool (Papier, Tinte, Orange, Geist), Auftrag `docs/plan/auftrag-pruefplatz-neu.md`. Entschieden am 18.10. (Andrej): Papier, Tinte und Orange gelten nur für die Oberfläche des Prüfplatzes, das Branding der Videos bleibt gleich (Navy und Gold, `marken/alperna.json` unverändert).
 
 **Alles läuft über Claude und Claude Code, nie über die Claude-API.** Texte und Entscheide liegen in Notion, Medien in OneDrive (`Studio/`),
 Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, Prüfplatz: `docs/notion-und-pruefplatz.md`.

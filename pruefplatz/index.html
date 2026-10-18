@@ -956,7 +956,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   function schliesse() {
     if (!S.detail) return;
     const o = S.detail && S.detail.art === "inhalt" ? S.detail.id : null;
-    if (o) delete S.seitentext[o];
+    if (o) { delete S.seitentext[o]; if (S.entwurf[o]) S.entwurf[o].textOffen = false; }
     S.detail = null; S.durchgang = null; S.verwalten = null;
     const opener = S.opener; S.opener = null;
     zeichne();
@@ -1039,8 +1039,21 @@ dd { margin: 0; overflow-wrap: anywhere; }
       [torText(c.torI, "Tor I"), torText(c.torP, "Tor P"), c.statusVon ? "Zuletzt von Hand gesetzt von " + c.statusVon + (c.statusGrund ? ": " + c.statusGrund : "") : ""].filter(Boolean).length
         ? abschnitt("Entscheide", ...[torText(c.torI, "Tor I"), torText(c.torP, "Tor P"), c.statusVon ? "Zuletzt von Hand gesetzt von " + c.statusVon + (c.statusGrund ? ": " + c.statusGrund : "") : ""].filter(Boolean).map((t) => h("p", { text: t })))
         : null,
+      seitentextAbschnitt(c),
       notionLink(c),
     ];
+  }
+
+  /** Der Text der Notion-Seite (zum Beispiel ein Entwurf oder der übernommene Volltext) wird erst auf Wunsch geladen. */
+  function seitentextAbschnitt(c) {
+    const e = S.entwurf[c.id] || {};
+    if (!e.textOffen) return h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "seitentext-laden", onclick: () => { S.entwurf[c.id] = Object.assign({}, S.entwurf[c.id], { textOffen: true }); zeichne(); } }, "Text der Seite anzeigen"));
+    const st = seitentext(c);
+    return abschnitt("Text der Seite",
+      st.status === "fertig"
+        ? (st.text ? h("div", { class: "entwurf", text: st.text }) : h("p", { class: "hinweis", text: "Die Notion-Seite hat keinen Text." }))
+        : st.status === "fehler" ? h("p", { class: "warnung", text: "Der Text liess sich nicht laden: " + st.meldung })
+        : h("p", { class: "hinweis", text: "Lade den Text aus Notion …" }));
   }
 
   /* ---------- Material ---------- */

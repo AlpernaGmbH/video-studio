@@ -815,6 +815,29 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     await ctx.close();
   });
 
+  await t("Der Text der Notion-Seite wird erst auf Wunsch geladen, ein Fehler dabei blockiert nichts", async () => {
+    const { page, ctx } = await mitPlattformen();
+    await page.click("#n-linkedin");
+    await reihe(page, "Idee LinkedIn").click();
+    assert.equal((await calls(page)).filter((c) => c.tool === "notion-fetch").length, 0); // Öffnen allein lädt nichts
+    await page.click("#seitentext-laden");
+    await page.waitForSelector("#detail .entwurf");
+    assert.match(await page.locator("#detail .entwurf").textContent(), /Wartezeit von 32 auf 14 Minuten gesenkt/);
+    assert.equal((await calls(page)).find((c) => c.tool === "notion-fetch").input.id, inhaltId(1));
+    await page.click("#detail-schliessen");
+    await reihe(page, "Idee LinkedIn").click();
+    assert.equal(await page.locator("#detail .entwurf").count(), 0); // nach dem Schliessen wieder zu
+    await ctx.close();
+    const f = await mitPlattformen({ optionen: { name: "Andrej", fehlerBeimLesenDerSeite: true } });
+    await f.page.click("#n-linkedin");
+    await reihe(f.page, "Idee LinkedIn").click();
+    await f.page.click("#seitentext-laden");
+    await f.page.waitForSelector("#detail .warnung");
+    assert.match(await f.page.locator("#detail").textContent(), /Der Text liess sich nicht laden/);
+    assert.equal(await f.page.locator("#detail-schliessen").isVisible(), true);
+    await f.ctx.close();
+  });
+
   await t("Plattformseite ohne Notion-Verbindung und mit leerer Plattform: klarer Text statt leerer Fläche", async () => {
     const { page, ctx } = await seite({ mitMcp: false });
     await page.click("#n-linkedin");

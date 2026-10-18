@@ -35,9 +35,11 @@ Quelle: `AlpernaGmbH/tool`, `app/globals.css` und CLAUDE.md, Abschnitt Design. E
 * Gate-0-, Tor-I- und Tor-P-Aktionen funktionieren wie bisher, Claude schreibt weiterhin nie ein Entscheidfeld.
 * Andrej schaut den Prüfplatz an und sagt, ob er sich zurechtfindet. Erst dann gilt es als fertig.
 
-### Offene Frage an Andrej (nicht blockierend)
+### Frage an Andrej: entschieden am 18.10.2026
 
 Das alperna-tool folgt der neuen Website (Papier, Tinte, Orange, Stand 02.10.2026). `marken/alperna.json` folgt dem Design System v2 (Navy, Gold). Welche gilt für Alperna-Reels?
+
+**Antwort von Andrej:** Papier, Tinte und Orange gelten nur für das Artifact (den Prüfplatz). Das Branding der Videos bleibt gleich: Navy und Gold, Profil `marken/alperna.json` unverändert, Gate 0 bleibt gültig.
 
 ## Zusatz vom selben Tag: Material anhängen
 
@@ -75,4 +77,4 @@ Gebaut und geprüft: `pruefplatz/index.html` neu, 51 Browser-Prüfungen in `scri
 
 1. **Altbeiträge entfernen schwächt die Dublettenprüfung.** Die Regel «Kein Fakt der letzten 90 Tage» (Plan v3, Kapitel 3.1, `regeln.ts`) vergleicht mit den Zeilen in «Inhalte». Von den 75 importierten «Ausgewertet»-Zeilen liegen 38 innerhalb der letzten 90 Tage (Stand 18.10.2026). Ohne sie sieht die Prüfung diese Beiträge nicht, und ein Fakt könnte nochmals auftauchen. Vorschlag: nur die 37 älteren «Ausgewertet»-Zeilen entfernen. Die 38 jüngeren bleiben (sie sind in keiner Liste sichtbar) und gehen mit der Zeit von selbst aus dem 90-Tage-Fenster. Die 9 verworfenen Zeilen nennt der Auftrag nicht, sie bleiben ebenfalls unsichtbar stehen. Alternative: die Prüfung liest zusätzlich das Cockpit-Archiv. Das ist mehr Aufwand.
 2. **Reihenfolge:** Erst entfernen, dann den ersten Abgleich mit `--erstlauf`. Sonst steht jede entfernte Zeile im Stand und der Abgleich meldet sie als «nicht mehr in Notion».
-3. **Zwei Farbwelten.** Prüfplatz und Website folgen jetzt Papier, Tinte, Orange. Das Markenprofil für Reels bleibt Navy und Gold, bis die offene Frage entschieden ist. Meine Einschätzung [Wahrscheinlich]: Reels sollten der Website folgen, weil sie der jüngere Stand ist (02.10. gegen 17.9.). Das ist Andrejs Entscheid, und es betrifft Gate 0 für Alperna: Eine Änderung der Farben setzt eine neue Freigabe voraus.
+3. **Zwei Farbwelten** (entschieden am 18.10.2026): Der Prüfplatz folgt Papier, Tinte, Orange, die Videos bleiben Navy und Gold. Das ist gewollt: Das Werkzeug ist nicht die Marke. Gate 0 für Alperna ist davon nicht berührt.

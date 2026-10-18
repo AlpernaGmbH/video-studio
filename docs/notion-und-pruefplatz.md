@@ -61,7 +61,7 @@ Felder von Stufen, die noch nicht erreicht sind. So gilt kein zu früh gesetzter
 
 ## Prüfplatz
 
-- Karten für Pitch, Looks und Abnahme. Eine Gold-Aktion je Karte. Name oben eintragen oder aus dem Profil übernehmen.
+- Karten für Pitch, Looks und Abnahme. Eine Hauptaktion je Karte. Den Namen trägst du unten in der Seitenleiste unter «Entscheiden als» ein (oder er kommt aus deinem Profil).
 - Vor jedem Schreiben liest er die Zeile frisch. Ist sie schon entschieden oder weitergelaufen, überschreibt er nichts.
 - Nach dem Schreiben liest er nach und meldet nur «Gespeichert», wenn der Entscheid in Notion steht.
 - Fehlerfälle haben je eigenen Text: Zugriff nicht erlaubt, Notion nicht verbunden, durch Richtlinie gesperrt, unklarer Ausgang.
