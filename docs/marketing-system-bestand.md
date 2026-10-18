@@ -33,8 +33,8 @@ Rohstoff-Speicher, Kundenprojekte und Lücken-Fragen nennen Kundinnen und Kunden
 
 ## Offen (braucht einen Entscheid)
 
-1. Den Rohstoff-Speicher (48) und das Beiträge-Archiv (95) übernehmen oder neu beginnen? Übernahme hiesse: je Eintrag Marke, Beleg und Bestätigung nachtragen, Kundendaten prüfen.
+1. ~~Rohstoff-Speicher (48) und Beiträge-Archiv (95) übernehmen?~~ Entschieden am 18.10.2026 (Andrej): übernehmen. Ausgeführt ohne Bestätigungen und ohne Tor-Entscheide, Einzelheiten und Befunde in `STATUS.md`. Offen bleibt, dass ein Mensch die 48 Rohstoffe bestätigt (Kundenfreigabe bei 26 noch «offen») und das Private von Mitarbeitenden sichtet.
 2. Zahlenkonflikt im Bestand: Partnerzahl 17 (08.07.), 21 (24.08.), «heute 26». Welche gilt, mit Quelle?
 3. Ob «Viral-first» wirkt, ist nicht belegt: keine der 20 Viral-Zeilen im Archiv ist ausgewertet.
-4. Wer erzeugt die Analysetexte der Viral-Zeilen? Sie müssen in einer Claude-Sitzung entstehen, nie über die API (Regel 10).
+4. ~~Wer erzeugt die Analysetexte der Viral-Zeilen?~~ Eine geplante Claude-Aufgabe («Viral Watcher», montags), in einer Sitzung, nie über die API (Regel 10). Connectors Notion und Taplio müssen noch bei der Aufgabe ergänzt werden.
 5. Voice-Memo-Ideen: Die Seite ist leer. Wo liegen sie?

@@ -656,6 +656,23 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     await ctx.close();
   });
 
+  await t("Inhalte-Tab: Ausgewertetes und Verworfenes (Altbestand) steht nur im Filter «Alle Stände»", async () => {
+    const { page, ctx } = await seite({
+      inhalte: [...INHALTE(), inhalt(7, { Titel: "Alt ausgewertet", Status: "Ausgewertet" }), inhalt(8, { Titel: "Alt verworfen", Status: "Verworfen" })],
+      marken: MARKEN(),
+      optionen: { name: "Andrej" },
+    });
+    await page.click("#t-inhalte");
+    assert.equal(await page.locator("#filter-inhalte").inputValue(), "laufend");
+    assert.equal(await page.locator("#p-inhalte .zeile-idee").count(), 6);
+    assert.doesNotMatch(await page.locator("#p-inhalte").textContent(), /Alt ausgewertet|Alt verworfen/);
+    await page.selectOption("#filter-inhalte", "alle");
+    assert.equal(await page.locator("#p-inhalte .zeile-idee").count(), 8);
+    await page.selectOption("#filter-inhalte", "Verworfen");
+    assert.equal(await page.locator("#p-inhalte .zeile-idee").count(), 1);
+    await ctx.close();
+  });
+
   await t("Fällt die Ansicht «Inhalte» aus, laufen die Motion-Ideen weiter und der Fehler steht da", async () => {
     const { page, ctx } = await seite({ inhalte: INHALTE(), marken: MARKEN(), optionen: { name: "Andrej", fehlerAnsicht: "inhalte" } });
     assert.equal(await page.locator("#z-queue").textContent(), "4");

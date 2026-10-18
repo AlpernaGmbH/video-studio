@@ -235,7 +235,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   const woerter = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 
   /* ---------- Zustand ---------- */
-  const S = { mcp: null, zeilen: [], inhalte: [], marken: [], inhalteFehler: null, wochen: null, torModus: {}, gate0Frage: {}, seitentext: {}, inhaltFilter: "alle", verwalten: null, laden: "idle", fehler: null, tab: "queue", offen: null, name: "", busy: false, entwurf: {}, ablehnen: {}, filter: "alle", stand: null, meldung: null };
+  const S = { mcp: null, zeilen: [], inhalte: [], marken: [], inhalteFehler: null, wochen: null, torModus: {}, gate0Frage: {}, seitentext: {}, inhaltFilter: "laufend", verwalten: null, laden: "idle", fehler: null, tab: "queue", offen: null, name: "", busy: false, entwurf: {}, ablehnen: {}, filter: "alle", stand: null, meldung: null };
 
   /* ---------- Notion ---------- */
   function ergebnis(r) {
@@ -729,6 +729,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   }
 
   /* ---------- Pausieren, Verwerfen, «Veröffentlicht» bestätigen ---------- */
+  const ABGESCHLOSSEN_INHALT = ["Ausgewertet", "Verworfen"]; // Altbestand und Erledigtes stehen im Filter «Alle Stände»
   const NICHT_PAUSIERBAR = ["Verworfen", "Ausgewertet", "Veröffentlicht", "Pausiert"];
   const NICHT_VERWERFBAR = ["Verworfen", "Ausgewertet", "Veröffentlicht", "Pitch bereit"]; // «Pitch bereit» entscheidet Tor I
   const verwaltenAktionen = (c) => ({
@@ -765,10 +766,11 @@ dd { margin: 0; overflow-wrap: anywhere; }
     p.replaceChildren();
     if (!S.mcp) return p.append(leer("Inhalte", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier jeden Inhalt mit seinem Stand."));
     const sel = h("select", { id: "filter-inhalte", "aria-label": "Nach Stand filtern", onchange: (ev) => { S.inhaltFilter = ev.target.value; zeichne(); } },
-      h("option", { value: "alle", text: "Alle Stände" }), ...STATI_INHALT.map((k) => h("option", { value: k, text: k })));
+      h("option", { value: "laufend", text: "Laufende (ohne Ausgewertet und Verworfen)" }), h("option", { value: "alle", text: "Alle Stände" }), ...STATI_INHALT.map((k) => h("option", { value: k, text: k })));
     sel.value = S.inhaltFilter;
     p.append(h("div", { class: "feld", style: "max-width: 260px" }, h("label", { for: "filter-inhalte", text: "Stand" }), sel));
-    const liste = S.inhalte.filter((c) => S.inhaltFilter === "alle" || (c.status || "Neu") === S.inhaltFilter);
+    const stand = (c) => c.status || "Neu";
+    const liste = S.inhalte.filter((c) => S.inhaltFilter === "alle" || (S.inhaltFilter === "laufend" ? !ABGESCHLOSSEN_INHALT.includes(stand(c)) : stand(c) === S.inhaltFilter));
     p.append(liste.length ? h("div", { class: "karte tabelle" }, liste.flatMap((c) => [zeileInhalt(c), verwaltenBlock(c)])) : leer(S.inhalte.length ? "Keine Inhalte in diesem Stand" : "Noch keine Inhalte", S.inhalte.length ? "Wähle oben einen anderen Stand." : "Ideen für Reels, Carousels, Posts und Blogtexte erscheinen hier, sobald Claude sie in Notion anlegt."));
   }
 

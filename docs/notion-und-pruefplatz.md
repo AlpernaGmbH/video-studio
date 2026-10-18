@@ -87,7 +87,8 @@ Wird die Ansicht in Notion gelöscht oder gefiltert, stimmt der Prüfplatz nicht
 ## Marketing System: Datenbanken
 
 Alle unter der Seite «Marketing System», Kennungen und Ansichten in `notion.json`: **Motion-Ideen** (Video-Studio), **Marken** (Gate 0), **Inhalte** (Lebenslauf mit Toren), **Rohstoffe** (echte Fakten als Beleg, «Kein Post ohne Rohstoff») und **Inspiration** (Viral-Liste, nur Struktur, nie Text).
-Bestand und Herkunft: `docs/marketing-system-bestand.md`. Die Verknüpfungen: Inhalte zu Marken, Rohstoffe zu Marken und Inhalten, Inspiration zu Marken und Inhalten.
+Bestand und Herkunft: `docs/marketing-system-bestand.md`. Übernommen am 18.10.2026 aus dem LinkedIn-Cockpit: 48 Rohstoffe und 95 Inhalte (Altbestand mit «Batch» `Import Cockpit …`, ohne Tor-Entscheide und ohne Bestätigung, Einzelheiten in `STATUS.md`).
+**Viral Watcher:** geplante Claude-Aufgabe, montags 05:47 (Europe/Zurich), schreibt neue Zeilen in «Inspiration» (nur Struktur, Quelle «Viral Watcher»). Läuft nur mit den Connectors Notion und Taplio, die bei der Aufgabe in claude.ai eingetragen sein müssen. Die Verknüpfungen: Inhalte zu Marken, Rohstoffe zu Marken und Inhalten, Inspiration zu Marken und Inhalten.
 
 ## Inhalte, Tor I, Tor P und Gate 0 (Prüfplatz ab Version 3)
 

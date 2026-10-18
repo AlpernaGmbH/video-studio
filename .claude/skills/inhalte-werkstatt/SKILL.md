@@ -14,7 +14,8 @@ höchstens «offen». Notion erzwingt keine Übergangsregeln, deshalb prüft der
 1. Ansicht «Inhalte» und Ansicht «Marken» lesen (`notion-query-data-sources`, Modus `view`, Adressen in `notion.json` unter `inhalte.ansicht` und `marken.ansicht`).
    `has_more` beachten und mit `start_cursor` weiterlesen. Beide Ergebnisse als JSON-Dateien in `.cache/` ablegen.
 2. `npm run studio -- inhalte abgleich --inhalte .cache/inhalte.json --marken .cache/marken.json --uebernehmen`
-   (beim allerersten Lauf auf einer gefüllten Datenbank zusätzlich `--erstlauf`).
+   (beim allerersten Lauf auf einer gefüllten Datenbank zusätzlich `--erstlauf`: Die Beispiele `c-0001` bis `c-0003` und der Altbestand `c-0004` bis `c-0098`
+   aus dem LinkedIn-Cockpit stehen schon in ihrem Status. Altbestand trägt «Batch» `Import Cockpit …`, keine Tor-Entscheide und keine Bestätigung. Ihn nie als freigegeben behandeln und keine Entscheide nachtragen.)
 3. Die Ausgabe nennt `eingriffe`, `blockiert`, `zurueckgesetzt` und `hinweise`. Jeder Eingriff trägt fertige `eigenschaften`: mit `notion-update-page`
    (`update_properties`) auf die Seite schreiben, deren Kennung die letzten 32 Zeichen der `url` sind. Nichts anderes schreiben.
    - `weiter`: Ein Mensch hat ein Tor entschieden, der nächste Status ist erlaubt. Status schreiben.
