@@ -391,6 +391,25 @@ describe("Ganzer Weg, Lauf für Lauf, mit den Eingriffen wie in Notion", () => {
   });
 });
 
+describe("Material", () => {
+  it("«Dreh nötig» in Produktion ohne Footage oder Foto gibt einen Hinweis", () => {
+    const stand = standMit({ "c-0001": eintrag("In Produktion", { torI: tor("freigegeben", "Leander", AM) }) });
+    const r = lauf(stand, [inhalt({ id: "c-0001", status: "In Produktion", aufwand: "Dreh nötig", dateien: "Skript: daten/s.md", torI: entscheid("freigegeben") })]);
+    expect(r.befunde.filter((b) => b.art === "hinweis").map((b) => b.text)).toEqual([expect.stringMatching(/Material fehlt/)]);
+    expect(r.befunde.every((b) => !b.eingriff)).toBe(true); // nur ein Hinweis, nichts wird verändert
+  });
+
+  it("mit Footage oder Foto, bei anderem Aufwand oder in einem anderen Status gibt es keinen Hinweis", () => {
+    const st = (s: Status) => standMit({ "c-0001": eintrag(s, { torI: tor("freigegeben", "Leander", AM) }) });
+    const zeile = (p: Partial<Inhalt>) => inhalt({ id: "c-0001", status: "In Produktion", aufwand: "Dreh nötig", dateien: "", torI: entscheid("freigegeben"), ...p });
+    const hinweise = (r: ReturnType<typeof lauf>) => r.befunde.filter((b) => b.art === "hinweis");
+    expect(hinweise(lauf(st("In Produktion"), [zeile({ dateien: "Footage: rohmaterial/a.mov" })]))).toEqual([]);
+    expect(hinweise(lauf(st("In Produktion"), [zeile({ dateien: "Foto: https://x.test/a" })]))).toEqual([]);
+    expect(hinweise(lauf(st("In Produktion"), [zeile({ aufwand: "Nur Text" })]))).toEqual([]);
+    expect(hinweise(lauf(st("Entwurf fertig"), [zeile({ status: "Entwurf fertig" })]))).toEqual([]);
+  });
+});
+
 describe("zaehle", () => {
   it("zählt die Befunde je Art", () => {
     const r = lauf(standMit({}), [inhalt({ id: "c-0001" }), inhalt({ id: "c-0002", status: "Freigegeben" })]);

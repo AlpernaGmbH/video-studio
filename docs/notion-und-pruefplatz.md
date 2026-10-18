@@ -90,6 +90,12 @@ Alle unter der Seite «Marketing System», Kennungen und Ansichten in `notion.js
 Bestand und Herkunft: `docs/marketing-system-bestand.md`. Übernommen am 18.10.2026 aus dem LinkedIn-Cockpit: 48 Rohstoffe und 95 Inhalte (Altbestand mit «Batch» `Import Cockpit …`, ohne Tor-Entscheide und ohne Bestätigung, Einzelheiten in `STATUS.md`).
 **Viral Watcher:** geplante Claude-Aufgabe, montags 05:47 (Europe/Zurich), schreibt neue Zeilen in «Inspiration» (nur Struktur, Quelle «Viral Watcher»). Läuft nur mit den Connectors Notion und Taplio, die bei der Aufgabe in claude.ai eingetragen sein müssen. Die Verknüpfungen: Inhalte zu Marken, Rohstoffe zu Marken und Inhalten, Inspiration zu Marken und Inhalten.
 
+## Aufbau des Prüfplatzes (ab 18.10.2026)
+
+Seitenleiste mit **Heute** (nur Karten, auf die ein Mensch wartet: Gate 0, Tor I, Tor P, Pitch, Look, Abnahme; «Der Reihe nach durchgehen»), **Plattformen** (Instagram, LinkedIn, Blog, Google Maps; laufende Inhalte in Idee, In Arbeit, Bereit zum Posten; Gepostetes, Ausgewertetes, Verworfenes und Pausiertes nur als Hinweis mit Link ins Cockpit-Archiv) und **Werkstatt** (Motion-Bibliothek, Motion-Ideen, Marke). Details und Aktionen öffnen im Seitenfenster. Den Namen trägst du unten in der Leiste unter «Entscheiden als» ein. Plattform eines Inhalts: Feld «Plattformen», ohne Angabe das Format (Reel, Carousel, Story gehören zu Instagram). Beispielzeilen («Beispiel: …») stehen nicht in den Plattformlisten.
+
+**Material:** Footage, Fotos, Audio, Skripte und Logos hängst du im Seitenfenster eines Inhalts als Verweis an. Hochgeladen wird nichts: Die Dateien liegen auf OneDrive oder dem Medien-Laufwerk (Plan v3, Kapitel 3.3), im Feld «Dateien» steht nur der Pfad ab dem Ordner «Studio» oder ein OneDrive-Link. Auf dem Mac zeigt `studio inhalte material --inhalte zeilen.json`, ob die Dateien wirklich dort liegen.
+
 ## Inhalte, Tor I, Tor P und Gate 0 (Prüfplatz ab Version 3)
 
 Der Prüfplatz liest zusätzlich die Ansichten «Inhalte» und «Marken». Er schreibt dort nur die Entscheide eines Menschen mit Namen:
@@ -99,7 +105,8 @@ Der Prüfplatz liest zusätzlich die Ansichten «Inhalte» und «Marken». Er sc
 | Tor I (Pitch bereit) | `Tor I Entscheid` (freigegeben, abgelehnt, Rückfrage), `Tor I Grund`, `Tor I von`, `Tor I am` | Zeile noch «Pitch bereit» und Tor I offen (vorher frisch gelesen). Ablehnung: Grund aus zwei Wörtern, Rückfrage: eine Frage |
 | Tor P (Entwurf fertig) | `Tor P Entscheid` (freigegeben, Änderung), `Tor P Grund`, `Tor P von`, `Tor P am` | Zeile noch «Entwurf fertig» und Tor P offen. Änderung: Anweisung, mindestens fünf Zeichen |
 | Marke | `Gate 0` (freigegeben), `Gate 0 von`, `Gate 0 am` | Gate 0 noch nicht freigegeben, mit Bestätigung und Namen |
-| Inhalte, «Verwalten» | `Status` (Pausiert, Verworfen, Veröffentlicht), `Status von`, `Status-Grund`, `Status am` | Status noch wie angezeigt. Pausieren ab «Neu» bis «Geplant» (Grund), Verwerfen (zwei Wörter, nicht aus «Pitch bereit»: dort entscheidet Tor I), «Veröffentlicht» bestätigen nur bei Publishing Manuell oder Paket |
+| Inhalte, «Weitere Handlungen» im Seitenfenster | `Status` (Pausiert, Verworfen, Veröffentlicht), `Status von`, `Status-Grund`, `Status am` | Status noch wie angezeigt. Pausieren ab «Neu» bis «Geplant» (Grund), Verwerfen (zwei Wörter, nicht aus «Pitch bereit»: dort entscheidet Tor I), «Veröffentlicht» bestätigen nur bei Publishing Manuell oder Paket, ohne Grund |
+| Inhalte, «Material» im Seitenfenster | nur `Dateien` | kein Entscheid, darum ohne Namen. Feld vorher frisch gelesen, danach nachgelesen. Format `Art: Pfad oder Link | Notiz`, Pfad relativ zu `Studio/`, Links nur https, höchstens 1900 Zeichen |
 
 Den Status ändert der Prüfplatz nie. Den Wechsel nach einem Entscheid führt der Abgleich aus (`studio inhalte abgleich`, Skill `inhalte-werkstatt`), wenn die Regeln es erlauben.
 Wartet ein Tor-Entscheid auf Gate 0, bleibt er stehen und wirkt, sobald Gate 0 freigegeben ist. Der Entwurf eines Texts steht im Inhalt der Notion-Seite und wird beim Öffnen der Karte mit `notion-fetch` geladen.

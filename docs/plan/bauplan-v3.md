@@ -554,3 +554,7 @@ Erfundenes Beispiel zur Illustration. Die Angaben sind keine echten Zahlen.
 | Markierung anlegen          | nein            | ja (Editor)             | nein               |
 | Markierung «behoben»        | schlägt vor     | bestätigt               | nein               |
 | Ereignisse in Notion        | ja (Spiegel)    | nein                    | nein               |
+
+**14. Änderungen nach Stand 17.10.2026**
+
+- **18.10.2026, Auftrag «Prüfplatz neu» und Material an Inhalten:** `auftrag-pruefplatz-neu.md`. Der Prüfplatz hat drei Bereiche (Heute, Plattformen, Werkstatt) mit Seitenfenster und das Design von alperna-tool (ändert Kapitel 4.3, Tor I im Prüfplatz). Altbeiträge aus dem Cockpit gehören nicht nach «Inhalte» (ändert Kapitel 8, nach Andrejs Ja). Anhänge wie Footage hängt der Prüfplatz als Verweis im Feld «Dateien» an (ergänzt Kapitel 3.3). Bei Widerspruch gilt der Auftrag.

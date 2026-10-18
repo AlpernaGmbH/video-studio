@@ -9,6 +9,11 @@ Lebenslauf (Plan v3, Kapitel 3): Neu, Pitch bereit, **Tor I**, In Produktion, En
 Jederzeit Pausiert oder Verworfen, beides mit Grund. Die Tore entscheiden Menschen im Prüfplatz. **Du setzt nie «freigegeben», «abgelehnt», «Rückfrage» oder «Änderung»**,
 höchstens «offen». Notion erzwingt keine Übergangsregeln, deshalb prüft der Code jede Änderung (`src/inhalte/regeln.ts`).
 
+## Material (Footage, Fotos, Skripte)
+
+Ein Mensch hängt Material im Prüfplatz an: Im Feld «Dateien» steht je Eintrag eine Zeile `Art: Pfad | Notiz` (Pfad relativ zu `Studio/` oder https-Link). Vor der Produktion eines Inhalts mit Aufwand «Dreh nötig» prüfst du:
+`npm run studio -- inhalte material --inhalte .cache/inhalte.json`. Exit-Code 1 heisst: Eine Datei fehlt auf diesem Rechner oder es fehlt Footage oder Foto. Dann bleibt der Inhalt stehen und du sagst, was fehlt. Du hängst nie selbst Footage an und schreibst nur Zeilen der Art «Render» für fertige Dateien, sonst bleibt das Feld unverändert (freie Zeilen erhalten).
+
 ## Abgleich (nach jeder Änderung durch Menschen, mindestens einmal am Tag)
 
 1. Ansicht «Inhalte» und Ansicht «Marken» lesen (`notion-query-data-sources`, Modus `view`, Adressen in `notion.json` unter `inhalte.ansicht` und `marken.ansicht`).

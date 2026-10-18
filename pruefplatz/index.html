@@ -2,208 +2,309 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Poppins:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap">
 <style>
-/* Layout: eine ruhige Spalte. Oben Tabs, darunter Karten, die sich einzeln öffnen. Pro Karte genau eine Gold-Aktion.
-   Dunkel ohne Umschalter: Das Design System v2 (17.9.) ist dunkel, Gold ist der einzige Akzent und nie eine Fläche ausser dem einen Knopf. */
+/* Übersicht statt Sammelstelle (Auftrag vom 18.10.2026): links die Seitenleiste mit drei Bereichen (Heute, Plattformen, Werkstatt),
+   rechts die Seite, Details und Aktionen in einem Seitenfenster. Design wie alperna-tool: Papier, Tinte, Orange, Sonne.
+   Orange nur für Hover und den aktiven Punkt, Sonne nur für «wartet auf dich». Pro Seitenfenster genau eine Hauptaktion. */
 :root {
-  --mitternacht: #0a0c10;
-  --tiefblau: #111a28;
-  --bergblau: #1b2740;
-  --alpenblau: #26324a;
-  --hoehenblau: #2b3a5a;
-  --off: #fdfbfb;
-  --off-muted: rgba(253, 251, 251, 0.7);
-  --linie: rgba(253, 251, 251, 0.16);
-  --linie-stark: rgba(253, 251, 251, 0.34);
-  --gold: #ffd700;
-  --ink: #121110;
-  --ok: #9ad9b8;
-  --stopp: #f0a3a3;
-  --f-titel: "Poppins", "Helvetica Neue", Arial, sans-serif;
-  --f-text: "Montserrat", "Helvetica Neue", Arial, sans-serif;
-  --radius: 15px;
+  color-scheme: light dark;
+  --papier: #f3f1ec;
+  --papier-2: #e9e6df;
+  --karte: #fffdf8;
+  --tinte: #0f0f0e;
+  --gedaempft: #65645f;
+  --linie: rgb(15 15 14 / 14%);
+  --linie-stark: rgb(15 15 14 / 30%);
+  --brand: #f0532f;
+  --brand-text: #c23a17;
+  --sonne: #ffc93c;
+  --ok: #2f7d4f;
+  --stopp: #c23a17;
+  --bg: var(--papier);
+  --fg: var(--tinte);
+  --primaer: #0f0f0e;
+  --primaer-text: #f3f1ec;
+  --schleier: rgb(15 15 14 / 45%);
+  --seite-bg: #0f0f0e;
+  --seite-fg: #f3f1ec;
+  --seite-mut: #a19f99;
+  --seite-akzent: #1c1c1a;
+  --seite-linie: rgb(243 241 236 / 14%);
+  --radius: 12px;
+  --f-text: "Geist", "Helvetica Neue", Arial, sans-serif;
+  --f-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --f-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --gutter: 16px;
-  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0f0e; --fg: #f3f1ec; --karte: #1a1a18; --papier-2: #26261f; --gedaempft: #a19f99;
+    --linie: rgb(243 241 236 / 14%); --linie-stark: rgb(243 241 236 / 32%);
+    --brand-text: #f0532f; --ok: #7fd3a0; --stopp: #f0532f;
+    --primaer: #f3f1ec; --primaer-text: #0f0f0e; --schleier: rgb(0 0 0 / 60%);
+    --seite-bg: #0a0a09;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f0f0e; --fg: #f3f1ec; --karte: #1a1a18; --papier-2: #26261f; --gedaempft: #a19f99;
+  --linie: rgb(243 241 236 / 14%); --linie-stark: rgb(243 241 236 / 32%);
+  --brand-text: #f0532f; --ok: #7fd3a0; --stopp: #f0532f;
+  --primaer: #f3f1ec; --primaer-text: #0f0f0e; --schleier: rgb(0 0 0 / 60%);
+  --seite-bg: #0a0a09;
 }
 * { box-sizing: border-box; }
-html, body { background: var(--tiefblau); }
+html, body { background: var(--bg); }
 body {
-  margin: 0;
-  color: var(--off);
-  font-family: var(--f-text);
-  font-size: 16px;
-  line-height: 1.55;
-  padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
-  padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
-  padding-block: 20px 56px;
-  -webkit-text-size-adjust: 100%;
+  margin: 0; color: var(--fg); font-family: var(--f-text); font-size: 16px; line-height: 1.55; -webkit-text-size-adjust: 100%;
+  overflow-x: clip;
 }
-.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 28px; }
-h1, h2, h3 { font-family: var(--f-titel); font-weight: 700; line-height: 1.12; margin: 0; text-wrap: balance; }
+h1, h2, h3 { font-family: var(--f-text); font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; margin: 0; text-wrap: balance; }
+h1 em, h2 em, h3 em { font-family: var(--f-serif); font-style: italic; font-weight: 400; letter-spacing: 0; }
 p { margin: 0; max-width: 68ch; }
-.eyebrow { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--off-muted); font-weight: 500; }
-.muted { color: var(--off-muted); }
-a { color: var(--off); text-underline-offset: 3px; text-decoration-color: var(--linie-stark); }
-a:hover { text-decoration-color: var(--gold); }
-:focus-visible { outline: 2px solid var(--off); outline-offset: 3px; border-radius: 6px; }
+::selection { background: var(--brand); color: var(--tinte); }
+a { color: var(--fg); text-underline-offset: 3px; text-decoration-color: var(--linie-stark); }
+a:hover { color: var(--brand-text); text-decoration-color: var(--brand); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+.eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gedaempft); font-weight: 500; }
+.muted, .hinweis { color: var(--gedaempft); }
+.hinweis { font-size: 14px; }
+.mono, .zahl { font-family: var(--f-mono); }
 
-/* Kopf */
-.kopf { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; justify-content: space-between; }
-.marke { display: grid; gap: 4px; min-width: 0; }
-.marke h1 { font-size: 30px; }
-.werkzeug { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
-.feld { display: grid; gap: 4px; }
-.feld label { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--off-muted); }
+/* Gerüst */
+.app { display: grid; grid-template-columns: 252px minmax(0, 1fr); min-height: 100vh; }
+.seite { background: var(--seite-bg); color: var(--seite-fg); position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 22px; padding: 22px 14px 18px; }
+.wortmarke { display: flex; align-items: baseline; gap: 8px; padding: 0 10px; }
+.wortmarke b { font-weight: 600; font-size: 20px; letter-spacing: -0.02em; text-transform: lowercase; }
+.wortmarke span { font-size: 13px; color: var(--seite-mut); }
+.nav-gruppe { display: grid; gap: 2px; }
+.nav-titel { margin: 12px 10px 4px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--seite-mut); font-weight: 500; }
+.nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left;
+  font: inherit; font-weight: 500; font-size: 15px; color: var(--seite-fg); background: none; cursor: pointer;
+  border: 0; border-left: 3px solid transparent; border-radius: 0 10px 10px 0; padding: 9px 12px 9px 10px;
+}
+.nav:hover { color: var(--brand); }
+.nav[aria-current="page"] { background: var(--seite-akzent); border-left-color: var(--brand); }
+.nav .zahl { font-size: 12px; min-width: 22px; text-align: center; padding: 1px 7px; border-radius: 999px; background: var(--seite-akzent); color: var(--seite-fg); }
+.nav[aria-current="page"] .zahl { background: var(--seite-bg); }
+.nav .zahl[data-null="true"] { background: transparent; color: var(--seite-mut); }
+.nav .zahl[data-wartet="true"] { background: var(--sonne); color: var(--tinte); }
+.seite-fuss { margin-top: auto; display: grid; gap: 12px; padding: 14px 10px 0; border-top: 1px solid var(--seite-linie); }
+.seite-fuss .feld label { color: var(--seite-mut); }
+.seite-fuss input[type="text"] { background: var(--seite-akzent); color: var(--seite-fg); border-color: var(--seite-linie); }
+.seite-fuss .knopf { color: var(--seite-fg); border-color: var(--seite-linie); }
+.seite-fuss .knopf:hover { color: var(--brand); border-color: var(--brand); background: transparent; }
+.seite-fuss .fuss { font-size: 12px; color: var(--seite-mut); max-width: none; }
+.haupt { padding: 40px clamp(16px, 4vw, 52px) 80px; width: 100%; max-width: 1080px; display: grid; gap: 28px; align-content: start; min-width: 0; }
+.kopf { display: grid; gap: 8px; }
+.kopf h1 { font-size: clamp(30px, 4.2vw, 44px); }
+.kopf p { color: var(--gedaempft); }
+.ansicht { display: grid; gap: 20px; align-content: start; min-width: 0; }
+
+/* Formularfelder und Knöpfe */
+.feld { display: grid; gap: 5px; }
+.feld label { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gedaempft); font-weight: 500; }
 input[type="text"], textarea, select {
-  font: inherit; color: var(--off); background: var(--bergblau); border: 0.5px solid var(--linie-stark);
+  font: inherit; color: var(--fg); background: var(--karte); border: 1px solid var(--linie-stark);
   border-radius: 10px; padding: 9px 12px; min-width: 0; width: 100%;
 }
 textarea { resize: vertical; min-height: 88px; }
-input::placeholder, textarea::placeholder { color: rgba(253, 251, 251, 0.45); }
-#name { width: 200px; max-width: 100%; }
-
-/* Knöpfe */
+input::placeholder, textarea::placeholder { color: var(--gedaempft); opacity: 0.75; }
 .knopf {
-  font-family: var(--f-titel); font-weight: 600; font-size: 15px; line-height: 1; cursor: pointer;
-  border-radius: 999px; padding: 13px 22px; border: 0.5px solid var(--linie-stark); background: transparent; color: var(--off);
-  transition: background-color 0.2s ease-out, opacity 0.2s ease-out;
+  font: inherit; font-weight: 500; font-size: 15px; line-height: 1; cursor: pointer; border-radius: 999px; padding: 12px 20px;
+  border: 1px solid var(--linie-stark); background: transparent; color: var(--fg); transition: background-color 0.15s ease-out, color 0.15s ease-out, border-color 0.15s ease-out;
 }
-.knopf:hover { background: rgba(253, 251, 251, 0.08); }
-.knopf:active { opacity: 0.8; }
+.knopf:hover { border-color: var(--brand); color: var(--brand-text); }
+.knopf:active { opacity: 0.85; }
 .knopf[disabled] { opacity: 0.45; cursor: not-allowed; }
-.knopf.gold { background: var(--gold); border-color: var(--gold); color: var(--ink); }
-.knopf.gold:hover { background: #ffe14d; }
-.knopf.klein { padding: 9px 16px; font-size: 14px; }
+.knopf.primaer { background: var(--primaer); border-color: var(--primaer); color: var(--primaer-text); }
+.knopf.primaer:hover { background: var(--brand); border-color: var(--brand); color: var(--tinte); }
+.knopf.klein { padding: 8px 14px; font-size: 14px; }
+.aktionen { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
-/* Tabs */
-.tabs { display: flex; flex-wrap: wrap; gap: 4px 28px; border-bottom: 0.5px solid var(--linie); }
-.tab {
-  font-family: var(--f-titel); font-weight: 600; font-size: 16px; background: none; border: 0; color: var(--off-muted);
-  padding: 10px 0 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -0.5px;
-}
-.tab[aria-selected="true"] { color: var(--off); border-bottom-color: var(--off); }
-.tab .zahl { font-family: var(--f-text); font-weight: 500; font-size: 13px; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--hoehenblau); color: var(--off); }
-.tab .zahl[data-null="true"] { background: transparent; border: 0.5px solid var(--linie); color: var(--off-muted); }
-.panel[hidden] { display: none !important; }
-.panel { display: grid; gap: 16px; align-content: start; }
-
-/* Karten */
-.karte { background: var(--alpenblau); border: 0.5px solid var(--linie); border-radius: var(--radius); }
-.karte-kopf {
-  display: grid; gap: 6px; width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit;
-  padding: 18px 20px; cursor: pointer; border-radius: var(--radius);
-}
-.karte-kopf h3 { font-size: 20px; }
-.karte-kopf .zeile { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
-.satz-kurz { color: var(--off-muted); overflow-wrap: anywhere; }
-.karte-inhalt { padding: 4px 20px 22px; display: grid; gap: 22px; border-top: 0.5px solid var(--linie); margin-top: 0; padding-top: 20px; }
-.abschnitt { display: grid; gap: 8px; }
-.zitat { font-family: var(--f-titel); font-weight: 600; font-size: 21px; line-height: 1.3; overflow-wrap: anywhere; }
-.text { white-space: pre-line; overflow-wrap: anywhere; }
-.aktionen { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-.hinweis { font-size: 14px; color: var(--off-muted); }
-.chip { display: inline-block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; padding: 3px 10px; border-radius: 999px; border: 0.5px solid var(--linie-stark); color: var(--off); white-space: nowrap; }
-.chip.still { color: var(--off-muted); border-color: var(--linie); }
-.chip.ok { color: var(--ok); }
-.chip.stopp { color: var(--stopp); }
-.leer { padding: 28px 20px; text-align: left; display: grid; gap: 6px; }
+/* Karten, Reihen, Chips */
+.karte { background: var(--karte); border: 1px solid var(--linie); border-radius: var(--radius); }
+.heute-karte { padding: 18px 20px; display: grid; gap: 12px; }
+.heute-karte h3 { font-size: 20px; }
+.heute-karte .zeile, .kopfzeile { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.meta { color: var(--gedaempft); font-size: 14px; overflow-wrap: anywhere; }
+.kurz { color: var(--gedaempft); overflow-wrap: anywhere; }
+.chip { display: inline-block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--linie-stark); color: var(--fg); white-space: nowrap; }
+.chip.still { color: var(--gedaempft); border-color: var(--linie); }
+.chip.ok { color: var(--ok); border-color: currentColor; }
+.chip.stopp { color: var(--stopp); border-color: currentColor; }
+.chip.wartet { background: var(--sonne); border-color: var(--sonne); color: var(--tinte); }
+.leer { padding: 26px 22px; display: grid; gap: 6px; }
 .leer h3 { font-size: 20px; }
-
-/* Looks */
-.looks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
-.look { position: relative; display: grid; gap: 8px; align-content: start; border: 0.5px solid var(--linie); border-radius: var(--radius); padding: 10px; background: var(--bergblau); cursor: pointer; min-width: 0; }
-.look input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-.look:has(input:checked) { outline: 2px solid var(--off); outline-offset: 2px; }
-.look:has(input:focus-visible) { outline: 2px solid var(--off); outline-offset: 4px; }
-.look img { width: 100%; aspect-ratio: 9 / 16; max-height: 380px; object-fit: contain; background: var(--mitternacht); border-radius: 10px; display: block; }
-.look .kein-bild { aspect-ratio: 9 / 16; max-height: 380px; display: grid; place-items: center; background: var(--mitternacht); border-radius: 10px; color: var(--off-muted); font-size: 14px; padding: 12px; text-align: center; }
-.look b { font-family: var(--f-titel); font-weight: 600; }
-.look span { font-size: 14px; color: var(--off-muted); overflow-wrap: anywhere; }
-.keiner { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border: 0.5px solid var(--linie); border-radius: var(--radius); cursor: pointer; }
-.keiner:has(input:checked) { outline: 2px solid var(--off); outline-offset: 2px; }
-.renders { display: flex; flex-wrap: wrap; gap: 12px; }
-.renders figure { margin: 0; display: grid; gap: 6px; width: 180px; max-width: 100%; }
-.renders img { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; background: var(--mitternacht); border-radius: 10px; }
-.renders figcaption { font-size: 13px; color: var(--off-muted); }
-
-/* Meldungen */
-.meldung { border: 0.5px solid var(--linie-stark); border-radius: 12px; padding: 12px 14px; background: var(--bergblau); display: grid; gap: 8px; }
+.gruppe { display: grid; gap: 8px; }
+.gruppe-kopf { display: flex; align-items: baseline; gap: 10px; }
+.gruppe-kopf h2 { font-size: 18px; }
+.gruppe-kopf .zahl { font-size: 13px; color: var(--gedaempft); }
+.liste { display: grid; }
+.reihe {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 16px; align-items: center; width: 100%; text-align: left;
+  font: inherit; color: inherit; background: none; border: 0; border-top: 1px solid var(--linie); padding: 14px 20px; cursor: pointer;
+}
+.reihe:first-child { border-top: 0; border-radius: var(--radius) var(--radius) 0 0; }
+.reihe:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+.reihe:only-child { border-radius: var(--radius); }
+.reihe:hover { background: var(--papier-2); }
+.reihe .titel { font-weight: 500; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.reihe .meta { grid-column: 1; }
+.reihe .kurz { grid-column: 1 / -1; font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.reihe .chip { grid-column: 2; grid-row: 1; }
+.ausgeblendet { font-size: 14px; color: var(--gedaempft); }
+.warnung { border: 1px solid var(--stopp); border-radius: 10px; padding: 10px 14px; color: var(--stopp); font-size: 14px; }
+.meldung { border: 1px solid var(--linie-stark); border-radius: 10px; padding: 12px 14px; background: var(--karte); display: grid; gap: 8px; }
 .meldung.fehler { border-color: var(--stopp); }
 .meldung.gut { border-color: var(--ok); }
-.meldung strong { font-family: var(--f-titel); font-weight: 600; }
+.meldung strong { font-weight: 600; }
+#status:empty { display: none; }
 
-/* Liste, Bibliothek, Marke */
-.tabelle { display: grid; gap: 0; }
-.zeile-idee { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 4px 16px; padding: 14px 20px; border-top: 0.5px solid var(--linie); align-items: start; }
-.zeile-idee:first-child { border-top: 0; }
-.zeile-idee .id { font-variant-numeric: tabular-nums; color: var(--off-muted); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 500; padding-top: 3px; }
-.zeile-idee .titel { font-weight: 600; overflow-wrap: anywhere; }
-.zeile-idee .satz { grid-column: 2 / -1; color: var(--off-muted); font-size: 14px; overflow-wrap: anywhere; }
+/* Werkstatt */
+.kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.kachel { display: grid; gap: 6px; text-align: left; font: inherit; color: inherit; background: var(--karte); border: 1px solid var(--linie); border-radius: var(--radius); padding: 18px 20px; cursor: pointer; }
+.kachel:hover { border-color: var(--brand); }
+.kachel[aria-expanded="true"] { border-color: var(--fg); }
+.kachel .gross { font-family: var(--f-mono); font-size: 32px; line-height: 1.1; }
+.kachel .titel { font-weight: 500; font-size: 17px; }
+.kachel .gross.text { font-family: var(--f-text); font-weight: 500; font-size: 26px; letter-spacing: -0.01em; }
 .raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 16px; }
 .stueck { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 18px; align-items: start; }
-.stueck img { width: 120px; aspect-ratio: 9 / 16; object-fit: contain; background: var(--mitternacht); border-radius: 10px; }
+.stueck img { width: 120px; aspect-ratio: 9 / 16; object-fit: contain; background: var(--papier-2); border-radius: 10px; }
 .stueck h3 { font-size: 20px; }
 .stueck ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; }
 .stueck .inhalt { display: grid; gap: 10px; min-width: 0; }
 .farben { display: flex; flex-wrap: wrap; gap: 12px; }
 .farbe { display: grid; gap: 6px; width: 120px; }
-.farbe i { display: block; height: 56px; border-radius: 10px; border: 0.5px solid var(--linie-stark); }
-.farbe code { font-size: 13px; color: var(--off-muted); }
+.farbe i { display: block; height: 56px; border-radius: 10px; border: 1px solid var(--linie-stark); }
+.farbe code { font-family: var(--f-mono); font-size: 13px; color: var(--gedaempft); }
 dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; }
-dt { color: var(--off-muted); font-size: 14px; }
+dt { color: var(--gedaempft); font-size: 14px; }
 dd { margin: 0; overflow-wrap: anywhere; }
-.fuss { font-size: 13px; color: var(--off-muted); }
+.padding { padding: 20px; display: grid; gap: 14px; }
 
-.verwalten-zeile { padding: 0 20px 12px; }
-.verwalten-feld { display: grid; gap: 12px; padding: 0 20px 18px; border-top: 0; }
+/* Seitenfenster */
+.huelle { position: fixed; inset: 0; z-index: 50; background: var(--schleier); display: flex; justify-content: flex-end; }
+.huelle[hidden] { display: none; }
+.detail { background: var(--karte); color: var(--fg); width: min(600px, 100%); height: 100%; overflow-y: auto; border-left: 1px solid var(--linie); display: flex; flex-direction: column; overscroll-behavior: contain; }
+.detail-kopf { position: sticky; top: 0; z-index: 2; background: var(--karte); padding: 18px 22px 14px; border-bottom: 1px solid var(--linie); display: grid; gap: 10px; }
+.detail-kopf .zeile { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.detail-kopf h2 { font-size: 24px; overflow-wrap: anywhere; }
+.detail-inhalt { padding: 20px 22px 24px; display: grid; gap: 22px; align-content: start; }
+#detail-inhalt { display: grid; gap: 22px; align-content: start; }
+#detail-status-platz:empty, #detail-status-platz:has(#status:empty) { display: none; }
+/* Die Hauptaktion bleibt am unteren Rand des Fensters sichtbar, auch wenn der Inhalt lang ist. */
+.aktionen.haupt { position: sticky; bottom: 0; z-index: 1; background: var(--karte); padding: 12px 0 max(14px, env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--linie); }
+.abschnitt { display: grid; gap: 8px; }
+.zitat { font-size: 21px; line-height: 1.3; font-weight: 500; overflow-wrap: anywhere; }
+.text { white-space: pre-line; overflow-wrap: anywhere; }
+.entwurf { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border: 1px solid var(--linie); border-radius: 10px; padding: 14px 16px; max-height: 420px; overflow: auto; }
 .fortschritt { height: 4px; border-radius: 999px; background: var(--linie); overflow: hidden; }
-.fortschritt > i { display: block; height: 100%; background: var(--off); transition: width 0.2s; }
-.entwurf { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bergblau); border: 0.5px solid var(--linie); border-radius: 12px; padding: 14px 16px; max-height: 420px; overflow: auto; }
-.wochen-kopf { display: grid; gap: 10px; padding: 16px 20px; }
-.wochen-kopf .zeile { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
-.warnung { border: 0.5px solid var(--stopp); border-radius: 12px; padding: 10px 14px; color: var(--stopp); font-size: 14px; }
-@media (max-width: 560px) {
+.fortschritt > i { display: block; height: 100%; background: var(--fg); transition: width 0.2s; }
+.durchgang-leiste { display: grid; gap: 8px; }
+.durchgang-leiste .zeile { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+.material-liste { display: grid; gap: 0; border: 1px solid var(--linie); border-radius: 10px; }
+.material-eintrag { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--linie); }
+.material-eintrag:first-child { border-top: 0; }
+.material-eintrag .ziel { overflow-wrap: anywhere; font-size: 14px; }
+.material-eintrag .notiz { grid-column: 2; color: var(--gedaempft); font-size: 13px; }
+.material-form { display: grid; gap: 10px; grid-template-columns: 140px minmax(0, 1fr); align-items: end; }
+.material-form .breit { grid-column: 1 / -1; }
+.fehlertext { color: var(--stopp); font-size: 14px; }
+
+/* Looks */
+.looks { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.look { position: relative; display: grid; gap: 8px; align-content: start; border: 1px solid var(--linie); border-radius: var(--radius); padding: 10px; background: var(--bg); cursor: pointer; min-width: 0; }
+.look input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.look:has(input:checked) { outline: 2px solid var(--fg); outline-offset: 2px; }
+.look:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 4px; }
+.look img { width: 100%; aspect-ratio: 9 / 16; max-height: 320px; object-fit: contain; background: var(--papier-2); border-radius: 8px; display: block; }
+.look .kein-bild { aspect-ratio: 9 / 16; max-height: 320px; display: grid; place-items: center; background: var(--papier-2); border-radius: 8px; color: var(--gedaempft); font-size: 14px; padding: 12px; text-align: center; }
+.look b { font-weight: 600; }
+.look span { font-size: 14px; color: var(--gedaempft); overflow-wrap: anywhere; }
+.keiner { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border: 1px solid var(--linie); border-radius: var(--radius); cursor: pointer; }
+.keiner:has(input:checked) { outline: 2px solid var(--fg); outline-offset: 2px; }
+.renders { display: flex; flex-wrap: wrap; gap: 12px; }
+.renders figure { margin: 0; display: grid; gap: 6px; width: 160px; max-width: 100%; }
+.renders img { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; background: var(--papier-2); border-radius: 8px; }
+.renders figcaption { font-size: 13px; color: var(--gedaempft); }
+
+@media (max-width: 859px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .seite { position: static; height: auto; overflow: visible; padding-block: 14px; gap: 12px; }
+  .seite, .haupt {
+    padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
+  }
+  .seite { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 12px; }
+  .wortmarke { grid-column: 1; grid-row: 1; padding: 0; }
+  #nav { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 6px; }
+  .nav-gruppe { display: contents; }
+  .nav-titel { display: none; }
+  .seite-fuss { display: contents; }
+  #neu-laden { grid-column: 2; grid-row: 1; }
+  .seite-fuss .feld { grid-column: 1 / -1; grid-row: 3; display: flex; align-items: center; gap: 10px; }
+  .seite-fuss .feld label { white-space: nowrap; }
+  .seite-fuss .fuss { display: none; }
+  .nav { width: auto; min-height: 44px; border: 1px solid var(--seite-linie); border-radius: 999px; padding: 8px 14px; }
+  .nav[aria-current="page"] { border-color: var(--brand); }
+  .haupt { padding-top: 26px; }
+  .knopf { padding: 14px 20px; min-height: 44px; }
+  .knopf.klein { min-height: 44px; }
+  .reihe { padding: 14px 16px; min-height: 44px; }
+  .detail { width: 100%; border-left: 0; }
   .stueck { grid-template-columns: 1fr; }
-  .zeile-idee { grid-template-columns: 1fr; }
-  .zeile-idee .satz { grid-column: auto; }
-  .knopf { padding: 14px 20px; }
+  .material-form { grid-template-columns: 1fr; }
+  input[type="text"], select { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
-<div class="wrap">
-  <header class="kopf">
-    <div class="marke">
-      <span class="eyebrow">Alperna Prüfplatz</span>
-      <h1>Du entscheidest</h1>
-    </div>
-    <div class="werkzeug">
+<div class="app" id="app">
+  <aside class="seite" id="seite" aria-label="Navigation">
+    <div class="wortmarke"><b>alperna</b><span>Prüfplatz</span></div>
+    <nav id="nav" aria-label="Bereiche">
+      <div class="nav-gruppe">
+        <button class="nav" type="button" id="n-heute" data-ansicht="heute">Heute <span class="zahl" id="z-heute" data-null="true">0</span></button>
+      </div>
+      <div class="nav-gruppe">
+        <p class="nav-titel">Plattformen</p>
+        <button class="nav" type="button" id="n-instagram" data-ansicht="instagram">Instagram <span class="zahl" id="z-instagram" data-null="true">0</span></button>
+        <button class="nav" type="button" id="n-linkedin" data-ansicht="linkedin">LinkedIn <span class="zahl" id="z-linkedin" data-null="true">0</span></button>
+        <button class="nav" type="button" id="n-blog" data-ansicht="blog">Blog <span class="zahl" id="z-blog" data-null="true">0</span></button>
+        <button class="nav" type="button" id="n-google" data-ansicht="google">Google Maps <span class="zahl" id="z-google" data-null="true">0</span></button>
+      </div>
+      <div class="nav-gruppe">
+        <p class="nav-titel">System</p>
+        <button class="nav" type="button" id="n-werkstatt" data-ansicht="werkstatt">Werkstatt</button>
+      </div>
+    </nav>
+    <div class="seite-fuss">
       <div class="feld">
-        <label for="name">Entscheid als</label>
+        <label for="name">Entscheiden als</label>
         <input id="name" type="text" autocomplete="name" placeholder="Dein Name" maxlength="60">
       </div>
       <button class="knopf klein" id="neu-laden" type="button">Neu laden</button>
+      <p class="fuss" id="fuss"></p>
     </div>
-  </header>
+  </aside>
 
-  <div id="status" role="status" aria-live="polite"></div>
+  <main class="haupt" id="haupt">
+    <div id="status-platz"><div id="status" role="status" aria-live="polite"></div></div>
+    <section class="ansicht" id="ansicht" aria-live="off"></section>
+  </main>
+</div>
 
-  <div class="tabs" role="tablist" aria-label="Bereiche">
-    <button class="tab" role="tab" id="t-queue" aria-controls="p-queue" aria-selected="true" data-tab="queue">Zu entscheiden <span class="zahl" id="z-queue" data-null="true">0</span></button>
-    <button class="tab" role="tab" id="t-inhalte" aria-controls="p-inhalte" aria-selected="false" data-tab="inhalte">Inhalte <span class="zahl" id="z-inhalte" data-null="true">0</span></button>
-    <button class="tab" role="tab" id="t-alle" aria-controls="p-alle" aria-selected="false" data-tab="alle">Alle Ideen <span class="zahl" id="z-alle" data-null="true">0</span></button>
-    <button class="tab" role="tab" id="t-bib" aria-controls="p-bib" aria-selected="false" data-tab="bib">Bibliothek <span class="zahl" id="z-bib" data-null="true">0</span></button>
-    <button class="tab" role="tab" id="t-marke" aria-controls="p-marke" aria-selected="false" data-tab="marke">Marke</button>
-  </div>
-
-  <section class="panel" id="p-queue" role="tabpanel" aria-labelledby="t-queue"></section>
-  <section class="panel" id="p-inhalte" role="tabpanel" aria-labelledby="t-inhalte" hidden></section>
-  <section class="panel" id="p-alle" role="tabpanel" aria-labelledby="t-alle" hidden></section>
-  <section class="panel" id="p-bib" role="tabpanel" aria-labelledby="t-bib" hidden></section>
-  <section class="panel" id="p-marke" role="tabpanel" aria-labelledby="t-marke" hidden></section>
-
-  <p class="fuss" id="fuss"></p>
+<div class="huelle" id="huelle" hidden>
+  <aside class="detail" id="detail" role="dialog" aria-modal="true" aria-labelledby="detail-titel" tabindex="-1">
+    <div class="detail-kopf" id="detail-kopf"></div>
+    <div class="detail-inhalt">
+      <div id="detail-status-platz"></div>
+      <div id="detail-inhalt"></div>
+    </div>
+  </aside>
 </div>
 
 <script type="application/json" id="daten">/*__DATEN__*/{"notion":{"ansicht":"view://00000000-0000-0000-0000-000000000000","inhalte":"view://00000000-0000-0000-0000-000000000001","marken":"view://00000000-0000-0000-0000-000000000002"},"bibliothek":[],"marke":null,"erzeugt":""}</script>
@@ -225,7 +326,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
       else if (k === "text") el.textContent = v;
       else el.setAttribute(k, v === true ? "" : String(v));
     }
-    for (const k of kinder.flat()) if (k !== null && k !== undefined && k !== false) el.append(k.nodeType ? k : document.createTextNode(String(k)));
+    for (const k of kinder.flat(2)) if (k !== null && k !== undefined && k !== false) el.append(k.nodeType ? k : document.createTextNode(String(k)));
     return el;
   }
   const speicher = {
@@ -233,9 +334,68 @@ dd { margin: 0; overflow-wrap: anywhere; }
     schreibe(k, v) { try { localStorage.setItem(k, v); } catch { /* ohne Speicher geht es auch */ } },
   };
   const woerter = (s) => s.trim().split(/\s+/).filter(Boolean).length;
+  const norm = (s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+  /* MATERIAL-START */
+  // Dieselbe Lese-, Schreib- und Prüflogik wie src/inhalte/material.ts (material.test.ts hält beide gleich).
+  const MATERIAL_ARTEN = ["Footage", "Foto", "Audio", "Skript", "Logo", "Render", "Sonstiges"];
+  const MATERIAL_ARTEN_MENSCH = ["Footage", "Foto", "Audio", "Skript", "Logo", "Sonstiges"];
+  const MATERIAL_MAX_ZEICHEN = 1900;
+  const MATERIAL_MAX_ZIEL = 400;
+  const MATERIAL_ZEILE = new RegExp("^(" + MATERIAL_ARTEN.join("|") + "):\\s*(.+)$");
+  function liesMaterial(text) {
+    const liste = [];
+    for (const roh of String(text || "").split("\n")) {
+      const z = roh.trim();
+      if (!z) continue;
+      const m = MATERIAL_ZEILE.exec(z);
+      if (!m) { liste.push({ art: "", ziel: z, notiz: "" }); continue; }
+      const rest = m[2];
+      const i = rest.search(/\s+\|\s+/);
+      liste.push({ art: m[1], ziel: (i < 0 ? rest : rest.slice(0, i)).trim(), notiz: i < 0 ? "" : rest.slice(i).replace(/^\s+\|\s+/, "").trim() });
+    }
+    return liste;
+  }
+  function schreibeMaterial(liste) {
+    return liste.map((e) => (e.art ? e.art + ": " + e.ziel + (e.notiz ? " | " + e.notiz.replace(/\s*\n\s*/g, " ") : "") : e.ziel)).join("\n");
+  }
+  function pruefeZiel(roh) {
+    const z = String(roh || "").normalize("NFC").trim();
+    if (!z) return { ok: false, fehler: "Pfad oder Link fehlt." };
+    if (z.length > MATERIAL_MAX_ZIEL) return { ok: false, fehler: "Zu lang (höchstens " + MATERIAL_MAX_ZIEL + " Zeichen)." };
+    if (/[|\n\r\t]/.test(z)) return { ok: false, fehler: "Das Zeichen «|» und Zeilenumbrüche sind im Pfad nicht erlaubt." };
+    if (/^https:\/\//i.test(z)) return /^https:\/\/[^\s|]+$/i.test(z) ? { ok: true, ziel: z, link: true } : { ok: false, fehler: "Der Link darf keine Leerzeichen enthalten." };
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(z)) return { ok: false, fehler: "Nur https-Links sind erlaubt." };
+    if (/^~/.test(z)) return { ok: false, fehler: "Der Pfad muss relativ zum Ordner «Studio» sein, nicht zum Benutzerordner." };
+    const s = z.replace(/\\/g, "/");
+    if (s.startsWith("/") || /^[A-Za-z]:/.test(s)) return { ok: false, fehler: "Der Pfad muss relativ zum Ordner «Studio» sein (zum Beispiel rohmaterial/projekt/clip.mov)." };
+    const teile = s.split("/").filter((t) => t !== "" && t !== ".");
+    if (teile.includes("..")) return { ok: false, fehler: "Der Pfad darf den Ordner «Studio» nicht verlassen." };
+    if (teile.length === 0) return { ok: false, fehler: "Pfad fehlt." };
+    let p = teile.join("/");
+    if (p.startsWith("Studio/")) p = p.slice("Studio/".length);
+    if (!p) return { ok: false, fehler: "Pfad fehlt." };
+    return { ok: true, ziel: p, link: false };
+  }
+  function haengeAn(text, art, ziel, notiz) {
+    const p = pruefeZiel(ziel);
+    if (!p.ok) throw new Error(p.fehler);
+    const neu = schreibeMaterial(liesMaterial(text).concat([{ art, ziel: p.ziel, notiz: String(notiz || "").trim() }]));
+    if (neu.length > MATERIAL_MAX_ZEICHEN) throw new Error("Das Feld ist voll. Leg einen Ordner an und verweise mit einem Eintrag auf ihn.");
+    return neu;
+  }
+  function materialFehlt(i) {
+    return i.aufwand === "Dreh nötig" && !liesMaterial(i.dateien).some((e) => e.art === "Footage" || e.art === "Foto");
+  }
+  /* MATERIAL-ENDE */
 
   /* ---------- Zustand ---------- */
-  const S = { mcp: null, zeilen: [], inhalte: [], marken: [], inhalteFehler: null, wochen: null, torModus: {}, gate0Frage: {}, seitentext: {}, inhaltFilter: "laufend", verwalten: null, laden: "idle", fehler: null, tab: "queue", offen: null, name: "", busy: false, entwurf: {}, ablehnen: {}, filter: "alle", stand: null, meldung: null };
+  const S = {
+    mcp: null, zeilen: [], inhalte: [], marken: [], inhalteFehler: null, hatMehr: false,
+    ansicht: "heute", werk: null, detail: null, durchgang: null, fokus: null, opener: null,
+    torModus: {}, gate0Frage: {}, seitentext: {}, verwalten: null, entwurf: {}, ablehnen: {}, filter: "alle",
+    laden: "idle", fehler: null, name: "", busy: false, stand: null, meldung: null,
+  };
 
   /* ---------- Notion ---------- */
   function ergebnis(r) {
@@ -301,6 +461,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
   const seitenId = (u) => { const t = typeof u === "string" ? u.match(/[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}/gi) : null; return t ? t[t.length - 1].replace(/-/g, "").toLowerCase() : ""; };
   const liste = (v) => { if (Array.isArray(v)) return v.filter((x) => typeof x === "string"); try { const p = JSON.parse(v || "[]"); return Array.isArray(p) ? p.filter((x) => typeof x === "string") : []; } catch { return []; } };
   const textVon = (z, k) => (typeof z[k] === "string" ? z[k].replace(/<br\s*\/?>/gi, "\n").replace(/<mention-[a-z-]+ url="([^"]*)"[^>]*>([^<]*)<\/mention-[a-z-]+>/gi, (_m, u, n) => n.trim() || u).trim() : "");
+  /** Im Feld «Dateien» zählt der Link, nicht der Titel der Seite, auf die Notion ihn verweist. */
+  const textMitLinks = (z, k) => (typeof z[k] === "string" ? z[k].replace(/<br\s*\/?>/gi, "\n").replace(/<mention-[a-z-]+ url="([^"]*)"[^>]*>([^<]*)<\/mention-[a-z-]+>/gi, (_m, u) => u).trim() : "");
   const hatMensch = (von) => !!von && !!von.trim() && !SYSTEMNAMEN.test(von.trim());
 
   /** Eine Zeile der Ansicht «Inhalte». Die Namen der Spalten stehen in der Datenbank genau so. */
@@ -308,10 +470,11 @@ dd { margin: 0; overflow-wrap: anywhere; }
     const t = (k) => textVon(z, k);
     const tor = (p) => ({ entscheid: t(p + " Entscheid"), grund: t(p + " Grund"), von: t(p + " von"), am: t("date:" + p + " am:start") });
     const url = typeof z.url === "string" ? z.url : "";
+    const titel = t("Titel");
     return {
-      art: "inhalt", id: t("Inhalt-ID"), titel: t("Titel"), format: t("Format"), plattformen: liste(z["Plattformen"]), markeUrls: liste(z["Marke"]),
+      art: "inhalt", id: t("Inhalt-ID"), titel, beispiel: /^Beispiel:/i.test(titel), format: t("Format"), plattformen: liste(z["Plattformen"]), markeUrls: liste(z["Marke"]), profil: t("Profil"),
       quelle: t("Quelle"), referenz: t("Referenz"), hook: t("Hook"), winkel: t("Winkel"), beleg: t("Beleg"), aufwand: t("Aufwand"), status: t("Status"),
-      torI: tor("Tor I"), torP: tor("Tor P"), dateien: t("Dateien"), ziel: t("Ziel"), publishing: t("Publishing"), geplantFuer: t("date:Geplant für:start"),
+      torI: tor("Tor I"), torP: tor("Tor P"), dateien: textMitLinks(z, "Dateien"), ziel: t("Ziel"), publishing: t("Publishing"), geplantFuer: t("date:Geplant für:start"),
       statusVon: t("Status von"), statusGrund: t("Status-Grund"), statusAm: t("date:Status am:start"),
       offeneMarkierungen: typeof z["Offene Markierungen"] === "number" ? z["Offene Markierungen"] : 0, url, seite: seitenId(url),
     };
@@ -333,6 +496,30 @@ dd { margin: 0; overflow-wrap: anywhere; }
     return "sonst";
   }
   const ENTSCHEIDBAR_INHALT = new Set(["tor-i", "tor-p"]);
+  const stand = (c) => c.status || "Neu";
+
+  /* ---------- Plattformen und Gruppen ---------- */
+  const PLATTFORMEN = [
+    { k: "instagram", name: "Instagram", notion: "Instagram" },
+    { k: "linkedin", name: "LinkedIn", notion: "LinkedIn" },
+    { k: "blog", name: "Blog", notion: "Blog" },
+    { k: "google", name: "Google Maps", notion: "Google" },
+  ];
+  /** Ohne Angabe in «Plattformen» entscheidet das Format: Reels und Carousels gehören zu Instagram. Eine Angabe geht vor. */
+  const FORMAT_PLATTFORM = { Reel: "instagram", Carousel: "instagram", Story: "instagram", "LinkedIn-Post": "linkedin", Blog: "blog", "Google-Maps-Beitrag": "google" };
+  function plattformenVon(c) {
+    const aus = PLATTFORMEN.filter((p) => c.plattformen.includes(p.notion)).map((p) => p.k);
+    if (aus.length) return aus;
+    return FORMAT_PLATTFORM[c.format] ? [FORMAT_PLATTFORM[c.format]] : [];
+  }
+  const GRUPPEN = [
+    { k: "idee", name: "Idee", stati: ["Neu", "Pitch bereit"] },
+    { k: "arbeit", name: "In Arbeit", stati: ["In Produktion", "Entwurf fertig"] },
+    { k: "bereit", name: "Bereit zum Posten", stati: ["Freigegeben", "Geplant"] },
+  ];
+  /** Gepostetes, Ausgewertetes, Verworfenes und Pausiertes steht nie in einer Liste, nur als Hinweis mit Link ins Archiv. */
+  const ABGESCHLOSSEN = ["Veröffentlicht", "Ausgewertet", "Verworfen", "Pausiert"];
+  const inListe = (c) => !c.beispiel && GRUPPEN.some((g) => g.stati.includes(stand(c)));
 
   async function laden(still) {
     S.laden = "laden";
@@ -373,11 +560,11 @@ dd { margin: 0; overflow-wrap: anywhere; }
   function jetzt() { return new Date().toISOString(); }
   function datum(feld) { return { ["date:" + feld + ":start"]: jetzt(), ["date:" + feld + ":is_datetime"]: 1 }; }
 
-  /** Schreibt einen Entscheid. `bereit(frischeZeile)` sagt, ob die Zeile noch im erwarteten Zustand ist. */
+  /** Schreibt einen Entscheid. `erwartet(frischeZeile)` sagt, ob die Zeile noch im erwarteten Zustand ist. */
   async function senden(m, felder, erwartet, bestaetigt) {
     if (S.busy) return;
     const name = S.name.trim();
-    if (!name) return melde("fehler", "Name fehlt", "Trag oben deinen Namen ein. Er steht beim Entscheid in Notion und im Protokoll.");
+    if (!name) return melde("fehler", "Name fehlt", "Trag unten in der Seitenleiste unter «Entscheiden als» deinen Namen ein. Er steht beim Entscheid in Notion und im Protokoll.");
     if (SYSTEMNAMEN.test(name)) return melde("fehler", "Dieser Name gilt nicht", "Entscheide braucht ein Mensch mit seinem Namen, kein Systemname.");
     S.busy = true; S.meldung = null; zeichne();
     try {
@@ -391,17 +578,52 @@ dd { margin: 0; overflow-wrap: anywhere; }
       await aufruf("notion-update-page", { page_id: m.seite, command: "update_properties", properties: felder, allow_async: false });
       const danach = await frisch(m);
       S.busy = false;
+      const weiter = !!S.durchgang;
       await laden(true);
       if (danach && bestaetigt(danach)) {
-        S.offen = null; S.entwurf[m.id] = null; S.ablehnen[m.id] = false; S.torModus[m.id] = false; S.gate0Frage[m.id] = false; S.verwalten = null;
-        if (m.art === "marke") return melde("gut", "Gate 0 gespeichert", "Die Freigabe von «" + m.titel + "» steht in Notion. Tor I und Tor P gelten ab dem nächsten Abgleich für diese Marke.");
-        return melde("gut", "Gespeichert", "Dein Entscheid zu «" + m.titel + "» steht in Notion. Claude führt " + (m.art === "inhalt" ? "den Inhalt beim nächsten Abgleich" : "die Idee beim nächsten Lauf") + " weiter.");
+        S.entwurf[m.id] = null; S.ablehnen[m.id] = false; S.torModus[m.id] = false; S.gate0Frage[m.id] = false; S.verwalten = null;
+        S.detail = null;
+        const text = m.art === "marke"
+          ? ["Gate 0 gespeichert", "Die Freigabe von «" + m.titel + "» steht in Notion. Tor I und Tor P gelten ab dem nächsten Abgleich für diese Marke."]
+          : ["Gespeichert", "Dein Entscheid zu «" + m.titel + "» steht in Notion. Claude führt " + (m.art === "inhalt" ? "den Inhalt beim nächsten Abgleich" : "die Idee beim nächsten Lauf") + " weiter."];
+        S.meldung = { art: "gut", titel: text[0], text: text[1] };
+        if (weiter) return naechster();
+        return zeichne();
       }
       return melde("fehler", "Nicht bestätigt", "Notion hat geantwortet, aber der Entscheid ist beim Nachlesen nicht zu sehen. Prüf die Zeile in Notion, bevor du es nochmal versuchst.");
     } catch (e) {
       S.busy = false;
       melde("fehler", ...fehlertext(e, true));
       await laden(true);
+    }
+  }
+
+  /** Material anhängen oder entfernen: keine Entscheidung, darum ohne Namen. Wie überall wird vorher frisch gelesen und nachher nachgelesen. */
+  async function aendereMaterial(c, bauen, erfolg) {
+    if (S.busy) return;
+    S.busy = true; S.meldung = null; zeichne();
+    try {
+      const f = await frisch(c);
+      if (!f) throw { code: "weg", message: "Der Eintrag ist in Notion nicht mehr zu finden." };
+      if (f.dateien !== c.dateien) {
+        S.busy = false;
+        await laden(true);
+        return melde("fehler", "Schon weiter", "Das Material von «" + c.titel + "» hat sich inzwischen geändert. Die Liste ist neu geladen, nichts wurde überschrieben.");
+      }
+      const neu = bauen(f.dateien);
+      await aufruf("notion-update-page", { page_id: c.seite, command: "update_properties", properties: { Dateien: neu || null }, allow_async: false });
+      const danach = await frisch(c);
+      S.busy = false;
+      await laden(true);
+      if (danach && norm(danach.dateien) === norm(neu)) {
+        S.entwurf[c.id] = Object.assign({}, S.entwurf[c.id], { matZiel: "", matNotiz: "", matFehler: "" });
+        return melde("gut", "Material gespeichert", erfolg);
+      }
+      return melde("fehler", "Nicht bestätigt", "Notion hat geantwortet, aber das Material ist beim Nachlesen nicht zu sehen. Prüf das Feld «Dateien» in Notion.");
+    } catch (e) {
+      S.busy = false;
+      if (e instanceof Error) melde("fehler", "Das geht so nicht", e.message);
+      else { melde("fehler", ...fehlertext(e, true)); await laden(true); }
     }
   }
 
@@ -429,35 +651,55 @@ dd { margin: 0; overflow-wrap: anywhere; }
 
   function melde(art, titel, text) { S.meldung = { art, titel, text }; zeichne(); }
 
-  /* ---------- Darstellung ---------- */
+  /* ---------- Darstellung: Gerüst ---------- */
   const STATUSTEXT = {
     idee: "Entwurf von Claude", pitch: "Pitch", freigegeben: "Freigegeben", looks: "Looks", look_gewaehlt: "Look gewählt",
     in_bau: "Im Bau", render_geprueft: "Zur Abnahme", in_bibliothek: "In der Bibliothek", abgelehnt: "Abgelehnt",
   };
-  const PHASENTEXT = { pitch: "Pitch entscheiden", look: "Look wählen", abnahme: "Abnehmen", "pitch-gesendet": "Wartet auf Claude", "look-gesendet": "Wartet auf Claude", "abnahme-gesendet": "Wartet auf Claude", "look-wartet": "Claude erstellt die Looks" };
   const STUECKSTATUS = { entwurf: "Entwurf", gebaut: "Gebaut", geprueft: "Geprüft, noch nicht aktiv", aktiv: "Aktiv", veraltet: "Veraltet" };
   const chip = (text, art) => h("span", { class: "chip" + (art ? " " + art : ""), text });
 
+  /** Alles, worauf ein Mensch wartet: Gate 0, Tor I, Tor P, Pitch, Look, Abnahme. Das ist die Seite «Heute». */
+  function heuteElemente() {
+    const el = [];
+    for (const mk of S.marken) if (gate0Wirksam(mk) !== "freigegeben") el.push({ art: "marke", id: mk.id, o: mk, key: "marke:" + mk.id, ph: "gate0" });
+    for (const c of S.inhalte) { const ph = phaseInhalt(c); if (ENTSCHEIDBAR_INHALT.has(ph)) el.push({ art: "inhalt", id: c.id, o: c, key: "inhalt:" + c.id, ph }); }
+    for (const m of S.zeilen) { const ph = phase(m); if (ENTSCHEIDBAR.has(ph)) el.push({ art: "idee", id: m.id, o: m, key: "idee:" + m.id, ph }); }
+    return el;
+  }
+  const PHASENTEXT = { gate0: "Gate 0", "tor-i": "Idee entscheiden", "tor-p": "Entwurf entscheiden", pitch: "Pitch entscheiden", look: "Look wählen", abnahme: "Abnehmen" };
+  const KNOPFTEXT = { gate0: "Gate 0 prüfen", "tor-i": "Idee prüfen", "tor-p": "Entwurf prüfen", pitch: "Pitch prüfen", look: "Look wählen", abnahme: "Abnehmen" };
+
+  function laufende(plattform) {
+    return S.inhalte.filter((c) => inListe(c) && plattformenVon(c).includes(plattform));
+  }
+
   function zeichne() {
-    $("name").value !== S.name && document.activeElement !== $("name") && ($("name").value = S.name);
-    document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === S.tab)));
-    for (const t of ["queue", "inhalte", "alle", "bib", "marke"]) $("p-" + t).hidden = S.tab !== t;
+    if ($("name").value !== S.name && document.activeElement !== $("name")) $("name").value = S.name;
+    document.querySelectorAll(".nav").forEach((b) => { if (b.dataset.ansicht === S.ansicht) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
     $("neu-laden").disabled = S.busy || S.laden === "laden";
 
-    const offene = S.zeilen.filter((m) => ENTSCHEIDBAR.has(phase(m)));
-    const offeneInhalte = S.inhalte.filter((c) => ENTSCHEIDBAR_INHALT.has(phaseInhalt(c)));
-    zahl("z-queue", offene.length + offeneInhalte.length); zahl("z-inhalte", S.inhalte.length); zahl("z-alle", S.zeilen.length); zahl("z-bib", DATEN.bibliothek.length);
+    const heute = heuteElemente();
+    zahl("z-heute", heute.length, true);
+    for (const p of PLATTFORMEN) zahl("z-" + p.k, laufende(p.k).length);
 
+    // Die Meldung steht dort, wo man gerade hinsieht: im Seitenfenster, solange es offen ist.
+    const ziel = S.detail ? $("detail-status-platz") : $("status-platz");
+    if ($("status").parentNode !== ziel) ziel.appendChild($("status"));
     zeichneStatus();
-    if (S.tab === "queue") zeichneQueue(offene, offeneInhalte);
-    if (S.tab === "inhalte") zeichneInhalte();
-    if (S.tab === "alle") zeichneAlle();
-    if (S.tab === "bib") zeichneBib();
-    if (S.tab === "marke") zeichneMarke();
+
+    const a = $("ansicht");
+    a.replaceChildren();
+    if (S.ansicht === "heute") zeichneHeute(a, heute);
+    else if (S.ansicht === "werkstatt") zeichneWerkstatt(a);
+    else zeichnePlattform(a, PLATTFORMEN.find((p) => p.k === S.ansicht));
+
+    zeichneDetail();
     $("fuss").textContent = (S.stand ? "Notion gelesen um " + S.stand.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) + ". " : "") +
-      "Bibliothek und Marke stehen im Stand vom " + (DATEN.erzeugt ? new Date(DATEN.erzeugt).toLocaleDateString("de-CH") : "unbekannt") + ".";
+      "Bibliothek und Marke im Stand vom " + (DATEN.erzeugt ? new Date(DATEN.erzeugt).toLocaleDateString("de-CH") : "unbekannt") + ".";
+    if (S.fokus) { const f = document.querySelector(S.fokus); S.fokus = null; if (f) f.focus(); }
   }
-  function zahl(id, n) { const e = $(id); e.textContent = String(n); e.dataset.null = String(n === 0); }
+  function zahl(id, n, wartet) { const e = $(id); e.textContent = String(n); e.dataset.null = String(n === 0); if (wartet) e.dataset.wartet = String(n > 0); }
 
   function zeichneStatus() {
     const box = $("status");
@@ -475,54 +717,377 @@ dd { margin: 0; overflow-wrap: anywhere; }
   }
 
   function leer(titel, text) { return h("div", { class: "karte leer" }, h("h3", { text: titel }), h("p", { class: "muted", text })); }
+  const kopf = (titelHtml, text) => h("header", { class: "kopf" }, titelHtml, text ? h("p", { text }) : null);
 
-  function quelleText(m) {
-    return m.quelle === "video" ? "Aus dem Video " + m.projekt : m.quelle === "inspiration" ? "Aus dem Inspirationsvideo «" + m.projekt + "»" : m.projekt;
+  /* ---------- Heute ---------- */
+  function zeichneHeute(a, heute) {
+    a.append(kopf(h("h1", null, "Was auf dich ", h("em", { text: "wartet" })), "Nur das, worauf ein Mensch wartet: Gate 0, Ideen, Entwürfe, Pitches, Looks und Abnahmen."));
+    if (!S.mcp) return a.append(leer("Hier erscheint, was auf dich wartet", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier Ideen, Entwürfe, Pitches, Looks und Abnahmen."));
+    if (S.laden === "laden" && S.zeilen.length === 0 && S.inhalte.length === 0) return a.append(leer("Lade aus Notion", "Das dauert einen Moment."));
+    if (heute.length === 0) a.append(leer("Nichts zu entscheiden", "Wenn Claude eine Idee vorlegt, einen Entwurf fertig hat, Looks zeigt oder ein Stück zur Abnahme bereit hat, erscheint es hier."));
+    if (heute.length >= 2) {
+      a.append(h("div", { class: "aktionen" }, h("button", { class: "knopf primaer", type: "button", id: "durchgang-start", onclick: startDurchgang }, "Der Reihe nach durchgehen"), h("span", { class: "muted", text: heute.length + " Karten, eine nach der anderen" })));
+    }
+    for (const e of heute) a.append(heuteKarte(e));
+    const bei = S.inhalte.filter((c) => phaseInhalt(c).endsWith("-gesendet")).length + S.zeilen.filter((m) => phase(m).endsWith("-gesendet") || phase(m) === "look-wartet").length;
+    if (bei) a.append(h("p", { class: "hinweis", id: "bei-claude", text: bei + (bei === 1 ? " Entscheid liegt" : " Entscheide liegen") + " bei Claude und " + (bei === 1 ? "wird" : "werden") + " beim nächsten Lauf weitergeführt." }));
+    const ohne = S.inhalte.filter((c) => inListe(c) && plattformenVon(c).length === 0).length;
+    if (ohne) a.append(h("p", { class: "hinweis", text: ohne + (ohne === 1 ? " laufender Inhalt hat" : " laufende Inhalte haben") + " keine Plattform und " + (ohne === 1 ? "steht" : "stehen") + " auf keiner Plattformseite." }));
+    if (S.hatMehr) a.append(h("p", { class: "hinweis", text: "Es gibt mehr als 500 Ideen. Der Prüfplatz zeigt die ersten 500." }));
   }
 
-  function zeichneQueue(offene, offeneInhalte) {
-    const p = $("p-queue");
-    p.replaceChildren();
-    if (!S.mcp) return p.append(leer("Hier erscheint, was auf dich wartet", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier Ideen, Entwürfe, Pitches, Looks und Abnahmen."));
-    if (S.laden === "laden" && S.zeilen.length === 0 && S.inhalte.length === 0) return p.append(leer("Lade aus Notion", "Das dauert einen Moment."));
-    if (S.wochen) return zeichneWochen(p);
-    const torI = offeneInhalte.filter((c) => phaseInhalt(c) === "tor-i");
-    const gesendet = S.zeilen.filter((m) => phase(m).endsWith("-gesendet") || phase(m) === "look-wartet");
-    const gesendetInhalte = S.inhalte.filter((c) => phaseInhalt(c).endsWith("-gesendet"));
-    if (offene.length + offeneInhalte.length === 0) p.append(leer("Nichts zu entscheiden", "Wenn Claude eine Idee vorlegt, einen Entwurf fertig hat, Looks zeigt oder ein Stück zur Abnahme bereit hat, erscheint es hier."));
-    if (torI.length >= 2) {
-      p.append(h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "wochen-start", onclick: () => { S.wochen = { ids: torI.map((c) => c.id), uebersprungen: [] }; S.offen = null; zeichne(); } }, "Wochenmodus starten (" + torI.length + " Ideen nacheinander)")));
+  function heuteKarte(e) {
+    const o = e.o;
+    let meta = "", kurz = "";
+    if (e.art === "inhalt") {
+      const mk = markeVon(o);
+      meta = [o.format, o.profil, mk && mk.titel !== o.profil ? mk.titel : ""].filter(Boolean).join(" · ");
+      kurz = o.hook && norm(o.hook) !== norm(o.titel) ? "«" + o.hook + "»" : "";
+    } else if (e.art === "idee") {
+      meta = ["Motion-Idee", o.aufwand && "Aufwand " + o.aufwand].filter(Boolean).join(" · ");
+      kurz = o.satz ? "«" + o.satz + "»" : "";
+    } else {
+      meta = ["Marke", o.typ].filter(Boolean).join(" · ");
+      kurz = o.notizen || "";
     }
-    if (offeneInhalte.length) {
-      if (offene.length) p.append(h("p", { class: "eyebrow", text: "Inhalte" }));
-      for (const c of offeneInhalte) p.append(inhaltKarte(c, false));
-    }
-    if (offene.length) {
-      if (offeneInhalte.length) p.append(h("p", { class: "eyebrow", text: "Motion-Ideen" }));
-      for (const m of offene) p.append(karte(m));
-    }
-    if (gesendet.length || gesendetInhalte.length) {
-      p.append(h("p", { class: "eyebrow", text: "Bei Claude" }));
-      p.append(h("div", { class: "karte tabelle" }, gesendetInhalte.map(zeileInhalt), gesendet.map(zeileIdee)));
-    }
-    if (S.hatMehr) p.append(h("p", { class: "hinweis", text: "Es gibt mehr als 500 Ideen. Der Prüfplatz zeigt die ersten 500." }));
+    const oeffnen = (ev) => oeffne(e.art, e.id, ev.currentTarget);
+    return h("article", { class: "karte heute-karte", "data-key": e.key },
+      h("div", { class: "zeile" }, chip(PHASENTEXT[e.ph], "wartet"), o.beispiel ? chip("Beispiel", "still") : null),
+      h("h3", { text: o.titel }),
+      h("p", { class: "meta", text: meta }),
+      kurz ? h("p", { class: "kurz", text: kurz }) : null,
+      h("div", { class: "aktionen" }, h("button", { class: "knopf primaer", type: "button", onclick: oeffnen }, KNOPFTEXT[e.ph])));
   }
 
-  function karte(m) {
+  /* ---------- Durchgang: alle Karten von «Heute» nacheinander ---------- */
+  function startDurchgang() {
+    S.durchgang = { keys: heuteElemente().map((e) => e.key), uebersprungen: [] };
+    S.opener = "#durchgang-start";
+    naechster();
+  }
+  function durchgangRest() {
+    const d = S.durchgang;
+    return heuteElemente().filter((e) => d.keys.includes(e.key) && !d.uebersprungen.includes(e.key));
+  }
+  function naechster() {
+    const d = S.durchgang;
+    if (!d) return zeichne();
+    const rest = durchgangRest();
+    if (!rest.length) {
+      const ue = d.uebersprungen.length;
+      S.durchgang = null; S.detail = null;
+      return melde("gut", "Durchgang beendet", ue ? ue + " übersprungen. Sie bleiben unter «Heute»." : "Alle Entscheide stehen in Notion.");
+    }
+    S.detail = { art: rest[0].art, id: rest[0].id };
+    S.fokus = "#detail-schliessen";
+    zeichne();
+  }
+
+  /* ---------- Plattformseiten ---------- */
+  function reihe(c) {
+    const ph = phaseInhalt(c);
+    const wartet = ENTSCHEIDBAR_INHALT.has(ph);
+    const bei = ph.endsWith("-gesendet");
+    const hook = c.hook && norm(c.hook) !== norm(c.titel) ? c.hook : "";
+    return h("button", { class: "reihe", type: "button", "data-id": c.id, onclick: (ev) => oeffne("inhalt", c.id, ev.currentTarget) },
+      h("span", { class: "titel", text: c.titel }),
+      wartet ? chip("Wartet auf dich", "wartet") : bei ? chip("Wartet auf Claude", "still") : chip(stand(c), "still"),
+      h("span", { class: "meta", text: [c.format, c.profil].filter(Boolean).join(" · ") }),
+      hook ? h("span", { class: "kurz", text: "«" + hook + "»" }) : null);
+  }
+
+  function zeichnePlattform(a, p) {
+    a.append(kopf(h("h1", null, p.name), "Laufende Inhalte in drei Schritten: Idee, in Arbeit, bereit zum Posten."));
+    if (!S.mcp) return a.append(leer(p.name, "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier die laufenden Inhalte."));
+    if (S.laden === "laden" && S.inhalte.length === 0) return a.append(leer("Lade aus Notion", "Das dauert einen Moment."));
+    const lauf = laufende(p.k);
+    if (lauf.length === 0) a.append(leer("Nichts in Arbeit", "Sobald Claude eine Idee für " + p.name + " anlegt, erscheint sie hier."));
+    for (const g of GRUPPEN) {
+      const inGruppe = lauf.filter((c) => g.stati.includes(stand(c)));
+      if (lauf.length === 0) break;
+      a.append(h("section", { class: "gruppe", "data-gruppe": g.k },
+        h("div", { class: "gruppe-kopf" }, h("h2", { text: g.name }), h("span", { class: "zahl", text: String(inGruppe.length) })),
+        inGruppe.length ? h("div", { class: "karte liste" }, inGruppe.map(reihe)) : h("p", { class: "hinweis", text: "Nichts in dieser Gruppe." })));
+    }
+    const zu = S.inhalte.filter((c) => !c.beispiel && ABGESCHLOSSEN.includes(stand(c)) && plattformenVon(c).includes(p.k)).length;
+    if (zu) {
+      a.append(h("p", { class: "ausgeblendet", id: "ausgeblendet" }, zu + (zu === 1 ? " abgeschlossener Inhalt" : " abgeschlossene Inhalte") + " ausgeblendet (gepostet, ausgewertet, verworfen oder pausiert). ",
+        DATEN.notion.archiv ? h("a", { href: DATEN.notion.archiv, target: "_blank", rel: "noopener", text: "Archiv in Notion öffnen" }) : null));
+    }
+  }
+
+  /* ---------- Werkstatt ---------- */
+  function zeichneWerkstatt(a) {
+    a.append(kopf(h("h1", null, "Die ", h("em", { text: "Werkstatt" })), "Systempflege, kein Tagesgeschäft: Motion-Bibliothek, Motion-Ideen und Marke."));
+    const aktiv = DATEN.bibliothek.filter((s) => s.status === "aktiv").length;
+    const g0 = S.marken.filter((mk) => gate0Wirksam(mk) !== "freigegeben").length;
+    const ideenWartet = S.zeilen.filter((m) => ENTSCHEIDBAR.has(phase(m))).length;
+    const kachel = (k, id, titel, gross, sub) => h("button", { class: "kachel", type: "button", id, "aria-expanded": String(S.werk === k), "aria-controls": "werk-panel", onclick: () => { S.werk = S.werk === k ? null : k; zeichne(); } },
+      h("span", { class: "titel", text: titel }), h("span", { class: /^[\d–]+$/.test(gross) ? "gross" : "gross text", text: gross }), h("span", { class: "meta", text: sub }));
+    a.append(h("div", { class: "kacheln" },
+      kachel("bib", "k-bib", "Motion-Bibliothek", String(DATEN.bibliothek.length), aktiv + (aktiv === 1 ? " aktives Stück" : " aktive Stücke")),
+      kachel("ideen", "k-ideen", "Motion-Ideen", S.mcp ? String(S.zeilen.length) : "–", S.mcp ? (ideenWartet ? ideenWartet + " warten auf dich" : "nichts offen") : "Nur mit Notion"),
+      kachel("marke", "k-marke", "Marke", DATEN.marke ? DATEN.marke.name : "–", S.marken.length ? (g0 ? "Gate 0 offen" : "Gate 0 freigegeben") : DATEN.marke ? (DATEN.marke.status === "freigegeben" ? "Profil freigegeben" : "Profil Platzhalter") : "Kein Profil")));
+    if (!S.werk) return;
+    const panel = h("section", { class: "ansicht", id: "werk-panel" });
+    if (S.werk === "bib") werkBib(panel);
+    if (S.werk === "ideen") werkIdeen(panel);
+    if (S.werk === "marke") werkMarke(panel);
+    a.append(panel);
+  }
+
+  function werkBib(p) {
+    const aktiv = DATEN.bibliothek.filter((s) => s.status === "aktiv");
+    const rest = DATEN.bibliothek.filter((s) => s.status !== "aktiv");
+    p.append(h("p", { class: "muted", text: aktiv.length + (aktiv.length === 1 ? " aktives Stück" : " aktive Stücke") + ". Nur aktive Stücke darf das Storyboard benutzen." }));
+    p.append(h("div", { class: "raster" }, [...aktiv, ...rest].map(stueckKarte)));
+    if (DATEN.bibliothek.length === 0) p.append(leer("Noch keine Stücke", "Die Bibliothek wächst aus den Ideen, die du freigibst."));
+  }
+  function stueckKarte(s) {
+    const lst = (titel, arr) => (arr && arr.length ? h("div", { class: "abschnitt" }, h("span", { class: "eyebrow", text: titel }), h("ul", null, arr.map((x) => h("li", { text: x })))) : null);
+    return h("article", { class: "karte stueck" },
+      s.vorschau ? h("img", { src: s.vorschau, alt: "Standbild von " + s.name, loading: "lazy" }) : h("div"),
+      h("div", { class: "inhalt" },
+        h("div", { class: "kopfzeile" }, h("span", { class: "eyebrow", text: "Version " + s.version }), chip(STUECKSTATUS[s.status] || s.status, s.status === "aktiv" ? "ok" : "still")),
+        h("h3", { text: s.name }),
+        h("p", { text: s.zweck }),
+        h("p", { class: "hinweis", text: "Auslöser: " + s.ausloeser + " Dauer " + s.dauer.standard.toString().replace(".", ",") + " s (" + s.dauer.min.toString().replace(".", ",") + " bis " + s.dauer.max.toString().replace(".", ",") + ")." }),
+        lst("Passt, wenn", s.wann), lst("Passt nicht, wenn", s.wannNicht),
+        lst("Pro Einsatz anders", s.parameter.map((x) => x.label + (x.pflicht ? " (Pflicht)" : ""))),
+        lst("Beispielsätze", s.beispiele)));
+  }
+
+  function zeileIdee(m) {
     const ph = phase(m);
-    const offen = S.offen === m.id;
-    const kopf = h("button", { class: "karte-kopf", type: "button", "aria-expanded": String(offen), "aria-controls": "k-" + m.id, onclick: () => { S.offen = offen ? null : m.id; zeichne(); } },
-      h("div", { class: "zeile" }, h("span", { class: "eyebrow", text: m.id }), chip(PHASENTEXT[ph]), m.aufwand && ph === "pitch" ? chip("Aufwand " + m.aufwand, "still") : null),
-      h("h3", { text: m.titel }),
-      offen ? null : h("span", { class: "satz-kurz", text: "«" + m.satz + "»" }));
-    const k = h("article", { class: "karte" }, kopf);
-    if (offen) k.append(h("div", { class: "karte-inhalt", id: "k-" + m.id }, ph === "pitch" ? pitchInhalt(m) : ph === "look" ? lookInhalt(m) : abnahmeInhalt(m)));
-    return k;
+    const art = m.status === "abgelehnt" ? "stopp" : m.status === "in_bibliothek" ? "ok" : ENTSCHEIDBAR.has(ph) ? "wartet" : "still";
+    return h("button", { class: "reihe", type: "button", "data-id": m.id, onclick: (ev) => oeffne("idee", m.id, ev.currentTarget) },
+      h("span", { class: "titel", text: m.titel }),
+      chip(ENTSCHEIDBAR.has(ph) ? "Wartet auf dich" : ph.endsWith("-gesendet") ? "Wartet auf Claude" : (STATUSTEXT[m.status] || m.status), art),
+      h("span", { class: "meta", text: m.id }),
+      m.satz ? h("span", { class: "kurz", text: "«" + m.satz + "»" }) : null);
+  }
+  function werkIdeen(p) {
+    if (!S.mcp) return p.append(leer("Motion-Ideen", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier jede Idee mit ihrem Stand."));
+    const sel = h("select", { id: "filter", "aria-label": "Nach Stand filtern", onchange: (ev) => { S.filter = ev.target.value; zeichne(); } },
+      h("option", { value: "alle", text: "Alle Stände" }), ...Object.entries(STATUSTEXT).map(([k, v]) => h("option", { value: k, text: v })));
+    sel.value = S.filter;
+    p.append(h("div", { class: "feld", style: "max-width: 260px" }, h("label", { for: "filter", text: "Stand" }), sel));
+    const lst = S.zeilen.filter((m) => S.filter === "alle" || m.status === S.filter);
+    p.append(lst.length ? h("div", { class: "karte liste" }, lst.map(zeileIdee)) : leer("Keine Ideen in diesem Stand", "Wähle oben einen anderen Stand."));
   }
 
+  /** Gate 0 einer Marke: Lücken des Profils, Bestätigung mit Namen. Die Freigabe gibt ein Mensch, hier. */
+  function gate0Inhalt(mk) {
+    const frei = gate0Wirksam(mk) === "freigegeben";
+    const profil = DATEN.marke && DATEN.marke.schluessel === mk.id ? DATEN.marke : null;
+    const luecken = profil ? profil.gate0Luecken || [] : [];
+    const frage = !!S.gate0Frage[mk.id];
+    const nochOffen = (f) => f.gate0 !== "freigegeben";
+    const sende = () => senden(mk, Object.assign({ "Gate 0": "freigegeben", "Gate 0 von": S.name.trim() }, datum("Gate 0 am")), nochOffen, (d) => d.gate0 === "freigegeben" && d.gate0Von === S.name.trim());
+    return [
+      mk.notizen ? h("p", { class: "text", text: mk.notizen }) : null,
+      frei
+        ? h("p", { class: "hinweis", text: "Freigegeben von " + mk.gate0Von + (mk.gate0Am ? " am " + new Date(mk.gate0Am).toLocaleDateString("de-CH") : "") + "." })
+        : [
+          luecken.length ? h("p", { class: "warnung", text: "Das Markenprofil nennt noch: " + luecken.join(", ") + "." }) : null,
+          mk.gate0 === "freigegeben" ? h("p", { class: "warnung", text: "In Notion steht «freigegeben», aber ohne den Namen eines Menschen. So gilt es nicht." }) : null,
+          frage ? h("p", { id: "gate0-frage", text: "Du gibst «" + mk.titel + "» frei als " + (S.name.trim() || "…") + ". Ab dann gelten Tor I und Tor P für diese Marke." }) : null,
+          h("div", { class: "aktionen" }, frage
+            ? [knopf(mk, "Ja, Gate 0 freigeben", "primaer", () => true, sende), knopf(mk, "Abbrechen", "", () => true, () => { S.gate0Frage[mk.id] = false; zeichne(); })]
+            : knopf(mk, "Gate 0 freigeben", "primaer", () => true, () => { S.gate0Frage[mk.id] = true; zeichne(); })),
+        ],
+    ];
+  }
+
+  function werkMarke(p) {
+    if (S.mcp && S.marken.length) {
+      p.append(h("p", { class: "eyebrow", text: "Marken und Gate 0" }));
+      for (const mk of S.marken) {
+        const frei = gate0Wirksam(mk) === "freigegeben";
+        p.append(h("article", { class: "karte padding" },
+          h("div", { class: "kopfzeile" }, h("h3", { text: mk.titel }), chip(mk.typ || "Marke", "still"), chip(frei ? "Gate 0 freigegeben" : "Gate 0 offen", frei ? "ok" : "stopp")),
+          gate0Inhalt(mk)));
+      }
+      p.append(h("p", { class: "eyebrow", text: "Profil im Repo" }));
+    }
+    const m = DATEN.marke;
+    if (!m) return p.append(leer("Kein Markenprofil", "Es liegt kein Markenprofil im Repo."));
+    const frei = m.status === "freigegeben";
+    p.append(h("div", { class: "karte padding", style: "gap:18px" },
+      h("div", { class: "kopfzeile" }, h("h3", { text: m.name }), chip(frei ? "Freigegeben" : "Platzhalter", frei ? "ok" : "stopp")),
+      frei ? null : h("p", { text: "Dieses Profil im Repo steht noch auf «Platzhalter». Bis Gate 0 übernommen ist, entstehen nur Entwürfe, nie ein finales Video." }),
+      h("div", { class: "farben" }, Object.entries(m.farben).map(([k, v]) => h("div", { class: "farbe" }, h("i", { style: "background:" + v }), h("b", { text: k }), h("code", { text: v })))),
+      h("dl", null,
+        h("dt", { text: "Titelschrift" }), h("dd", { text: m.schriften.titel }),
+        h("dt", { text: "Fliesstext" }), h("dd", { text: m.schriften.fliesstext }),
+        h("dt", { text: "Look" }), h("dd", { text: m.look || "" }),
+        h("dt", { text: "Anrede" }), h("dd", { text: m.tonalitaet.anrede }),
+        h("dt", { text: "Verbotene Wörter" }), h("dd", { text: (m.tonalitaet.verboteneWoerter || []).join(", ") }),
+        h("dt", { text: "Hinweise" }), h("dd", { text: m.tonalitaet.hinweise || "" })),
+      h("p", { class: "hinweis", text: "Gate 0 gibst du hier oder unter «Heute» frei. Das Profil im Repo ändert nur Claude Code, und es übernimmt dort die Freigabe erst nach deinem Eintrag in Notion." })));
+  }
+
+  /* ---------- Seitenfenster ---------- */
   const abschnitt = (titel, ...inhalt) => h("div", { class: "abschnitt" }, h("span", { class: "eyebrow", text: titel }), ...inhalt);
   const notionLink = (m) => (m.url ? h("a", { href: m.url, target: "_blank", rel: "noopener", text: "Ganze Seite in Notion öffnen" }) : null);
+  const zeilenListe = (paare) => h("dl", null, paare.filter(([, v]) => v).flatMap(([k, v]) => [h("dt", { text: k }), h("dd", { text: v })]));
 
+  function aktuelles() {
+    if (!S.detail) return null;
+    const pool = S.detail.art === "inhalt" ? S.inhalte : S.detail.art === "idee" ? S.zeilen : S.marken;
+    return pool.find((x) => x.id === S.detail.id) || null;
+  }
+  /** Die Seite wird bei jeder Änderung neu aufgebaut, darum merkt sich das Seitenfenster den Auslöser als Selektor und nicht als Element. */
+  function selektorVon(el) {
+    if (!el) return null;
+    const karte = el.closest && el.closest("[data-key]");
+    if (karte) return '[data-key="' + karte.dataset.key + '"] button';
+    const reihe = el.closest && el.closest(".reihe");
+    if (reihe) return '.reihe[data-id="' + reihe.dataset.id + '"]';
+    return null;
+  }
+  function oeffne(art, id, opener) {
+    S.detail = { art, id };
+    S.opener = selektorVon(opener);
+    S.verwalten = null;
+    S.fokus = "#detail-schliessen";
+    zeichne();
+  }
+  function schliesse() {
+    if (!S.detail) return;
+    const o = S.detail && S.detail.art === "inhalt" ? S.detail.id : null;
+    if (o) delete S.seitentext[o];
+    S.detail = null; S.durchgang = null; S.verwalten = null;
+    const opener = S.opener; S.opener = null;
+    zeichne();
+    const el = opener ? document.querySelector(opener) : null;
+    if (el) el.focus();
+  }
+
+  function zeichneDetail() {
+    const huelle = $("huelle");
+    const o = aktuelles();
+    if (!S.detail || !o) {
+      if (S.detail && !o && S.laden !== "laden") S.detail = null; // Die Zeile gibt es nicht mehr
+      huelle.hidden = true;
+      $("seite").inert = false; $("haupt").inert = false;
+      return;
+    }
+    huelle.hidden = false;
+    $("seite").inert = true; $("haupt").inert = true;
+    const kopfEl = $("detail-kopf");
+    kopfEl.replaceChildren();
+    const k = detailKopf(S.detail.art, o);
+    const zeile = h("div", { class: "zeile" }, h("div", { class: "kopfzeile" }, k.chips), h("button", { class: "knopf klein", type: "button", id: "detail-schliessen", onclick: schliesse }, "Schliessen"));
+    kopfEl.append(zeile, h("h2", { id: "detail-titel", text: o.titel }));
+    if (S.durchgang) {
+      const gesamt = S.durchgang.keys.length, rest = durchgangRest().length, pos = Math.min(gesamt, gesamt - rest + 1);
+      kopfEl.append(h("div", { class: "durchgang-leiste", id: "durchgang" },
+        h("div", { class: "zeile" }, h("span", { class: "mono", id: "durchgang-stand", text: pos + " von " + gesamt }),
+          h("span", { class: "aktionen" },
+            h("button", { class: "knopf klein", type: "button", id: "durchgang-weiter", disabled: S.busy, onclick: () => { S.durchgang.uebersprungen.push(S.detail.art + ":" + S.detail.id); naechster(); } }, "Überspringen"),
+            h("button", { class: "knopf klein", type: "button", id: "durchgang-ende", onclick: () => { S.durchgang = null; S.detail = null; zeichne(); } }, "Beenden"))),
+        h("div", { class: "fortschritt", role: "progressbar", "aria-label": "Fortschritt", "aria-valuemin": "0", "aria-valuemax": String(gesamt), "aria-valuenow": String(gesamt - rest) }, h("i", { style: "width:" + Math.round(((gesamt - rest) / gesamt) * 100) + "%" }))));
+    }
+    const body = $("detail-inhalt");
+    body.replaceChildren(...[].concat(detailInhalt(S.detail.art, o)).flat(3).filter((x) => x));
+    const hauptknoepfe = body.querySelectorAll(".aktionen .knopf.primaer");
+    if (hauptknoepfe.length) hauptknoepfe[hauptknoepfe.length - 1].closest(".aktionen").classList.add("haupt");
+  }
+
+  function detailKopf(art, o) {
+    if (art === "marke") { const frei = gate0Wirksam(o) === "freigegeben"; return { chips: [chip("Gate 0", frei ? "ok" : "wartet"), chip(o.typ || "Marke", "still")] }; }
+    if (art === "idee") { const ph = phase(o); return { chips: [chip("Motion-Idee", "still"), chip(ENTSCHEIDBAR.has(ph) ? PHASENTEXT[ph] : ph.endsWith("-gesendet") ? "Wartet auf Claude" : (STATUSTEXT[o.status] || o.status), ENTSCHEIDBAR.has(ph) ? "wartet" : "still")] }; }
+    const ph = phaseInhalt(o);
+    return { chips: [ENTSCHEIDBAR_INHALT.has(ph) ? chip(PHASENTEXT[ph], "wartet") : chip(ph.endsWith("-gesendet") ? "Wartet auf Claude" : stand(o), "still"), o.beispiel ? chip("Beispiel", "still") : null, o.format ? chip(o.format, "still") : null] };
+  }
+
+  function detailInhalt(art, o) {
+    if (art === "marke") return gate0Inhalt(o);
+    if (art === "idee") {
+      const ph = phase(o);
+      return ph === "pitch" ? pitchInhalt(o) : ph === "look" ? lookInhalt(o) : ph === "abnahme" ? abnahmeInhalt(o) : ideeInfo(o);
+    }
+    const ph = phaseInhalt(o), mk = markeVon(o), g0 = mk ? gate0Wirksam(mk) : "offen";
+    const teile = ph === "tor-i" ? torIInhalt(o, mk, g0) : ph === "tor-p" ? torPInhalt(o, mk, g0) : infoInhalt(o, mk, ph);
+    // Die beiden letzten Teile der Tore sind Hinweis und Aktionen; das Material steht davor, die Handlungen danach.
+    const hinten = ENTSCHEIDBAR_INHALT.has(ph) ? teile.slice(-2) : [];
+    const vorne = ENTSCHEIDBAR_INHALT.has(ph) ? teile.slice(0, -2) : teile;
+    return [vorne, ABGESCHLOSSEN.includes(stand(o)) ? null : materialAbschnitt(o), hinten, verwaltenBlock(o)];
+  }
+
+  function ideeInfo(m) {
+    return [
+      abschnitt("Der Satz", h("p", { class: "zitat", text: "«" + m.satz + "»" })),
+      m.warum ? abschnitt("Warum nichts Bestehendes passt", h("p", { class: "text", text: m.warum })) : null,
+      m.pitch ? abschnitt("Was Claude vorgeschlagen hat", h("p", { class: "text", text: m.pitch })) : null,
+      m.entscheid && m.entscheid !== "offen" ? abschnitt("Entscheid", h("p", { text: m.entscheid + (m.entscheidGrund ? ": " + m.entscheidGrund : "") })) : null,
+      ENTSCHEIDBAR.has(phase(m)) ? null : h("p", { class: "hinweis", text: phase(m).endsWith("-gesendet") || phase(m) === "look-wartet" ? "Wartet auf Claude. Dein Entscheid steht in Notion und wird beim nächsten Lauf weitergeführt." : "Hier ist nichts zu entscheiden." }),
+      notionLink(m),
+    ];
+  }
+
+  function infoInhalt(c, mk, ph) {
+    const bei = ph.endsWith("-gesendet");
+    const torText = (t, name) => (t.entscheid && t.entscheid !== "offen" ? name + ": " + t.entscheid + (t.von ? " von " + t.von : "") + (t.am ? " am " + new Date(t.am).toLocaleDateString("de-CH") : "") + (t.grund ? " (" + t.grund + ")" : "") : "");
+    return [
+      bei ? h("p", { class: "hinweis", text: "Wartet auf Claude. Dein Entscheid steht in Notion, Claude führt den Inhalt beim nächsten Abgleich weiter." }) : null,
+      c.hook && norm(c.hook) !== norm(c.titel) ? abschnitt("Der erste Satz", h("p", { class: "zitat", text: "«" + c.hook + "»" })) : null,
+      c.winkel ? abschnitt("Was ist neu oder anders", h("p", { class: "text", text: c.winkel })) : null,
+      c.beleg ? abschnitt("Beleg", h("p", { class: "text", text: c.beleg })) : null,
+      abschnitt("Eckdaten", zeilenListe([["Format", c.format], ["Plattformen", c.plattformen.join(", ")], ["Person", c.profil], ["Marke", mk ? mk.titel : ""], ["Quelle", c.quelle], ["Aufwand", c.aufwand], ["Stand", stand(c)], ["Geplant für", c.geplantFuer ? new Date(c.geplantFuer).toLocaleDateString("de-CH") : ""], ["Veröffentlichung", c.publishing], ["Ziel", c.ziel], ["Inhalt-ID", c.id]])),
+      [torText(c.torI, "Tor I"), torText(c.torP, "Tor P"), c.statusVon ? "Zuletzt von Hand gesetzt von " + c.statusVon + (c.statusGrund ? ": " + c.statusGrund : "") : ""].filter(Boolean).length
+        ? abschnitt("Entscheide", ...[torText(c.torI, "Tor I"), torText(c.torP, "Tor P"), c.statusVon ? "Zuletzt von Hand gesetzt von " + c.statusVon + (c.statusGrund ? ": " + c.statusGrund : "") : ""].filter(Boolean).map((t) => h("p", { text: t })))
+        : null,
+      notionLink(c),
+    ];
+  }
+
+  /* ---------- Material ---------- */
+  function materialAbschnitt(c) {
+    const e = S.entwurf[c.id] || {};
+    const eintraege = liesMaterial(c.dateien);
+    const art = e.matArt || "Footage";
+    const fehlt = materialFehlt(c) && ["Neu", "Pitch bereit", "In Produktion"].includes(stand(c));
+    const zeigeZiel = (x) => (/^https:\/\//i.test(x.ziel) ? h("a", { href: x.ziel, target: "_blank", rel: "noopener", text: x.ziel }) : h("span", { text: x.ziel }));
+    const entfernen = (x) => aendereMaterial(c, (aktuell) => {
+      const l = liesMaterial(aktuell);
+      const i = l.findIndex((y) => y.art === x.art && y.ziel === x.ziel && y.notiz === x.notiz);
+      if (i < 0) throw new Error("Der Eintrag ist schon nicht mehr da.");
+      l.splice(i, 1);
+      return schreibeMaterial(l);
+    }, "Der Eintrag ist entfernt. Die Datei selbst bleibt, wo sie liegt.");
+    const zielFeld = h("input", { type: "text", id: "mat-ziel", autocomplete: "off", spellcheck: "false", placeholder: "rohmaterial/projekt/clip.mov oder https://…", value: e.matZiel || "", "aria-describedby": "mat-hilfe", oninput: (ev) => { S.entwurf[c.id] = Object.assign({}, S.entwurf[c.id], { matZiel: ev.target.value, matFehler: "" }); const b = $("mat-anhaengen"); if (b) b.disabled = S.busy || !ev.target.value.trim(); const f = $("mat-fehler"); if (f) f.textContent = ""; } });
+    const artWahl = h("select", { id: "mat-art", "aria-label": "Art des Materials", onchange: (ev) => { S.entwurf[c.id] = Object.assign({}, S.entwurf[c.id], { matArt: ev.target.value }); } }, MATERIAL_ARTEN_MENSCH.map((a) => h("option", { value: a, text: a })));
+    artWahl.value = art;
+    const notizFeld = h("input", { type: "text", id: "mat-notiz", autocomplete: "off", placeholder: "Notiz (freiwillig)", maxlength: "120", value: e.matNotiz || "", "aria-label": "Notiz zum Material", oninput: (ev) => { S.entwurf[c.id] = Object.assign({}, S.entwurf[c.id], { matNotiz: ev.target.value }); } });
+    const anhaengen = () => {
+      const p = pruefeZiel((S.entwurf[c.id] || {}).matZiel || "");
+      if (!p.ok) { S.entwurf[c.id] = Object.assign({}, S.entwurf[c.id], { matFehler: p.fehler }); const f = $("mat-fehler"); if (f) f.textContent = p.fehler; return; }
+      const z = (S.entwurf[c.id] || {}).matZiel, n = (S.entwurf[c.id] || {}).matNotiz || "";
+      aendereMaterial(c, (aktuell) => haengeAn(aktuell, (S.entwurf[c.id] || {}).matArt || "Footage", z, n), "Der Eintrag steht im Feld «Dateien». Claude sieht ihn beim nächsten Lauf.");
+    };
+    const offen = !!e.matOffen || !!e.matFehler;
+    return abschnitt("Material",
+      fehlt ? h("p", { class: "warnung", id: "mat-fehlt", text: "«Dreh nötig»: Footage oder Foto fehlt noch." }) : null,
+      eintraege.length
+        ? h("div", { class: "material-liste" }, eintraege.map((x) => h("div", { class: "material-eintrag" },
+            chip(x.art || "Frei", "still"), zeigeZiel(x),
+            x.art && x.art !== "Render" ? h("button", { class: "knopf klein", type: "button", "aria-label": "Eintrag entfernen: " + x.ziel, disabled: S.busy, onclick: () => entfernen(x) }, "Entfernen") : h("span"),
+            x.notiz ? h("span", { class: "notiz", text: x.notiz }) : null)))
+        : h("p", { class: "hinweis", text: "Noch nichts angehängt." }),
+      h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "mat-offen", "aria-expanded": String(offen), "aria-controls": "mat-form", onclick: () => { S.entwurf[c.id] = Object.assign({}, S.entwurf[c.id], { matOffen: !offen, matFehler: "" }); S.fokus = offen ? null : "#mat-ziel"; zeichne(); } }, offen ? "Anhängen schliessen" : "Material anhängen")),
+      offen ? h("div", { id: "mat-form", class: "abschnitt" },
+        h("div", { class: "material-form" },
+          h("div", { class: "feld" }, h("label", { for: "mat-art", text: "Art" }), artWahl),
+          h("div", { class: "feld" }, h("label", { for: "mat-ziel", text: "Pfad oder Link" }), zielFeld),
+          h("div", { class: "feld breit" }, notizFeld),
+          h("div", { class: "aktionen breit" }, h("button", { class: "knopf klein", type: "button", id: "mat-anhaengen", disabled: S.busy || !(e.matZiel || "").trim(), onclick: anhaengen }, "Anhängen"))),
+        h("p", { class: "fehlertext", id: "mat-fehler", role: "alert", text: e.matFehler || "" }),
+        h("p", { class: "hinweis", id: "mat-hilfe", text: "Dateien werden nicht hochgeladen. Sie liegen auf OneDrive oder dem Medien-Laufwerk. Ein Pfad zählt ab dem Ordner «Studio» (zum Beispiel rohmaterial/praxis-hofer/empfang-01.mov), oder du fügst einen OneDrive-Link ein." })) : null);
+  }
+
+  /* ---------- Entscheide ---------- */
   function entwurfFeld(m, name, def) { const e = S.entwurf[m.id] || {}; return e[name] === undefined ? def : e[name]; }
   function setzeEntwurf(m, name, wert) { S.entwurf[m.id] = Object.assign({}, S.entwurf[m.id], { [name]: wert }); }
 
@@ -542,6 +1107,10 @@ dd { margin: 0; overflow-wrap: anywhere; }
     return b;
   }
 
+  function quelleText(m) {
+    return m.quelle === "video" ? "Aus dem Video " + m.projekt : m.quelle === "inspiration" ? "Aus dem Inspirationsvideo «" + m.projekt + "»" : m.projekt;
+  }
+
   function pitchInhalt(m) {
     const ablehnen = !!S.ablehnen[m.id];
     const grund = () => entwurfFeld(m, "grund", "").trim();
@@ -551,14 +1120,14 @@ dd { margin: 0; overflow-wrap: anywhere; }
       abschnitt("Der Satz, der es ausgelöst hat", h("p", { class: "zitat", text: "«" + m.satz + "»" }), h("p", { class: "hinweis", text: quelleText(m) })),
       abschnitt("Warum nichts Bestehendes passt", h("p", { class: "text", text: m.warum })),
       abschnitt("Was Claude vorschlägt", h("p", { class: "text", text: m.pitch })),
-      h("p", { class: "hinweis" }, "Nach einer Freigabe wird noch nichts gebaut. Zuerst zeigt Claude dir drei Looks als Standbilder, und du wählst. ", notionLink(m)),
       ablehnen ? textfeld(m, "grund", "Grund der Ablehnung", "Mindestens zwei Wörter. Der Grund verhindert, dass dieselbe Idee wiederkommt.") : null,
+      h("p", { class: "hinweis" }, "Nach einer Freigabe wird noch nichts gebaut. Zuerst zeigt Claude dir drei Looks als Standbilder, und du wählst. ", notionLink(m)),
       h("div", { class: "aktionen" },
         ablehnen
-          ? [knopf(m, "Ablehnung senden", "gold", grundOk, () => senden(m, Object.assign({ Entscheid: "abgelehnt", "Entscheid-Grund": grund(), "Entscheid von": S.name.trim() }, datum("Entscheid am")), nochOffen, (d) => d.entscheid === "abgelehnt")),
+          ? [knopf(m, "Ablehnung senden", "primaer", grundOk, () => senden(m, Object.assign({ Entscheid: "abgelehnt", "Entscheid-Grund": grund(), "Entscheid von": S.name.trim() }, datum("Entscheid am")), nochOffen, (d) => d.entscheid === "abgelehnt")),
              knopf(m, "Zurück", "", () => true, () => { S.ablehnen[m.id] = false; zeichne(); })]
-          : [knopf(m, "Freigeben", "gold", () => true, () => senden(m, Object.assign({ Entscheid: "freigegeben", "Entscheid von": S.name.trim() }, datum("Entscheid am")), nochOffen, (d) => d.entscheid === "freigegeben")),
-             knopf(m, "Ablehnen", "", () => true, () => { S.ablehnen[m.id] = true; zeichne(); })]),
+          : [knopf(m, "Freigeben", "primaer", () => true, () => senden(m, Object.assign({ Entscheid: "freigegeben", "Entscheid von": S.name.trim() }, datum("Entscheid am")), nochOffen, (d) => d.entscheid === "freigegeben")),
+             knopf(m, "Ablehnen", "", () => true, () => { S.ablehnen[m.id] = true; S.fokus = "textarea"; zeichne(); })]),
     ];
   }
 
@@ -567,7 +1136,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
     const notiz = () => entwurfFeld(m, "notiz", "").trim();
     const ok = () => ["a", "b", "c"].includes(wahl()) || (wahl() === "keiner" && notiz().length >= 5);
     const nochOffen = (f) => f.status === "looks" && !f.lookWahl && f.lookRunde === m.lookRunde;
-    const radio = (wert, kind) => {
+    const radio = (wert) => {
       const r = h("input", { type: "radio", name: "look-" + m.id, value: wert, onchange: () => { setzeEntwurf(m, "wahl", wert); aktualisiereKnoepfe(m); } });
       r.checked = wahl() === wert;
       return r;
@@ -584,7 +1153,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
       h("label", { class: "keiner" }, radio("keiner"), "Keiner passt"),
       textfeld(m, "notiz", wahl() === "keiner" ? "Was soll die nächste Runde anders machen" : "Notiz an Claude (freiwillig)", wahl() === "keiner" ? "Pflicht bei «Keiner passt», mindestens ein kurzer Satz." : "Zum Beispiel: Schrift etwas kleiner."),
       h("p", { class: "hinweis" }, "Die Originale der Standbilder liegen auf OneDrive. ", notionLink(m)),
-      h("div", { class: "aktionen" }, knopf(m, "Look bestätigen", "gold", ok, () => {
+      h("div", { class: "aktionen" }, knopf(m, "Look bestätigen", "primaer", ok, () => {
         const w = wahl();
         senden(m, Object.assign({ "Look-Wahl": w, "Look-Notiz": entwurfFeld(m, "notiz", "").trim() || null, "Look-Wahl von": S.name.trim() }, datum("Look-Wahl am")), nochOffen, (d) => d.lookWahl === w);
       })),
@@ -602,29 +1171,9 @@ dd { margin: 0; overflow-wrap: anywhere; }
       textfeld(m, "notiz", "Notiz (bei «Änderung nötig» Pflicht)", "Was soll anders sein? Konkret, zum Beispiel: Zahl 10 Prozent kleiner, Linie dünner."),
       h("p", { class: "hinweis" }, "Mit der Abnahme kommt das Stück in die Bibliothek und darf in Storyboards verwendet werden. ", notionLink(m)),
       h("div", { class: "aktionen" },
-        knopf(m, "Abnehmen", "gold", () => true, () => senden(m, Object.assign({ Abnahme: "abgenommen", "Abnahme-Notiz": notiz() || null, "Abnahme von": S.name.trim() }, datum("Abnahme am")), nochOffen, (d) => d.abnahme === "abgenommen")),
+        knopf(m, "Abnehmen", "primaer", () => true, () => senden(m, Object.assign({ Abnahme: "abgenommen", "Abnahme-Notiz": notiz() || null, "Abnahme von": S.name.trim() }, datum("Abnahme am")), nochOffen, (d) => d.abnahme === "abgenommen")),
         knopf(m, "Änderung nötig", "", () => notiz().length >= 5, () => senden(m, Object.assign({ Abnahme: "aenderung", "Abnahme-Notiz": notiz(), "Abnahme von": S.name.trim() }, datum("Abnahme am")), nochOffen, (d) => d.abnahme === "aenderung"))),
     ];
-  }
-
-  /* ---------- Inhalte: Tor I, Tor P ---------- */
-  const INHALTPHASE = { "tor-i": "Idee entscheiden", "tor-p": "Entwurf entscheiden", "tor-i-gesendet": "Wartet auf Claude", "tor-p-gesendet": "Wartet auf Claude" };
-  const STATI_INHALT = ["Neu", "Pitch bereit", "In Produktion", "Entwurf fertig", "Freigegeben", "Geplant", "Veröffentlicht", "Ausgewertet", "Pausiert", "Verworfen"];
-  const zeilenListe = (paare) => h("dl", null, paare.filter(([, v]) => v).flatMap(([k, v]) => [h("dt", { text: k }), h("dd", { text: v })]));
-
-  function inhaltKarte(c, fest) {
-    const ph = phaseInhalt(c);
-    const offen = fest || S.offen === c.id;
-    const mk = markeVon(c);
-    const g0 = mk ? gate0Wirksam(mk) : "offen";
-    const kopf = h("button", { class: "karte-kopf", type: "button", "aria-expanded": String(offen), "aria-controls": "k-" + c.id,
-      onclick: fest ? null : () => { if (offen) delete S.seitentext[c.id]; S.offen = offen ? null : c.id; zeichne(); } },
-      h("div", { class: "zeile" }, h("span", { class: "eyebrow", text: c.id }), chip(INHALTPHASE[ph] || c.status), c.format ? chip(c.format, "still") : null, g0 !== "freigegeben" ? chip(mk ? "Gate 0 offen" : "Marke fehlt", "stopp") : null),
-      h("h3", { text: c.titel }),
-      offen ? null : h("span", { class: "satz-kurz", text: c.hook ? "«" + c.hook + "»" : "" }));
-    const k = h("article", { class: "karte" }, kopf);
-    if (offen) k.append(h("div", { class: "karte-inhalt", id: "k-" + c.id }, ph === "tor-i" ? torIInhalt(c, mk, g0) : torPInhalt(c, mk, g0)));
-    return k;
   }
 
   function torIInhalt(c, mk, g0) {
@@ -634,25 +1183,25 @@ dd { margin: 0; overflow-wrap: anywhere; }
     const frageOk = () => text().length >= 5;
     const nochOffen = (f) => f.status === "Pitch bereit" && torOffen(f.torI);
     const sende = (e, grund) => senden(c, Object.assign({ "Tor I Entscheid": e, "Tor I Grund": grund || null, "Tor I von": S.name.trim() }, datum("Tor I am")), nochOffen, (d) => d.torI.entscheid === e);
-    const waehle = (m) => { setzeEntwurf(c, "text", ""); S.torModus[c.id] = m; zeichne(); };
+    const waehle = (m) => { setzeEntwurf(c, "text", ""); S.torModus[c.id] = m; if (m) S.fokus = "textarea"; zeichne(); };
     const link = /^https?:\/\//.test(c.referenz) ? h("a", { href: c.referenz, target: "_blank", rel: "noopener", text: "Quelle öffnen" }) : null;
     return [
       g0 !== "freigegeben" ? h("p", { class: "warnung", text: mk ? "Gate 0 der Marke «" + mk.titel + "» ist noch nicht freigegeben. Dein Entscheid wird gespeichert, wirkt aber erst, wenn Gate 0 freigegeben ist." : "Diesem Inhalt ist keine Marke zugeordnet. Ohne Marke geht er nicht in Produktion." }) : null,
       abschnitt("Der erste Satz", h("p", { class: "zitat", text: "«" + c.hook + "»" })),
       abschnitt("Was ist neu oder anders", h("p", { class: "text", text: c.winkel })),
       abschnitt("Beleg", h("p", { class: "text", text: c.beleg }), link),
-      abschnitt("Eckdaten", zeilenListe([["Format", c.format], ["Plattformen", c.plattformen.join(", ")], ["Marke", mk ? mk.titel : ""], ["Quelle", c.quelle], ["Aufwand", c.aufwand]])),
+      abschnitt("Eckdaten", zeilenListe([["Format", c.format], ["Plattformen", c.plattformen.join(", ")], ["Person", c.profil], ["Marke", mk ? mk.titel : ""], ["Quelle", c.quelle], ["Aufwand", c.aufwand]])),
       modus === "ablehnen" ? textfeld(c, "text", "Grund der Ablehnung", "Mindestens zwei Wörter. Der Grund verhindert, dass dieselbe Idee wiederkommt.") : null,
       modus === "rueckfrage" ? textfeld(c, "text", "Deine Frage an Claude", "Claude beantwortet sie und legt die Idee neu vor.") : null,
       h("p", { class: "hinweis" }, "Nach einer Freigabe entsteht der Inhalt. Zuerst prüft Claude Beleg und Dubletten. ", notionLink(c)),
       h("div", { class: "aktionen" },
-        modus === "ablehnen" ? [knopf(c, "Ablehnung senden", "gold", grundOk, () => sende("abgelehnt", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
-        : modus === "rueckfrage" ? [knopf(c, "Frage senden", "gold", frageOk, () => sende("Rückfrage", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
-        : [knopf(c, "Freigeben", "gold", () => true, () => sende("freigegeben", "")), knopf(c, "Mit Frage zurück", "", () => true, () => waehle("rueckfrage")), knopf(c, "Ablehnen", "", () => true, () => waehle("ablehnen"))]),
+        modus === "ablehnen" ? [knopf(c, "Ablehnung senden", "primaer", grundOk, () => sende("abgelehnt", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
+        : modus === "rueckfrage" ? [knopf(c, "Frage senden", "primaer", frageOk, () => sende("Rückfrage", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
+        : [knopf(c, "Freigeben", "primaer", () => true, () => sende("freigegeben", "")), knopf(c, "Mit Frage zurück", "", () => true, () => waehle("rueckfrage")), knopf(c, "Ablehnen", "", () => true, () => waehle("ablehnen"))]),
     ];
   }
 
-  /** Der Text eines Entwurfs steht im Inhalt der Notion-Seite. Er wird beim Öffnen der Karte geladen. */
+  /** Der Text eines Entwurfs steht im Inhalt der Notion-Seite. Er wird beim Öffnen geladen. */
   function seitentext(c) {
     const vorhanden = S.seitentext[c.id];
     if (vorhanden) return vorhanden;
@@ -676,7 +1225,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
     const text = () => entwurfFeld(c, "text", "").trim();
     const nochOffen = (f) => f.status === "Entwurf fertig" && torOffen(f.torP);
     const sende = (e, grund) => senden(c, Object.assign({ "Tor P Entscheid": e, "Tor P Grund": grund || null, "Tor P von": S.name.trim() }, datum("Tor P am")), nochOffen, (d) => d.torP.entscheid === e);
-    const waehle = (m) => { setzeEntwurf(c, "text", ""); S.torModus[c.id] = m; zeichne(); };
+    const waehle = (m) => { setzeEntwurf(c, "text", ""); S.torModus[c.id] = m; if (m) S.fokus = "textarea"; zeichne(); };
     const st = seitentext(c);
     const entwurf = st.status === "fertig"
       ? (st.text ? h("div", { class: "entwurf", text: st.text }) : h("p", { class: "hinweis", text: "Die Notion-Seite hat noch keinen Text. Bei Reels und Carousels liegt der Entwurf als Datei vor (siehe unten)." }))
@@ -686,191 +1235,68 @@ dd { margin: 0; overflow-wrap: anywhere; }
       g0 !== "freigegeben" ? h("p", { class: "warnung", text: mk ? "Gate 0 der Marke «" + mk.titel + "» ist noch nicht freigegeben. Deine Freigabe wirkt erst danach." : "Diesem Inhalt ist keine Marke zugeordnet." }) : null,
       c.offeneMarkierungen > 0 ? h("p", { class: "warnung", text: c.offeneMarkierungen + " offene Markierung(en) der Schwere «muss». Deine Freigabe wirkt erst, wenn sie erledigt sind." }) : null,
       abschnitt("Der Entwurf", entwurf),
-      c.dateien ? abschnitt("Dateien", h("p", { class: "text", text: c.dateien })) : null,
       c.ziel ? abschnitt("Ziel", h("p", { class: "text", text: c.ziel })) : null,
       abschnitt("Beleg: Jede Zahl im Text muss hier stehen", h("p", { class: "text", text: c.beleg })),
       modus === "aenderung" ? textfeld(c, "text", "Was soll anders sein", "Konkret, zum Beispiel: Schluss kürzer, Zahl im zweiten Satz streichen.") : null,
       h("p", { class: "hinweis" }, "Mit der Freigabe darf der Inhalt geplant werden. ", notionLink(c)),
       h("div", { class: "aktionen" },
-        modus === "aenderung" ? [knopf(c, "Änderung senden", "gold", () => text().length >= 5, () => sende("Änderung", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
-        : [knopf(c, "Freigeben", "gold", () => true, () => sende("freigegeben", "")), knopf(c, "Änderung nötig", "", () => true, () => waehle("aenderung"))]),
+        modus === "aenderung" ? [knopf(c, "Änderung senden", "primaer", () => text().length >= 5, () => sende("Änderung", text())), knopf(c, "Zurück", "", () => true, () => waehle(false))]
+        : [knopf(c, "Freigeben", "primaer", () => true, () => sende("freigegeben", "")), knopf(c, "Änderung nötig", "", () => true, () => waehle("aenderung"))]),
     ];
   }
 
-  /* ---------- Wochenmodus: alle neuen Ideen nacheinander ---------- */
-  function wochenListe() {
-    const w = S.wochen;
-    return w.ids.filter((id) => !w.uebersprungen.includes(id)).map((id) => S.inhalte.find((c) => c.id === id)).filter((c) => c && phaseInhalt(c) === "tor-i");
-  }
-  function zeichneWochen(p) {
-    const w = S.wochen, rest = wochenListe(), gesamt = w.ids.length, erledigt = gesamt - rest.length;
-    p.append(h("div", { class: "karte wochen-kopf", id: "wochen" },
-      h("div", { class: "zeile" }, h("span", { class: "eyebrow", text: "Wochenmodus" }), h("button", { class: "knopf klein", type: "button", id: "wochen-ende", onclick: () => { S.wochen = null; zeichne(); } }, "Beenden")),
-      h("p", { id: "wochen-stand", text: rest.length ? "Idee " + (erledigt + 1) + " von " + gesamt : "Alle " + gesamt + " Ideen durchgesehen" }),
-      h("div", { class: "fortschritt", role: "progressbar", "aria-label": "Fortschritt", "aria-valuemin": "0", "aria-valuemax": String(gesamt), "aria-valuenow": String(erledigt) }, h("i", { style: "width:" + Math.round((erledigt / gesamt) * 100) + "%" }))));
-    if (!rest.length) {
-      const ue = w.uebersprungen.length;
-      return p.append(leer("Fertig", ue ? ue + " übersprungen. Sie bleiben unter «Zu entscheiden», sobald du den Wochenmodus beendest." : "Alle Entscheide stehen in Notion."));
-    }
-    const c = rest[0];
-    p.append(inhaltKarte(c, true));
-    p.append(h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "wochen-weiter", disabled: S.busy, onclick: () => { w.uebersprungen.push(c.id); zeichne(); } }, "Überspringen")));
-  }
-
-  function zeileInhalt(c) {
-    const ph = phaseInhalt(c);
-    const art = c.status === "Verworfen" ? "stopp" : ["Freigegeben", "Geplant", "Veröffentlicht", "Ausgewertet"].includes(c.status) ? "ok" : ENTSCHEIDBAR_INHALT.has(ph) ? "" : "still";
-    const mk = markeVon(c);
-    return h("div", { class: "zeile-idee" },
-      h("span", { class: "id", text: c.id }),
-      h("span", { class: "titel" }, c.url ? h("a", { href: c.url, target: "_blank", rel: "noopener", text: c.titel }) : c.titel),
-      chip(ph.endsWith("-gesendet") ? "Wartet auf Claude" : c.status || "Neu", art),
-      h("span", { class: "satz", text: [c.format, mk && mk.titel, c.hook && "«" + c.hook + "»"].filter(Boolean).join(" · ") }));
-  }
-
   /* ---------- Pausieren, Verwerfen, «Veröffentlicht» bestätigen ---------- */
-  const ABGESCHLOSSEN_INHALT = ["Ausgewertet", "Verworfen"]; // Altbestand und Erledigtes stehen im Filter «Alle Stände»
   const NICHT_PAUSIERBAR = ["Verworfen", "Ausgewertet", "Veröffentlicht", "Pausiert"];
   const NICHT_VERWERFBAR = ["Verworfen", "Ausgewertet", "Veröffentlicht", "Pitch bereit"]; // «Pitch bereit» entscheidet Tor I
   const verwaltenAktionen = (c) => ({
-    pausieren: !NICHT_PAUSIERBAR.includes(c.status || "Neu"),
-    verwerfen: !NICHT_VERWERFBAR.includes(c.status || "Neu"),
+    pausieren: !NICHT_PAUSIERBAR.includes(stand(c)),
+    verwerfen: !NICHT_VERWERFBAR.includes(stand(c)),
     bestaetigen: c.status === "Geplant" && ["Manuell", "Paket"].includes(c.publishing),
   });
 
-  /** Unter der Zeile: ein Knopf «Verwalten», der die erlaubten Handlungen öffnet. Der Prüfplatz schreibt Status, Name, Grund und Zeit, der Abgleich prüft und übernimmt. */
+  /** Im Seitenfenster: «Veröffentlicht bestätigen» als Hauptaktion bei geplanten Beiträgen, Pausieren und Verwerfen hinter einem Knopf. */
   function verwaltenBlock(c) {
     const a = verwaltenAktionen(c);
     if (!a.pausieren && !a.verwerfen && !a.bestaetigen) return null;
     const offen = S.verwalten === c.id;
-    const toggle = h("div", { class: "verwalten-zeile" }, h("button", { class: "knopf klein", type: "button", id: "verwalten-" + c.id, "aria-expanded": String(offen), onclick: () => { S.verwalten = offen ? null : c.id; zeichne(); } }, offen ? "Verwalten schliessen" : "Verwalten"));
-    if (!offen) return toggle;
     const grund = () => entwurfFeld(c, "grund", "").trim();
     const kurz = () => grund().length >= 5;
     const lang = () => grund().length >= 10 && woerter(grund()) >= 2;
-    const stand = c.status || "Neu";
-    const sende = (neu, g) => senden(c, Object.assign({ Status: neu, "Status von": S.name.trim(), "Status-Grund": g || null }, datum("Status am")), (f) => (f.status || "Neu") === stand, (d) => d.status === neu && d.statusVon === S.name.trim());
-    return h("div", { class: "verwalten-feld" }, toggle,
-      a.pausieren || a.verwerfen ? textfeld(c, "grund", "Grund", a.verwerfen ? "Pausieren: ein kurzer Grund. Verwerfen: mindestens zwei Wörter, der Grund verhindert, dass dieselbe Idee wiederkommt." : "Ein kurzer Grund, warum es pausiert.") : null,
-      c.status === "Pitch bereit" ? h("p", { class: "hinweis", text: "Ablehnen oder Freigeben entscheidest du unter «Zu entscheiden» mit Tor I." }) : null,
+    const st = stand(c);
+    const sende = (neu, g) => senden(c, Object.assign({ Status: neu, "Status von": S.name.trim(), "Status-Grund": g || null }, datum("Status am")), (f) => stand(f) === st, (d) => d.status === neu && d.statusVon === S.name.trim());
+    return abschnitt("Weitere Handlungen",
       a.bestaetigen ? h("p", { class: "hinweis", text: "Geplant" + (c.geplantFuer ? " für " + new Date(c.geplantFuer).toLocaleDateString("de-CH") : "") + (c.publishing ? ", Veröffentlichung: " + c.publishing : "") + ". Bestätige erst, wenn der Beitrag wirklich draussen ist." }) : null,
-      h("div", { class: "aktionen" },
-        a.bestaetigen ? knopf(c, "Veröffentlicht bestätigen", "gold", () => true, () => sende("Veröffentlicht", grund())) : null,
-        a.pausieren ? knopf(c, "Pausieren", "", kurz, () => sende("Pausiert", grund())) : null,
-        a.verwerfen ? knopf(c, "Verwerfen", "", lang, () => sende("Verworfen", grund())) : null),
-      h("p", { class: "hinweis", text: "Claude übernimmt den Wechsel beim nächsten Abgleich und prüft ihn dabei." }));
-  }
-
-  function zeichneInhalte() {
-    const p = $("p-inhalte");
-    p.replaceChildren();
-    if (!S.mcp) return p.append(leer("Inhalte", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier jeden Inhalt mit seinem Stand."));
-    const sel = h("select", { id: "filter-inhalte", "aria-label": "Nach Stand filtern", onchange: (ev) => { S.inhaltFilter = ev.target.value; zeichne(); } },
-      h("option", { value: "laufend", text: "Laufende (ohne Ausgewertet und Verworfen)" }), h("option", { value: "alle", text: "Alle Stände" }), ...STATI_INHALT.map((k) => h("option", { value: k, text: k })));
-    sel.value = S.inhaltFilter;
-    p.append(h("div", { class: "feld", style: "max-width: 260px" }, h("label", { for: "filter-inhalte", text: "Stand" }), sel));
-    const stand = (c) => c.status || "Neu";
-    const liste = S.inhalte.filter((c) => S.inhaltFilter === "alle" || (S.inhaltFilter === "laufend" ? !ABGESCHLOSSEN_INHALT.includes(stand(c)) : stand(c) === S.inhaltFilter));
-    p.append(liste.length ? h("div", { class: "karte tabelle" }, liste.flatMap((c) => [zeileInhalt(c), verwaltenBlock(c)])) : leer(S.inhalte.length ? "Keine Inhalte in diesem Stand" : "Noch keine Inhalte", S.inhalte.length ? "Wähle oben einen anderen Stand." : "Ideen für Reels, Carousels, Posts und Blogtexte erscheinen hier, sobald Claude sie in Notion anlegt."));
-  }
-
-  function zeileIdee(m) {
-    const ph = phase(m);
-    const art = m.status === "abgelehnt" ? "stopp" : m.status === "in_bibliothek" ? "ok" : ENTSCHEIDBAR.has(ph) ? "" : "still";
-    return h("div", { class: "zeile-idee" },
-      h("span", { class: "id", text: m.id }),
-      h("span", { class: "titel" }, m.url ? h("a", { href: m.url, target: "_blank", rel: "noopener", text: m.titel }) : m.titel),
-      chip(ph.endsWith("-gesendet") ? "Wartet auf Claude" : (STATUSTEXT[m.status] || m.status), art),
-      h("span", { class: "satz", text: "«" + m.satz + "»" }));
-  }
-
-  function zeichneAlle() {
-    const p = $("p-alle");
-    p.replaceChildren();
-    if (!S.mcp) return p.append(leer("Alle Ideen", "Sobald der Prüfplatz mit Notion verbunden ist, siehst du hier jede Idee mit ihrem Stand."));
-    const sel = h("select", { id: "filter", "aria-label": "Nach Stand filtern", onchange: (ev) => { S.filter = ev.target.value; zeichne(); } },
-      h("option", { value: "alle", text: "Alle Stände" }), ...Object.entries(STATUSTEXT).map(([k, v]) => h("option", { value: k, text: v })));
-    sel.value = S.filter;
-    p.append(h("div", { class: "feld", style: "max-width: 260px" }, h("label", { for: "filter", text: "Stand" }), sel));
-    const liste = S.zeilen.filter((m) => S.filter === "alle" || m.status === S.filter);
-    p.append(liste.length ? h("div", { class: "karte tabelle" }, liste.map(zeileIdee)) : leer("Keine Ideen in diesem Stand", "Wähle oben einen anderen Stand."));
-  }
-
-  function zeichneBib() {
-    const p = $("p-bib");
-    p.replaceChildren();
-    const aktiv = DATEN.bibliothek.filter((s) => s.status === "aktiv");
-    const rest = DATEN.bibliothek.filter((s) => s.status !== "aktiv");
-    p.append(h("p", { class: "muted", text: aktiv.length + (aktiv.length === 1 ? " aktives Stück" : " aktive Stücke") + ". Nur aktive Stücke darf das Storyboard benutzen." }));
-    p.append(h("div", { class: "raster" }, [...aktiv, ...rest].map(stueckKarte)));
-    if (DATEN.bibliothek.length === 0) p.append(leer("Noch keine Stücke", "Die Bibliothek wächst aus den Ideen, die du freigibst."));
-  }
-  function stueckKarte(s) {
-    const liste = (titel, arr) => (arr && arr.length ? h("div", { class: "abschnitt" }, h("span", { class: "eyebrow", text: titel }), h("ul", null, arr.map((x) => h("li", { text: x })))) : null);
-    return h("article", { class: "karte stueck" },
-      s.vorschau ? h("img", { src: s.vorschau, alt: "Standbild von " + s.name, loading: "lazy" }) : h("div"),
-      h("div", { class: "inhalt" },
-        h("div", { class: "zeile", style: "display:flex;flex-wrap:wrap;gap:8px;align-items:center" }, h("span", { class: "eyebrow", text: "Version " + s.version }), chip(STUECKSTATUS[s.status] || s.status, s.status === "aktiv" ? "ok" : "still")),
-        h("h3", { text: s.name }),
-        h("p", { text: s.zweck }),
-        h("p", { class: "hinweis", text: "Auslöser: " + s.ausloeser + " Dauer " + s.dauer.standard.toString().replace(".", ",") + " s (" + s.dauer.min.toString().replace(".", ",") + " bis " + s.dauer.max.toString().replace(".", ",") + ")." }),
-        liste("Passt, wenn", s.wann), liste("Passt nicht, wenn", s.wannNicht),
-        liste("Pro Einsatz anders", s.parameter.map((x) => x.label + (x.pflicht ? " (Pflicht)" : ""))),
-        liste("Beispielsätze", s.beispiele)));
-  }
-
-  /** Eine Marke aus Notion mit ihrem Gate 0. Die Freigabe gibt ein Mensch mit Namen, hier. */
-  function markenKarte(mk) {
-    const frei = gate0Wirksam(mk) === "freigegeben";
-    const profil = DATEN.marke && DATEN.marke.schluessel === mk.id ? DATEN.marke : null;
-    const luecken = profil ? profil.gate0Luecken || [] : [];
-    const frage = !!S.gate0Frage[mk.id];
-    const nochOffen = (f) => f.gate0 !== "freigegeben";
-    const sende = () => senden(mk, Object.assign({ "Gate 0": "freigegeben", "Gate 0 von": S.name.trim() }, datum("Gate 0 am")), nochOffen, (d) => d.gate0 === "freigegeben" && d.gate0Von === S.name.trim());
-    return h("article", { class: "karte", style: "padding:20px;display:grid;gap:14px" },
-      h("div", { style: "display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center" }, h("h3", { text: mk.titel }), chip(mk.typ || "Marke", "still"), chip(frei ? "Gate 0 freigegeben" : "Gate 0 offen", frei ? "ok" : "stopp")),
-      mk.notizen ? h("p", { class: "text", text: mk.notizen }) : null,
-      frei
-        ? h("p", { class: "hinweis", text: "Freigegeben von " + mk.gate0Von + (mk.gate0Am ? " am " + new Date(mk.gate0Am).toLocaleDateString("de-CH") : "") + "." })
-        : [
-          luecken.length ? h("p", { class: "warnung", text: "Das Markenprofil nennt noch: " + luecken.join(", ") + "." }) : null,
-          mk.gate0 === "freigegeben" ? h("p", { class: "warnung", text: "In Notion steht «freigegeben», aber ohne den Namen eines Menschen. So gilt es nicht." }) : null,
-          frage ? h("p", { id: "gate0-frage", text: "Du gibst «" + mk.titel + "» frei als " + (S.name.trim() || "…") + ". Ab dann gelten Tor I und Tor P für diese Marke." }) : null,
-          h("div", { class: "aktionen" }, frage
-            ? [knopf(mk, "Ja, Gate 0 freigeben", "gold", () => true, sende), knopf(mk, "Abbrechen", "", () => true, () => { S.gate0Frage[mk.id] = false; zeichne(); })]
-            : knopf(mk, "Gate 0 freigeben", "gold", () => true, () => { S.gate0Frage[mk.id] = true; zeichne(); })),
-        ]);
-  }
-
-  function zeichneMarke() {
-    const p = $("p-marke");
-    p.replaceChildren();
-    if (S.mcp && S.marken.length) {
-      p.append(h("p", { class: "eyebrow", text: "Marken und Gate 0" }));
-      for (const mk of S.marken) p.append(markenKarte(mk));
-      p.append(h("p", { class: "eyebrow", text: "Profil im Repo" }));
-    }
-    const m = DATEN.marke;
-    if (!m) return p.append(leer("Kein Markenprofil", "Es liegt kein Markenprofil im Repo."));
-    const frei = m.status === "freigegeben";
-    p.append(h("div", { class: "karte", style: "padding:20px;display:grid;gap:18px" },
-      h("div", { style: "display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center" }, h("h3", { text: m.name }), chip(frei ? "Freigegeben" : "Platzhalter", frei ? "ok" : "stopp")),
-      frei ? null : h("p", { text: "Dieses Profil im Repo steht noch auf «Platzhalter». Bis Gate 0 übernommen ist, entstehen nur Entwürfe, nie ein finales Video." }),
-      h("div", { class: "farben" }, Object.entries(m.farben).map(([k, v]) => h("div", { class: "farbe" }, h("i", { style: "background:" + v }), h("b", { text: k }), h("code", { text: v })))),
-      h("dl", null,
-        h("dt", { text: "Titelschrift" }), h("dd", { text: m.schriften.titel }),
-        h("dt", { text: "Fliesstext" }), h("dd", { text: m.schriften.fliesstext }),
-        h("dt", { text: "Look" }), h("dd", { text: m.look || "" }),
-        h("dt", { text: "Anrede" }), h("dd", { text: m.tonalitaet.anrede }),
-        h("dt", { text: "Verbotene Wörter" }), h("dd", { text: (m.tonalitaet.verboteneWoerter || []).join(", ") }),
-        h("dt", { text: "Hinweise" }), h("dd", { text: m.tonalitaet.hinweise || "" })),
-      h("p", { class: "hinweis", text: "Gate 0 gibst du oben frei. Das Profil im Repo ändert nur Claude Code, und es übernimmt dort die Freigabe erst nach deinem Eintrag in Notion." })));
+      a.bestaetigen ? h("div", { class: "aktionen" }, knopf(c, "Veröffentlicht bestätigen", "primaer", () => true, () => sende("Veröffentlicht", ""))) : null,
+      a.pausieren || a.verwerfen
+        ? h("div", { class: "aktionen" }, h("button", { class: "knopf klein", type: "button", id: "verwalten-" + c.id, "aria-expanded": String(offen), onclick: () => { S.verwalten = offen ? null : c.id; if (!offen) S.fokus = "textarea"; zeichne(); } }, offen ? "Pausieren oder verwerfen schliessen" : "Pausieren oder verwerfen"))
+        : null,
+      offen && (a.pausieren || a.verwerfen) ? [
+        textfeld(c, "grund", "Grund", a.verwerfen ? "Pausieren: ein kurzer Grund. Verwerfen: mindestens zwei Wörter, der Grund verhindert, dass dieselbe Idee wiederkommt." : "Ein kurzer Grund, warum es pausiert."),
+        c.status === "Pitch bereit" ? h("p", { class: "hinweis", text: "Ablehnen oder Freigeben entscheidest du mit Tor I." }) : null,
+        h("div", { class: "aktionen" },
+          a.pausieren ? knopf(c, "Pausieren", "", kurz, () => sende("Pausiert", grund())) : null,
+          a.verwerfen ? knopf(c, "Verwerfen", "", lang, () => sende("Verworfen", grund())) : null),
+        h("p", { class: "hinweis", text: "Claude übernimmt den Wechsel beim nächsten Abgleich und prüft ihn dabei." }),
+      ] : null);
   }
 
   /* ---------- Start ---------- */
-  document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => { S.tab = b.dataset.tab; zeichne(); }));
+  document.querySelectorAll(".nav").forEach((b) => b.addEventListener("click", () => { S.ansicht = b.dataset.ansicht; S.detail = null; S.durchgang = null; zeichne(); window.scrollTo(0, 0); }));
   $("neu-laden").addEventListener("click", () => { S.meldung = null; S.seitentext = {}; laden(); });
   $("name").addEventListener("input", (ev) => { S.name = ev.target.value; speicher.schreibe("pp-name", S.name); document.querySelectorAll("[data-braucht]").forEach((b) => (b.disabled = S.busy || !b._ok())); });
+  $("huelle").addEventListener("click", (ev) => { if (ev.target === $("huelle")) schliesse(); });
+  document.addEventListener("keydown", (ev) => {
+    if (!S.detail) return;
+    if (ev.key === "Escape") { ev.preventDefault(); return schliesse(); }
+    if (ev.key !== "Tab") return;
+    // Der Fokus bleibt im Seitenfenster: Vom letzten Element geht es zum ersten, vom ersten rückwärts zum letzten.
+    const fokussierbar = [...$("detail").querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((e) => !e.disabled && e.type !== "hidden" && e.getClientRects().length);
+    if (!fokussierbar.length) return;
+    const erstes = fokussierbar[0], letztes = fokussierbar[fokussierbar.length - 1], aktiv = document.activeElement;
+    if (!$("detail").contains(aktiv)) { ev.preventDefault(); erstes.focus(); }
+    else if (ev.shiftKey && aktiv === erstes) { ev.preventDefault(); letztes.focus(); }
+    else if (!ev.shiftKey && aktiv === letztes) { ev.preventDefault(); erstes.focus(); }
+  });
   document.addEventListener("visibilitychange", () => {
     const tippt = document.activeElement && /^(TEXTAREA|INPUT|SELECT)$/.test(document.activeElement.tagName);
     if (!document.hidden && S.mcp && !S.busy && !tippt && S.laden !== "laden") laden(true);

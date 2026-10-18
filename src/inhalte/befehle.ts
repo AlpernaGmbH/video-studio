@@ -6,6 +6,8 @@ import { zeilenAusAbfrage } from "../notion/abbild";
 import { abgleich, zaehle } from "./abgleich";
 import { FORMATE, zeileZuInhalt, type Format } from "./inhalt";
 import { gate0Abgleich } from "./gate0";
+import { liesMaterial, materialFehlt, pruefeVorhanden } from "./material";
+import { medienOrdner, studioHome } from "../setup";
 import { gate0Funktion, markenNachSeite, zeileZuMarke } from "./marken";
 import { ladeStand, speichereStand } from "./stand";
 import { textBestanden, textpruefung } from "./textpruefung";
@@ -20,6 +22,9 @@ export const INHALTE_HILFE = `Inhalte (Plan v3; die Sitzung holt die Zeilen und 
   inhalte textpruefen --marke key --format "LinkedIn-Post" --text-datei entwurf.txt (--beleg "…" | --beleg-datei beleg.txt) [--id c-0007]
                                       Textprüfung (verbotene Wörter, ss, Gedankenstriche, Zahlenformat, Zahl ohne Beleg, Länge). Mit --id
                                       wird das Ergebnis als Prüfung des Entwurfs im Stand vermerkt. Exit-Code 1 bei Fehlern.
+  inhalte material --inhalte zeilen.json [--alle]
+                                      Material (Feld «Dateien») laufender Inhalte: je Eintrag Art, Ziel und ob die Datei auf diesem Rechner liegt
+                                      (Links kann der Rechner nicht prüfen). Nennt auch «Dreh nötig» ohne Footage oder Foto. --alle: auch Ausgewertetes.
   inhalte pruefung <id> (--bestanden | --nicht-bestanden) [--text "…"]
                                       Ergebnis der Prüfung eines Entwurfs (zum Beispiel Render-Prüfung) im Stand vermerken.
 `;
@@ -86,6 +91,29 @@ export function inhalteBefehl(sub: string, a: Args, env: Umgebung, jetzt: () => 
       }
       console.log(JSON.stringify({ bestanden, befunde }, null, 2));
       return bestanden ? 0 : 1;
+    }
+    case "material": {
+      const zeilen = zeilenAusAbfrage(lesJson(pflicht(a, "inhalte", "Ergebnis der Ansicht «Inhalte», Modus view")));
+      const inhalte = zeilen.map((z) => zeileZuInhalt(z));
+      const home = studioHome();
+      const abgeschlossen = ["Veröffentlicht", "Ausgewertet", "Verworfen", "Pausiert"];
+      const gewaehlt = inhalte.filter((i) => a.opt["alle"] === true || !abgeschlossen.includes(i.status || "Neu"));
+      const eintraege = gewaehlt
+        .map((i) => ({ i, liste: liesMaterial(i.dateien) }))
+        .filter(({ i, liste }) => liste.length > 0 || materialFehlt(i))
+        .map(({ i, liste }) => {
+          const stand = home ? pruefeVorhanden(liste, home.pfad, medienOrdner(home)) : liste.map((eintrag) => ({ eintrag, vorhanden: null as boolean | null }));
+          return {
+            id: i.id,
+            titel: i.titel,
+            status: i.status || "Neu",
+            materialFehlt: materialFehlt(i),
+            eintraege: stand.map((s) => ({ art: s.eintrag.art || "frei", ziel: s.eintrag.ziel, notiz: s.eintrag.notiz, vorhanden: s.vorhanden, ...("megabyte" in s && s.megabyte !== undefined ? { megabyte: s.megabyte } : {}) })),
+          };
+        });
+      const fehlen = eintraege.flatMap((e) => e.eintraege.filter((x) => x.vorhanden === false && x.art !== "frei").map((x) => ({ id: e.id, art: x.art, ziel: x.ziel })));
+      console.log(JSON.stringify({ studioOrdner: home ? home.pfad : null, hinweis: home ? undefined : "Studio-Ordner nicht eingerichtet: Dateien wurden nicht geprüft", inhalte: eintraege, dateienFehlen: fehlen }, null, 2));
+      return fehlen.length || eintraege.some((e) => e.materialFehlt) ? 1 : 0;
     }
     case "pruefung": {
       const id = gueltigeId(a.pos[2]);

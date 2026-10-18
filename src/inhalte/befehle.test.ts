@@ -170,3 +170,58 @@ describe("marken gate0", () => {
     expect(markenBefehl("gibtsnicht", parseArgs(["marken", "gibtsnicht"]), env, () => JETZT)).toBe(2);
   });
 });
+
+describe("inhalte material", () => {
+  const alt = process.env["STUDIO_HOME"];
+  const altMedien = process.env["STUDIO_MEDIEN"];
+  afterEach(() => {
+    if (alt === undefined) delete process.env["STUDIO_HOME"]; else process.env["STUDIO_HOME"] = alt;
+    if (altMedien === undefined) delete process.env["STUDIO_MEDIEN"]; else process.env["STUDIO_MEDIEN"] = altMedien;
+  });
+
+  it("meldet vorhandene und fehlende Dateien, Links bleiben ungeprüft, abgeschlossene Inhalte fehlen", () => {
+    const studio = path.join(tmp, "Studio");
+    fs.mkdirSync(path.join(studio, "rohmaterial"), { recursive: true });
+    fs.writeFileSync(path.join(studio, "rohmaterial", "a.mov"), "x");
+    process.env["STUDIO_HOME"] = studio;
+    delete process.env["STUDIO_MEDIEN"];
+    const z = schreibe("z.json", {
+      results: [
+        zeile({ Status: "In Produktion", Dateien: "Footage: rohmaterial/a.mov | Totale<br>Footage: rohmaterial/fehlt.mov<br>Foto: https://x.test/a" }),
+        zeile({ "Inhalt-ID": "c-0002", Status: "Ausgewertet", Dateien: "Footage: rohmaterial/alt.mov" }),
+      ],
+    });
+    expect(lauf("inhalte", "material", "--inhalte", z)).toBe(1); // eine Datei fehlt
+    const r = json();
+    expect(r.inhalte.map((i: any) => i.id)).toEqual(["c-0001"]);
+    expect(r.inhalte[0].eintraege.map((e: any) => [e.art, e.vorhanden])).toEqual([["Footage", true], ["Footage", false], ["Foto", null]]);
+    expect(r.dateienFehlen).toEqual([{ id: "c-0001", art: "Footage", ziel: "rohmaterial/fehlt.mov" }]);
+  });
+
+  it("alles in Ordnung gibt Exit-Code 0; ohne Footage bei «Dreh nötig» gibt 1", () => {
+    const studio = path.join(tmp, "Studio");
+    fs.mkdirSync(path.join(studio, "rohmaterial"), { recursive: true });
+    fs.writeFileSync(path.join(studio, "rohmaterial", "a.mov"), "x");
+    process.env["STUDIO_HOME"] = studio;
+    delete process.env["STUDIO_MEDIEN"];
+    expect(lauf("inhalte", "material", "--inhalte", schreibe("ok.json", { results: [zeile({ Status: "In Produktion", Dateien: "Footage: rohmaterial/a.mov" })] }))).toBe(0);
+    ausgabe = [];
+    expect(lauf("inhalte", "material", "--inhalte", schreibe("leer.json", { results: [zeile({ Status: "In Produktion", Dateien: "" })] }))).toBe(1);
+    expect(json().inhalte[0]).toMatchObject({ id: "c-0001", materialFehlt: true, eintraege: [] });
+  });
+
+  it("ohne eingerichteten Studio-Ordner steht das da, und es wird nichts als fehlend gemeldet", () => {
+    const leerHome = path.join(tmp, "home-ohne-config");
+    fs.mkdirSync(leerHome);
+    const altConfig = process.env["STUDIO_CONFIG"];
+    process.env["STUDIO_CONFIG"] = path.join(leerHome, "config.json");
+    delete process.env["STUDIO_HOME"];
+    try {
+      const z = schreibe("z.json", { results: [zeile({ Status: "In Produktion", Dateien: "Footage: rohmaterial/a.mov" })] });
+      expect(lauf("inhalte", "material", "--inhalte", z)).toBe(0);
+      expect(json()).toMatchObject({ studioOrdner: null, hinweis: expect.stringMatching(/nicht eingerichtet/), dateienFehlen: [] });
+    } finally {
+      if (altConfig === undefined) delete process.env["STUDIO_CONFIG"]; else process.env["STUDIO_CONFIG"] = altConfig;
+    }
+  });
+});

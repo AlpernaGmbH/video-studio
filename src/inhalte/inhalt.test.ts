@@ -149,4 +149,9 @@ describe("inhaltZuProperties", () => {
     expect(p.Ziel).toBeNull();
     expect(p.Aufwand).toBeNull();
   });
+
+  it("im Feld «Dateien» zählt der Link einer Erwähnung, nicht der Titel der Seite", () => {
+    const z = { url: "https://app.notion.com/p/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1", "Inhalt-ID": "c-0001", Dateien: 'Footage: rohmaterial/a.mov<br>Foto: <mention-page url="https://onedrive.test/s/abc">Portrait</mention-page> | Frau Hofer' };
+    expect(zeileZuInhalt(z).dateien).toBe("Footage: rohmaterial/a.mov\nFoto: https://onedrive.test/s/abc | Frau Hofer");
+  });
 });

@@ -82,6 +82,12 @@ function text(z: Zeile, name: string): string {
   return typeof v === "string" ? v.replace(/<br\s*\/?>/gi, "\n").replace(ERWAEHNUNG, (_m, url: string, name: string) => (name.trim() ? `${name.trim()} (${url})` : url)).trim() : "";
 }
 
+/** Im Feld «Dateien» zählt der Link, nicht der Titel der Seite, auf die Notion ihn verweist. */
+function textMitLinks(z: Zeile, name: string): string {
+  const v = z[name];
+  return typeof v === "string" ? v.replace(/<br\s*\/?>/gi, "\n").replace(ERWAEHNUNG, (_m, url: string) => url).trim() : "";
+}
+
 function wahl<T extends string>(z: Zeile, name: string, erlaubt: readonly T[]): T | undefined {
   const v = text(z, name);
   return (erlaubt as readonly string[]).includes(v) ? (v as T) : undefined;
@@ -141,7 +147,7 @@ export function zeileZuInhalt(z: Zeile, markenNachId: ReadonlyMap<string, string
     statusVon: text(z, "Status von"),
     statusGrund: text(z, "Status-Grund"),
     statusAm: text(z, "date:Status am:start"),
-    dateien: text(z, "Dateien"),
+    dateien: textMitLinks(z, "Dateien"),
     ziel: text(z, "Ziel"),
     publishing: text(z, "Publishing") || undefined,
     geplantFuer: text(z, "date:Geplant für:start"),

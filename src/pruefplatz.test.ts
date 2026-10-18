@@ -32,6 +32,14 @@ describe("Prüfplatz: Daten", () => {
     expect(new Set([d.notion.ansicht, d.notion.inhalte, d.notion.marken]).size).toBe(3);
   });
 
+  it("nimmt den Link ins Archiv aus notion.json mit und lässt ihn weg, wenn es keinen gibt", () => {
+    const z = notion();
+    expect(z.archiv).toMatch(/^https:\/\//);
+    expect(baueDaten({ bibliothek: { stuecke: [], befunde: [] }, marke: null, notion: z, jetzt: "x" }).notion.archiv).toBe(z.archiv);
+    const { archiv: _weg, ...ohne } = z;
+    expect("archiv" in baueDaten({ bibliothek: { stuecke: [], befunde: [] }, marke: null, notion: ohne, jetzt: "x" }).notion).toBe(false);
+  });
+
   it("gibt von der Marke nur Anzeigefelder weiter", () => {
     const d = baueDaten({ bibliothek: { stuecke: [], befunde: [] }, marke: marke(), notion: notion(), jetzt: "x" });
     expect(Object.keys(d.marke!).sort()).toEqual(["farben", "gate0Luecken", "look", "name", "schluessel", "schriften", "status", "tonalitaet"]);

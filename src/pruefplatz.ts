@@ -28,7 +28,7 @@ export interface BibEintrag {
 
 export interface PruefplatzDaten {
   /** Adressen der gespeicherten Ansichten. Gelesen wird nur über sie (Modus view), nie per SQL. */
-  notion: { ansicht: string; inhalte: string; marken: string };
+  notion: { ansicht: string; inhalte: string; marken: string; archiv?: string };
   bibliothek: BibEintrag[];
   marke: (Pick<Markenprofil, "name" | "status" | "farben" | "schriften" | "tonalitaet" | "look" | "schluessel"> & { gate0Luecken: string[] }) | null;
   erzeugt: string;
@@ -65,7 +65,7 @@ function eintrag(g: GeladenesStueck): BibEintrag {
 export function baueDaten(opt: { bibliothek: Bibliothek; marke: Markenprofil | null; notion: NotionZiel; jetzt: string }): PruefplatzDaten {
   const m = opt.marke;
   return {
-    notion: { ansicht: opt.notion.motionIdeen.ansicht, inhalte: opt.notion.inhalte.ansicht, marken: opt.notion.marken.ansicht },
+    notion: { ansicht: opt.notion.motionIdeen.ansicht, inhalte: opt.notion.inhalte.ansicht, marken: opt.notion.marken.ansicht, ...(opt.notion.archiv ? { archiv: opt.notion.archiv } : {}) },
     // Aktive zuerst; Entwürfe und Veraltetes erscheinen, damit niemand ein «fehlendes» Stück sucht
     bibliothek: opt.bibliothek.stuecke.map(eintrag).sort((a, b) => Number(b.status === "aktiv") - Number(a.status === "aktiv") || a.name.localeCompare(b.name, "de")),
     marke: m ? { schluessel: m.schluessel, name: m.name, status: m.status, farben: m.farben, schriften: m.schriften, tonalitaet: m.tonalitaet, look: m.look, gate0Luecken: gate0Luecken(m) } : null,

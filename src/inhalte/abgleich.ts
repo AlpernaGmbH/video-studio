@@ -2,6 +2,7 @@ import type { Akteur } from "../core/schemas";
 import { istMensch } from "../motion/idee";
 import type { Inhalt, Status, Wert } from "./inhalt";
 import type { Gate0 } from "./marken";
+import { materialFehlt } from "./material";
 import { pruefeUebergang, type UebergangsKontext } from "./regeln";
 import type { Eintrag, Stand } from "./stand";
 
@@ -212,6 +213,9 @@ export function abgleich(stand: Stand, inhalte: Inhalt[], ctx: AbgleichKontext):
 
     const status: Status = i.status || "Neu";
     const alt = stand.inhalte[i.id];
+
+    // «Dreh nötig» in Produktion, aber weder Footage noch Foto im Anhang: ein Mensch soll das Material anhängen (Prüfplatz, Seitenfenster).
+    if (status === "In Produktion" && materialFehlt(i)) befund(i, "hinweis", "«Dreh nötig», aber weder Footage noch Foto angehängt: Material fehlt (Feld «Dateien», Art «Footage» oder «Foto»)");
 
     if (!alt) {
       if (status === "Neu" || ctx.erstlauf) {

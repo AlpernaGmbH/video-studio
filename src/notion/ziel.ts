@@ -30,6 +30,8 @@ export const NotionZiel = z.object({
   rohstoffe: Datenbank,
   /** Die Viral-Liste: fremde Beiträge mit dem Gerüst dahinter, nur Struktur, nie Text. */
   inspiration: Datenbank,
+  /** Archiv der geposteten Beiträge (Notion-Seite, nicht im Prüfplatz): Das Cockpit «Beiträge · Archiv und Analytics». Der Prüfplatz verlinkt darauf. */
+  archiv: z.string().url().optional(),
 });
 export type NotionZiel = z.infer<typeof NotionZiel>;
 
