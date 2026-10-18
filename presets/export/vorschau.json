@@ -1,0 +1,28 @@
+{
+  "art": "export",
+  "id": "vorschau",
+  "name": "Vorschau, Hochformat 540×960",
+  "beschreibung": "Kleine Fassung zum schnellen Ansehen und für den Prüfplatz. Nie zum Veröffentlichen.",
+  "breite": 540,
+  "hoehe": 960,
+  "fps": 25,
+  "container": "mp4",
+  "videoCodec": "h264",
+  "bitrateMbit": {
+    "min": 2,
+    "max": 4
+  },
+  "bitrateModus": "vbr",
+  "audioCodec": "aac",
+  "audioKbit": {
+    "min": 96,
+    "max": 128
+  },
+  "audioRate": 48000,
+  "farbe": "bt709",
+  "maxSekunden": 90,
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag für schnelle Ansichten, ohne Quelle."
+  }
+}

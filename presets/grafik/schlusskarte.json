@@ -1,0 +1,32 @@
+{
+  "art": "grafik",
+  "id": "schlusskarte",
+  "name": "Schlusskarte",
+  "beschreibung": "Letzte Sekunden des Videos: ein Satz und der Kanalname. Höchstens ein Aufruf.",
+  "typ": "schlusskarte",
+  "anker": "mitte",
+  "breiteAnteil": 0.9,
+  "dauer": {
+    "min": 1.5,
+    "standard": 2.5,
+    "max": 3.5
+  },
+  "einblendung": 0.3,
+  "ausblendung": 0.0,
+  "text": {
+    "text": {
+      "maxZeichen": 60,
+      "maxWoerter": 9
+    },
+    "handle": {
+      "maxZeichen": 30,
+      "maxWoerter": 2
+    }
+  },
+  "werte": {},
+  "begruendung": "Das Video endet mit einem einzigen, klaren Aufruf.",
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Höchstens eine CTA: Markenprofil Alperna, Tonalität. Welle 1, Bauplan v2 Kap. 3.6. Den Text liefert die Marke (schlusskarte im Profil), nicht das Preset. Stück fehlt."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "art": "grafik",
+  "id": "logo-ecke",
+  "name": "Logo in der Ecke",
+  "beschreibung": "Kleines Logo oben links. Rechts liegen die Bedienelemente der Plattform, darum nicht rechts.",
+  "typ": "logo",
+  "anker": "oben-links",
+  "breiteAnteil": 0.22,
+  "dauer": {
+    "min": 1.0,
+    "standard": 3.0,
+    "max": 90.0
+  },
+  "einblendung": 0.3,
+  "ausblendung": 0.3,
+  "text": {},
+  "werte": {},
+  "begruendung": "Das Logo zeigt, von wem das Video kommt.",
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Sicherheitsrand aus src/motion/render.ts (Bauplan 3.10). Logo-Datei fehlt im Markenprofil Alperna (Gate-0-Lücke). Stück fehlt."
+  }
+}

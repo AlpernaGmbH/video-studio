@@ -1,0 +1,30 @@
+{
+  "art": "export",
+  "id": "reel-blueprint",
+  "name": "Reel nach Blueprint (CBR 14, AAC 320k)",
+  "beschreibung": "Die Werte des Editing-Blueprints für Hochformat. Höhere Bitrate als unser Plan. Zum Vergleichen im Test T4, nicht als Standard.",
+  "breite": 1080,
+  "hoehe": 1920,
+  "fps": 25,
+  "container": "mp4",
+  "videoCodec": "h264",
+  "bitrateMbit": {
+    "min": 13,
+    "max": 15
+  },
+  "bitrateModus": "cbr",
+  "audioCodec": "aac",
+  "audioKbit": {
+    "min": 300,
+    "max": 330
+  },
+  "audioRate": 48000,
+  "farbe": "bt709",
+  "minSekunden": 3,
+  "maxSekunden": 90,
+  "maxGigabyte": 1,
+  "herkunft": {
+    "stand": "unbelegt",
+    "quelle": "Editing-Blueprint (Jason Cooper, Build 2026.10.16), Schritt 08: Hochformat 1080×1920, CBR 14, AAC 320k, bt709. Die Seite nennt bei CBR keine Einheit (Mbit/s vermutet). Marketingseite ohne Belege."
+  }
+}

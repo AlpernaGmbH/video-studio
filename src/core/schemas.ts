@@ -65,6 +65,18 @@ export const Schnittprofil = z
   });
 export type Schnittprofil = z.infer<typeof Schnittprofil>;
 
+/** Aussehen der Untertitel (Wort für Wort). Gehört zum Markenprofil, die Presets in presets/untertitel/ sind Vorschläge dafür. */
+export const CaptionPreset = z.object({
+  schrift: z.string().min(1),
+  groesse: z.number().positive(),
+  position: z.enum(["mitte", "unten", "oben"]),
+  animation: z.enum(["pop", "fade", "keine"]),
+  hervorhebung: z.enum(["akzent", "kasten", "keine"]),
+  grossschreibung: z.boolean(),
+  kasten: z.boolean(),
+});
+export type CaptionPreset = z.infer<typeof CaptionPreset>;
+
 export const Markenprofil = z.object({
   schluessel: Slug,
   name: z.string().min(1),
@@ -82,17 +94,7 @@ export const Markenprofil = z.object({
     fliesstext: z.string().min(1),
   }),
   logo: z.object({ hell: RelPathSchema.optional(), dunkel: RelPathSchema.optional() }).default({}),
-  captionPreset: z
-    .object({
-      schrift: z.string().min(1),
-      groesse: z.number().positive(),
-      position: z.enum(["mitte", "unten", "oben"]),
-      animation: z.enum(["pop", "fade", "keine"]),
-      hervorhebung: z.enum(["akzent", "kasten", "keine"]),
-      grossschreibung: z.boolean(),
-      kasten: z.boolean(),
-    })
-    .optional(),
+  captionPreset: CaptionPreset.optional(),
   effektStil: z.object({
     eckenradius: z.number().min(0),
     schatten: z.boolean(),

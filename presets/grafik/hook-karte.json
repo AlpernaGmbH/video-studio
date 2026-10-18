@@ -1,0 +1,28 @@
+{
+  "art": "grafik",
+  "id": "hook-karte",
+  "name": "Hook-Karte",
+  "beschreibung": "Titelkarte in den ersten zwei Sekunden: eine starke Aussage in höchstens fünf Wörtern, in der Mitte.",
+  "typ": "hook-karte",
+  "anker": "mitte",
+  "breiteAnteil": 0.9,
+  "dauer": {
+    "min": 1.0,
+    "standard": 1.6,
+    "max": 2.0
+  },
+  "einblendung": 0.2,
+  "ausblendung": 0.2,
+  "text": {
+    "titel": {
+      "maxZeichen": 40,
+      "maxWoerter": 5
+    }
+  },
+  "werte": {},
+  "begruendung": "Der Hook steht in den ersten zwei Sekunden und sagt, worum es geht.",
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Hook in den ersten 2 s: Bauplan v2, Kap. 3.4 und Schnittprofil Alperna. Titel höchstens 5 Worte: Markenprofil Alperna, Tonalität. Dauern sind Vorschläge. Stück fehlt (Welle 1, Bauplan v2 Kap. 3.6)."
+  }
+}

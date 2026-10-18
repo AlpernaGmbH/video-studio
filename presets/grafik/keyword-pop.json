@@ -1,0 +1,28 @@
+{
+  "art": "grafik",
+  "id": "keyword-pop",
+  "name": "Keyword-Pop",
+  "beschreibung": "Ein einzelnes Schlüsselwort springt kurz in die Bildmitte, in der Zeit, in der es gesagt wird.",
+  "typ": "keyword-pop",
+  "anker": "mitte",
+  "breiteAnteil": 0.8,
+  "dauer": {
+    "min": 0.5,
+    "standard": 0.8,
+    "max": 1.4
+  },
+  "einblendung": 0.12,
+  "ausblendung": 0.12,
+  "text": {
+    "wort": {
+      "maxZeichen": 18,
+      "maxWoerter": 2
+    }
+  },
+  "werte": {},
+  "begruendung": "Das Schlüsselwort des Satzes bleibt hängen.",
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Welle 1, Bauplan v2 Kap. 3.6. Zahlen sind Vorschläge. Stück fehlt."
+  }
+}

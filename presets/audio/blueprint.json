@@ -1,0 +1,14 @@
+{
+  "art": "audio",
+  "id": "blueprint",
+  "name": "Lautheit nach Blueprint (−17 LUFS)",
+  "beschreibung": "Werte aus dem Editing-Blueprint: Sprache bei −17 LUFS, Begrenzer bei −6 dB. Leiser und mit mehr Reserve als der Standard. Zum Vergleichen im Test T4.",
+  "zielLufs": -17,
+  "toleranzLu": 1,
+  "spitzeDbtp": -6,
+  "musikPegelDb": -20,
+  "herkunft": {
+    "stand": "unbelegt",
+    "quelle": "Editing-Blueprint (Jason Cooper, Build 2026.10.16), Schritt 03. Marketingseite ohne Belege. −6 dBFS gilt dort als Begrenzer, hier als True Peak geprüft (strenger)."
+  }
+}

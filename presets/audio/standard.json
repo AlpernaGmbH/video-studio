@@ -1,0 +1,14 @@
+{
+  "art": "audio",
+  "id": "standard",
+  "name": "Lautheit Standard (−14 LUFS)",
+  "beschreibung": "Zielwert aus Bauplan v2, Kap. 3.8 (Ton) und 3.10 (Qualitätsprüfung). Gemessen wird das fertige Video mit Sprache und Musik zusammen.",
+  "zielLufs": -14,
+  "toleranzLu": 1,
+  "spitzeDbtp": -1,
+  "musikPegelDb": -20,
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "−14 LUFS: Bauplan v2, Entscheidungsprotokoll (Annahme, üblicher Wert für Social Media). True Peak −1 dBTP und Musik −20 dB: eigene Startwerte beziehungsweise Editing-Blueprint, Musikbett (unbelegt)."
+  }
+}

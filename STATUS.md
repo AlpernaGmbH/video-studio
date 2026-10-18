@@ -3,7 +3,7 @@
 Stand: 17.10.2026, nach Eingang von **Bauplan v3** (`docs/plan/`). Etappe 1 (**Fundament und Motion-Werkstatt**) und Etappe 2 (**Notion, OneDrive, Prüfplatz, Einrichtung je Mac**) sind fertig. Als Nächstes: Phase 0 auf dem ersten Mac (`docs/phase0-mac.md`).
 Phase 0 des Bauplans (Tests T1 bis T6) ist **nicht** gelaufen, weil sie M4/M5-Macs, echte Clips, Instagram und Notion-Praxis braucht.
 
-`npm run check`: 514 Tests in 32 Dateien grün, Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
+`npm run check`: 709 Tests in 48 Dateien grün (3 übersprungen, brauchen Apples DTD und Python mit OpenTimelineIO), Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
 Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion, Modus `view`), 14 Prüfungen bestanden. Er gehört nicht zu `npm run check`, weil er Playwright braucht.
 
 ## Entscheide aus dem Chat (17.10.)
@@ -12,6 +12,23 @@ Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion,
 - Marke: **Alperna Design System (zweites, 17.9.)**: gedämpftes Blau ohne schwarzen Hauptgrund, Gold `#FFD700` als einziger Akzent. Profil `marken/alperna.json`.
 - Alles über Claude und Claude Code, **nie über die Claude-API**. Darum ist der Prüfplatz ein Artifact, das die Notion-Verbindung des Menschen benutzt.
 - Texte in Notion, Medien in OneDrive, Code im Repo. Ein zweiter Mac wird mit `init` und `doctor` eingerichtet (Skill `studio-einrichten`).
+
+## Editing, Resolve und Presets (18.10.)
+
+Auftrag von Andrej: Blueprint für den Editing-Teil prüfen, Resolve (bevorzugt) als Übergabe, Presets für Grafiken und mehr. Ausführlich in `docs/plan/editing-blueprint.md`.
+
+- **Urteil über den Blueprint:** Marketingseite ohne Belege. Übernommen sind Ideen, die wir selbst prüfen können; die Live-Steuerung einer Schnitt-App nicht (Resolve-Scripting nur in Studio, nicht testbar, nicht reproduzierbar).
+- **Gebaut: Schnittplan und Übergabe** (`src/schnitt/`): Schnittplan (Clips, B-Roll mit Katalog-Schlüssel, Grafiken, Musik, Wörter), Frame-Raster, Prüfung gegen das Schnittprofil der Marke, Untertitel (SRT), FCPXML 1.8, OTIO, Umwandlung der Grafiken WebM nach ProRes 4444,
+  Anleitung `LIESMICH.md`. Befehle `studio schnitt beispiel|sondiere|pruefe|resolve|export-pruefen`.
+- **Geprüft:** FCPXML gegen Apples DTD 1.8 (`xmllint`), OTIO mit OpenTimelineIO 0.18.1, Umwandlung mit echtem ffmpeg (Alpha bleibt erhalten, nur mit dem VP9-Decoder von libvpx), Export mit echtem ffmpeg gemessen und gegen das Preset geprüft.
+  Die DTD und OpenTimelineIO liegen nicht im Repo (Urheberrecht, Python); Umgebungsvariablen `STUDIO_FCPXML_DTD` und `STUDIO_OTIO_PYTHON` schalten die Gegenproben in `src/schnitt/extern.test.ts` ein.
+- **Fund:** Der FCPXML-Leser von OpenTimelineIO (`otio-fcpx-xml-adapter` 1.0.0) setzt verbundene Clips im ersten Spine-Clip falsch. Er taugt als Gegenprobe für Spine und Länge, nicht für die Spuren. Deshalb gibt es zusätzlich die OTIO-Datei mit festen Lücken.
+- **Nicht geprüft:** Dass Resolve die Dateien ohne Warnung öffnet. Neuer Test **T9** (`docs/plan/editing-blueprint.md`), braucht einen Mac mit Resolve und echte Clips.
+- **Gebaut: Presets** (`presets/`, `src/presets/`): Export (`reel` nach Bauplan v2 Kap. 3.11, `reel-blueprint`, `vorschau`), Audio (`standard` −14 LUFS, `blueprint` −17 LUFS), Untertitel (3 Vorschläge), Grafik (7, davon 2 mit Stück `zahl-zaehler`).
+  Befehle `studio presets liste|lint|zeigen|overlay|platz|caption`. **Fünf Grafik-Presets haben kein Stück** (Hook-Karte, Lower Third, Keyword-Pop, Schlusskarte, Logo): Sie sind Lücken der Motion-Bibliothek und entstehen nur über die Motion-Werkstatt (Regel 2).
+- **Nicht angefasst:** `marken/alperna.json` (Caption-Preset, Logo, Schlusskarte fehlen weiter), Notion-Zeilen.
+- **Offen:** Whisper und Take-Auswahl (Bauplan v2 Kap. 3.3) sind nicht gebaut. Ohne sie entsteht `plan.json` nur von Hand oder durch Claude aus einem Transkript.
+- **Entscheide aus dem Chat (18.10.):** Taplio entfällt; der Viral Watcher (geplante Aufgabe `trig_01EcPiZ4F182oHvN1JeyuA6q`) ist ausgeschaltet. Altbeiträge bleiben in Notion und werden bei der Ideenfindung genutzt (nicht gelöscht).
 
 ## Plan v3: Geltung, Funde, Widersprüche
 

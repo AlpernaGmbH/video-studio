@@ -1,0 +1,30 @@
+{
+  "art": "export",
+  "id": "reel",
+  "name": "Reel, Hochformat 1080×1920",
+  "beschreibung": "Das Standardformat für Instagram Reels, genau nach Bauplan v2. Dieselbe Datei geht auch an LinkedIn und die anderen Plattformen.",
+  "breite": 1080,
+  "hoehe": 1920,
+  "fps": 25,
+  "container": "mp4",
+  "videoCodec": "h264",
+  "bitrateMbit": {
+    "min": 8,
+    "max": 10
+  },
+  "bitrateModus": "cbr",
+  "audioCodec": "aac",
+  "audioKbit": {
+    "min": 128,
+    "max": 192
+  },
+  "audioRate": 48000,
+  "farbe": "bt709",
+  "minSekunden": 3,
+  "maxSekunden": 90,
+  "maxGigabyte": 1,
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Bauplan v2, Kap. 3.11: 1080×1920, H.264 High, AAC 48 kHz 128 bis 192 kbit/s, 8 bis 10 Mbit/s, 3 bis 90 s, höchstens 1 GB. Bildrate 25p ist dort eine Vermutung (Test T4). bt709 als SDR-Standard ergänzt."
+  }
+}

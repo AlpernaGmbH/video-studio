@@ -1,0 +1,36 @@
+{
+  "art": "grafik",
+  "id": "zahl-oben",
+  "name": "Zahl oben",
+  "beschreibung": "Dieselbe Kennzahl, aber oben im Bild. Für Szenen, in denen das Gesicht in der Bildmitte bleiben soll.",
+  "typ": "zahl",
+  "stueck": "zahl-zaehler",
+  "anker": "oben-mitte",
+  "breiteAnteil": 0.9,
+  "dauer": {
+    "min": 1.4,
+    "standard": 2.6,
+    "max": 5.0
+  },
+  "einblendung": 0.4,
+  "ausblendung": 0.3,
+  "text": {
+    "label": {
+      "maxZeichen": 60,
+      "maxWoerter": 9
+    },
+    "eyebrow": {
+      "maxZeichen": 30,
+      "maxWoerter": 5
+    }
+  },
+  "werte": {
+    "position": "oben",
+    "zahlfarbe": "akzent"
+  },
+  "begruendung": "Die Zahl im Satz soll hängen bleiben, das Gesicht bleibt frei.",
+  "herkunft": {
+    "stand": "entschieden",
+    "quelle": "Stück zahl-zaehler, Parameter position «oben» (Beschreibung im Datenblatt)."
+  }
+}

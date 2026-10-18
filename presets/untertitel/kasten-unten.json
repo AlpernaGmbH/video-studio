@@ -1,0 +1,17 @@
+{
+  "art": "untertitel",
+  "id": "kasten-unten",
+  "name": "Kasten unten",
+  "beschreibung": "Text auf einer Fläche in der Markenfarbe, unten. Gut lesbar auch auf unruhigem Hintergrund.",
+  "schriftRolle": "titel",
+  "groesse": 56,
+  "position": "unten",
+  "animation": "pop",
+  "hervorhebung": "kasten",
+  "grossschreibung": false,
+  "kasten": true,
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag. Mit dem Probebild von Gate 0 prüfen."
+  }
+}

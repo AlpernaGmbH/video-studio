@@ -3,7 +3,7 @@
 Eigenes Repo, **nicht** die Website (`alperna-website-v2`). Dessen Regeln (Next.js, Lead-Gate, Seitentexte) gelten hier nicht.
 Gemeinsam sind Sprache und Ton: Deutsch (Schweiz), ss statt ß, «» als Anführungszeichen, Du-Form, ruhig und konkret, keine Ausrufezeichen,
 keine Emojis, keine Superlative, keine Gedankenstriche als Satzzeichen.
-Plan: `docs/plan/bauplan-v3.md` (Content-System, 17.10.2026) gilt zusätzlich zu `docs/plan/bauplan-v2.md` (Video-Editing-System, 16.10.2026). Bei Widerspruch gilt v3.
+Plan: `docs/plan/bauplan-v3.md` (Content-System, 17.10.2026) gilt zusätzlich zu `docs/plan/bauplan-v2.md` (Video-Editing-System, 16.10.2026). Bei Widerspruch gilt v3. Für den Editing-Teil (Übergabe an DaVinci Resolve, Presets) gilt zusätzlich `docs/plan/editing-blueprint.md`.
 Abweichungen, Funde und Stand in `STATUS.md`. Erster Rechner: `docs/phase0-mac.md`.
 Marke der Videos: Alperna Design System v2 (zweites, 17.9.): gedämpftes Blau, Gold als einziger Akzent. Profil in `marken/alperna.json`. Die Oberfläche des Prüfplatzes folgt seit 18.10. dem Design von alperna-tool (Papier, Tinte, Orange, Geist), Auftrag `docs/plan/auftrag-pruefplatz-neu.md`. Entschieden am 18.10. (Andrej): Papier, Tinte und Orange gelten nur für die Oberfläche des Prüfplatzes, das Branding der Videos bleibt gleich (Navy und Gold, `marken/alperna.json` unverändert).
 
@@ -18,6 +18,8 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 - `marken/<key>.json` – Markenprofile. Status `platzhalter` sperrt den finalen Export (Gate 0)
 - `assets/fonts/` – Schriften, die Markenprofile ansprechen dürfen (`fonts.json`)
 - `src/inhalte/` – Inhalte (Plan v3): Zeile ↔ Inhalt, Übergangsregeln mit Tor I und Tor P, Abgleich mit dem Stand, Textprüfung, Marken mit Gate 0 (auch Übernahme ins Profil), Material an Inhalten (`material.ts`), Befehle `studio inhalte …` und `studio marken gate0`
+- `src/schnitt/` – Schnittplan und Übergabe an DaVinci Resolve: Frame-Raster, Prüfung gegen das Schnittprofil, Untertitel (SRT), FCPXML 1.8 und OTIO, Befehle `studio schnitt …`. Plan: `docs/plan/editing-blueprint.md`
+- `presets/`, `src/presets/` – Presets für Export, Ton, Untertitel und Grafik (je Datei eine ID, mit Herkunft), Messung fertiger Videos, Befehle `studio presets …`
 - `src/notion/` – Abbild Idee ↔ Notion-Zeile, `src/setup.ts` – `init` und `doctor`, `src/pruefplatz.ts` – Daten für das Artifact
 - `pruefplatz/index.html` – Vorlage des Prüfplatzes (Artifact): Seitenleiste mit Heute, Plattformen und Werkstatt, Seitenfenster für Details und Aktionen, `notion.json` – Kennungen von Notion-Seite, Datenbank und Prüfplatz
 - Daten (Ideenprotokoll, Ereignisse, Standbilder): `<Studio-Ordner>/daten/` in OneDrive, Pfad je Mac in `~/.config/video-studio/config.json`. Ohne Einrichtung `data/`

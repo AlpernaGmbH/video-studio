@@ -1,0 +1,36 @@
+{
+  "art": "grafik",
+  "id": "zahl-gross",
+  "name": "Zahl gross in der Mitte",
+  "beschreibung": "Eine Kennzahl läuft hoch, mit Beschriftung. Mittig, wenn kein Gesicht im Weg ist.",
+  "typ": "zahl",
+  "stueck": "zahl-zaehler",
+  "anker": "mitte",
+  "breiteAnteil": 0.9,
+  "dauer": {
+    "min": 1.4,
+    "standard": 2.6,
+    "max": 5.0
+  },
+  "einblendung": 0.4,
+  "ausblendung": 0.3,
+  "text": {
+    "label": {
+      "maxZeichen": 60,
+      "maxWoerter": 9
+    },
+    "eyebrow": {
+      "maxZeichen": 30,
+      "maxWoerter": 5
+    }
+  },
+  "werte": {
+    "position": "mitte",
+    "zahlfarbe": "akzent"
+  },
+  "begruendung": "Die Zahl im Satz soll hängen bleiben.",
+  "herkunft": {
+    "stand": "entschieden",
+    "quelle": "Stück zahl-zaehler (library/motion/zahl-zaehler/piece.json): Dauer 1,4 bis 5 s, Parameter position und zahlfarbe."
+  }
+}

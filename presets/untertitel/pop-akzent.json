@@ -1,0 +1,17 @@
+{
+  "art": "untertitel",
+  "id": "pop-akzent",
+  "name": "Pop mit Akzent",
+  "beschreibung": "Grosse Schrift in der Mitte, Grossbuchstaben, das betonte Wort springt in der Akzentfarbe auf. Passt zu schnellem Schnitt mit zwei bis drei Wörtern je Seite.",
+  "schriftRolle": "titel",
+  "groesse": 72,
+  "position": "mitte",
+  "animation": "pop",
+  "hervorhebung": "akzent",
+  "grossschreibung": true,
+  "kasten": false,
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag für den Retention-Schnitt (Bauplan v2, Kap. 3.4: 2 bis 3 Wörter je Seite). Mit dem Probebild von Gate 0 prüfen."
+  }
+}

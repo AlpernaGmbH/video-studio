@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "projekt": { "name": "Praxis Hofer, Empfang", "inhalt": "c-0007", "marke": "alperna", "fps": 25, "breite": 1080, "hoehe": 1920 },
+  "quellen": [
+    { "id": "sprache", "pfad": "rohmaterial/praxis-hofer/sprache-01.mov", "art": "video", "dauer": 30, "fps": 25, "breite": 1080, "hoehe": 1920, "hatAudio": true },
+    { "id": "empfang", "pfad": "rohmaterial/praxis-hofer/empfang-01.mov", "art": "video", "dauer": 12, "fps": 50, "breite": 1920, "hoehe": 1080, "hatAudio": true },
+    { "id": "musik-1", "pfad": "rohmaterial/musik/bett-01.wav", "art": "audio", "dauer": 120, "hatAudio": true, "audioKanaele": 2, "audioRate": 48000 }
+  ],
+  "clips": [
+    { "id": "k01", "quelle": "sprache", "von": 2.0, "bis": 3.4, "zeile": 1 },
+    { "id": "k02", "quelle": "sprache", "von": 6.2, "bis": 7.6, "zeile": 2, "zoom": 1.1 },
+    { "id": "k03", "quelle": "sprache", "von": 11.0, "bis": 12.4, "zeile": 3 }
+  ],
+  "broll": [
+    { "quelle": "empfang", "katalog": "k-0142", "t": 1.0, "dauer": 0.8, "von": 3.0, "begruendung": "Der Empfang zeigt, wovon die Rede ist" }
+  ],
+  "overlays": [
+    { "datei": "renders/c-0007/zahl-7.webm", "effekt": "zahl-zaehler", "t": 1.6, "dauer": 2.4, "begruendung": "Die Zahl im Satz soll hängen bleiben" }
+  ],
+  "musik": { "quelle": "musik-1", "t": 0, "von": 10, "pegelDb": -20 },
+  "woerter": [
+    { "text": "Wir", "quelle": "sprache", "von": 2.1, "bis": 2.3 },
+    { "text": "haben", "quelle": "sprache", "von": 2.3, "bis": 2.6 },
+    { "text": "umgebaut.", "quelle": "sprache", "von": 2.6, "bis": 3.3 },
+    { "text": "Heute", "quelle": "sprache", "von": 6.3, "bis": 6.7 },
+    { "text": "wartet", "quelle": "sprache", "von": 6.7, "bis": 7.1 },
+    { "text": "niemand.", "quelle": "sprache", "von": 7.1, "bis": 7.5 }
+  ]
+}

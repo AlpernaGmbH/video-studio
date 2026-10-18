@@ -1,0 +1,32 @@
+{
+  "art": "grafik",
+  "id": "lower-third",
+  "name": "Lower Third",
+  "beschreibung": "Name und Rolle der sprechenden Person, unten links, knapp über dem unteren Rand der Sicherheitsfläche.",
+  "typ": "lower-third",
+  "anker": "unten-links",
+  "breiteAnteil": 0.75,
+  "dauer": {
+    "min": 2.0,
+    "standard": 3.0,
+    "max": 5.0
+  },
+  "einblendung": 0.3,
+  "ausblendung": 0.3,
+  "text": {
+    "name": {
+      "maxZeichen": 28,
+      "maxWoerter": 4
+    },
+    "rolle": {
+      "maxZeichen": 40,
+      "maxWoerter": 6
+    }
+  },
+  "werte": {},
+  "begruendung": "Die Person wird beim ersten Auftritt vorgestellt.",
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Welle 1, Bauplan v2 Kap. 3.6. Dauern, Breite und Textlängen sind Vorschläge. Stück fehlt."
+  }
+}

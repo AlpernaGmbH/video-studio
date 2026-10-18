@@ -1,0 +1,17 @@
+{
+  "art": "untertitel",
+  "id": "ruhig-unten",
+  "name": "Ruhig unten",
+  "beschreibung": "Kleinere Schrift unten, weich eingeblendet, keine Hervorhebung. Für ruhige Erklärstücke. Bleibt über dem unteren Sicherheitsrand.",
+  "schriftRolle": "fliesstext",
+  "groesse": 52,
+  "position": "unten",
+  "animation": "fade",
+  "hervorhebung": "keine",
+  "grossschreibung": false,
+  "kasten": false,
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag. Mit dem Probebild von Gate 0 prüfen."
+  }
+}
