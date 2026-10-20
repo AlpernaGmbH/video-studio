@@ -15,7 +15,7 @@ import { messePegel, ordneZuMitPegel } from "./energie";
 import { bauePlan } from "./planbau";
 import { leseSchnittplan, platziere, SchnittQuelle } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
-import { erzeugeUebergabe, loesePfad } from "./uebergabe";
+import { erzeugeUebergabe, loesePfad, relativierePfad } from "./uebergabe";
 import { leseTranskript } from "./transkript";
 import { ordneZu, skriptZeilen } from "./zuordnung";
 
@@ -71,18 +71,8 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       const aus = [];
       for (const d of dateien) {
         const s = await sondiere(d);
-        const abs = path.resolve(d);
-        let pfad: string | null = null;
-        if (home) {
-          for (const wurzel of [medienOrdner(home), home.pfad]) {
-            const rel = path.relative(wurzel, abs);
-            if (!rel.startsWith("..") && !path.isAbsolute(rel)) {
-              pfad = rel.split(path.sep).join("/");
-              break;
-            }
-          }
-        }
-        aus.push({ id: path.basename(d, path.extname(d)).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), pfad: pfad ?? `(ausserhalb von Studio und Medien-Ordner: ${abs})`, ...s });
+        const pfad = home ? relativierePfad(home, path.resolve(d)) : null;
+        aus.push({ id: path.basename(d, path.extname(d)).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), pfad: pfad ?? `(ausserhalb von Studio und Medien-Ordner: ${path.resolve(d)})`, ...s });
       }
       console.log(JSON.stringify(aus, null, 2));
       if (aus.some((x) => x.pfad.startsWith("("))) {

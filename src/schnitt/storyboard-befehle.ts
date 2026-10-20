@@ -3,6 +3,7 @@ import path from "node:path";
 import { z } from "zod";
 import type { Args } from "../args";
 import { KatalogEintrag, Regel } from "../core/schemas";
+import { KATALOG_DATEI } from "../katalog/katalog";
 import { ladeBibliothek } from "../motion/bibliothek";
 import { extrahiereJson, ladeMarke, rendereStueck, type Umgebung } from "../motion/werkstatt";
 import { sondiere } from "../presets/messen";
@@ -23,7 +24,7 @@ const lesJson = (datei: string): unknown => JSON.parse(fs.readFileSync(datei, "u
 
 /** Katalog aus `--katalog` oder `<Datenordner>/katalog.json`. Fehlt beides, ist er leer. */
 function ladeKatalog(a: Args, env: Umgebung): { katalog: KatalogEintrag[]; notiz: string } {
-  const datei = typeof a.opt["katalog"] === "string" ? (a.opt["katalog"] as string) : path.join(env.datenDir, "katalog.json");
+  const datei = typeof a.opt["katalog"] === "string" ? (a.opt["katalog"] as string) : path.join(env.datenDir, KATALOG_DATEI);
   if (!fs.existsSync(datei)) {
     if (typeof a.opt["katalog"] === "string") throw new Error(`Katalog fehlt: ${datei}`);
     return { katalog: [], notiz: `Kein Katalog gefunden (${datei}): Es gibt keine B-Roll` };

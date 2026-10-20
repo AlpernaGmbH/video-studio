@@ -21,6 +21,7 @@ const Strom = z.object({
   color_space: z.string().optional(),
   duration: z.string().optional(),
   tags: z.record(z.string()).optional(),
+  side_data_list: z.array(z.object({ rotation: z.number().optional() }).passthrough()).optional(),
 });
 const Probe = z.object({
   streams: z.array(Strom),
@@ -124,6 +125,12 @@ export function timecodeZuSekunden(tc: string, fps: number): number | undefined 
   return h * 3600 + mi * 60 + s + fr / Math.round(fps);
 }
 
+/** Drehung der Anzeige in Grad (iPhone-Videos liegen quer in der Datei und tragen eine Drehung von ±90). */
+export function drehung(v: z.infer<typeof Strom>): number {
+  const r = v.side_data_list?.find((x) => x.rotation !== undefined)?.rotation ?? (v.tags?.["rotate"] !== undefined ? Number(v.tags["rotate"]) : 0);
+  return ((Math.round(r) % 360) + 360) % 360;
+}
+
 export function sondierungAusProbe(roh: unknown): Sondierung {
   const p = Probe.parse(roh);
   const v = p.streams.find((s) => s.codec_type === "video");
@@ -136,7 +143,7 @@ export function sondierungAusProbe(roh: unknown): Sondierung {
   return {
     art: v ? "video" : "audio",
     dauer,
-    ...(v ? { fps, breite: v.width, hoehe: v.height } : {}),
+    ...(v ? { fps, ...(drehung(v) === 90 || drehung(v) === 270 ? { breite: v.height, hoehe: v.width } : { breite: v.width, hoehe: v.height }) } : {}),
     hatAudio: !!a,
     ...(a ? { audioKanaele: a.channels ?? 2, audioRate: a.sample_rate ? Number(a.sample_rate) : 48000 } : {}),
     start,

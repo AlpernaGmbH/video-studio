@@ -124,6 +124,14 @@ describe("Sondierung für den Schnittplan", () => {
     expect(s).toMatchObject({ art: "video", dauer: 12.5, fps: 25, breite: 1920, hoehe: 1080, hatAudio: true, audioKanaele: 2, audioRate: 48000 });
     expect(s.start).toBeCloseTo(3600 + 12 / 25, 9);
   });
+  it("meldet die Grösse, wie sie angezeigt wird: ein iPhone-Video mit Drehung ±90 ist hochkant", () => {
+    const probe = (side: unknown, tags?: Record<string, string>) => ({ streams: [{ codec_type: "video", width: 1920, height: 1080, avg_frame_rate: "30/1", ...(side ? { side_data_list: [side] } : {}), ...(tags ? { tags } : {}) }], format: { duration: "3" } });
+    expect(sondierungAusProbe(probe({ side_data_type: "Display Matrix", rotation: -90 }))).toMatchObject({ breite: 1080, hoehe: 1920 });
+    expect(sondierungAusProbe(probe({ side_data_type: "Display Matrix", rotation: 90 }))).toMatchObject({ breite: 1080, hoehe: 1920 });
+    expect(sondierungAusProbe(probe(undefined, { rotate: "270" }))).toMatchObject({ breite: 1080, hoehe: 1920 });
+    expect(sondierungAusProbe(probe({ side_data_type: "Display Matrix", rotation: 180 }))).toMatchObject({ breite: 1920, hoehe: 1080 });
+    expect(sondierungAusProbe(probe(undefined))).toMatchObject({ breite: 1920, hoehe: 1080 });
+  });
   it("Audiodatei ohne Videospur", () => {
     expect(sondierungAusProbe({ streams: [{ codec_type: "audio", sample_rate: "44100", channels: 1 }], format: { duration: "60" } })).toMatchObject({ art: "audio", hatAudio: true, audioKanaele: 1, audioRate: 44100, start: 0 });
   });

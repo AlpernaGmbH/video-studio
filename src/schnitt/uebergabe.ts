@@ -25,6 +25,15 @@ export function loesePfad(home: StudioHome, rel: string): string {
   return resolveInRoot(wurzel, sauber);
 }
 
+/** Die Umkehrung von `loesePfad`: der Pfad einer absoluten Datei relativ zum Medien-Ordner oder zum Studio-Ordner, oder null, wenn sie woanders liegt. */
+export function relativierePfad(home: StudioHome, abs: string): string | null {
+  for (const wurzel of [medienOrdner(home), home.pfad]) {
+    const rel = path.relative(wurzel, path.resolve(abs));
+    if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) return rel.split(path.sep).join("/").normalize("NFC");
+  }
+  return null;
+}
+
 /** Legt einen Ordner an, der es noch nicht gibt: `resolve`, dann `resolve-v2`, `resolve-v3`. Ein vorhandenes Resolve-Projekt wird nie überschrieben. */
 export function freierOrdner(basis: string): string {
   if (!fs.existsSync(basis)) return basis;
