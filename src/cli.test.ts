@@ -2,13 +2,16 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { entwurf, looks, pitch } from "./testing/fixtures";
 
 /**
  * Ruft die CLI als Prozess auf, so wie Claude Code und das Team sie benutzen.
  * Daten gehen in ein Temp-Verzeichnis (STUDIO_DATA_DIR), die Bibliothek ist die echte.
  */
+// Jeder Aufruf startet einen eigenen Prozess (rund 0,7 s); Tests mit mehreren Aufrufen brauchten schon mit den Vorgaben von 5 s fast die ganze Zeit.
+vi.setConfig({ testTimeout: 30_000 });
+
 const studioRoot = path.resolve(import.meta.dirname, "..");
 let tmp: string;
 let skript: string;
