@@ -1,5 +1,6 @@
 import type { Schnittplan } from "./plan";
 import { leseSchnittplan } from "./plan";
+import type { Segment } from "./transkript";
 
 /** Ein kleiner, vollständiger Schnittplan für Tests: drei Clips, B-Roll, eine Grafik, Musik, Wörter. 25 fps, 1080×1920. */
 export function beispielPlan(ueberschreibe: Partial<Record<string, unknown>> = {}): Schnittplan {
@@ -37,3 +38,20 @@ export function beispielPlan(ueberschreibe: Partial<Record<string, unknown>> = {
 
 /** Absolute Pfade für Tests: alles liegt unter /studio. Overlays aus dem Render erhalten die Endung .mov. */
 export const testLoeser = (rel: string, art: "quelle" | "overlay"): string => `/studio/${art === "overlay" ? rel.replace(/\.webm$/i, ".mov") : rel}`;
+
+/**
+ * Ein Whisper-Segment mit echten Wortzeiten für Tests: jedes Wort 0,3 s, dazwischen 0,05 s, vor dem Wort mit Nummer `i` zusätzlich die Pause `pausen[i]`.
+ * `tempo` ändert die Wortlänge (Sekunden je Wort).
+ */
+export function testSatz(start: number, text: string, pausen: Record<number, number> = {}, tempo = 0.3): Segment {
+  let t = start;
+  const woerter = text.split(/\s+/).map((x, i) => {
+    t += pausen[i] ?? 0;
+    const von = t;
+    t += tempo;
+    const bis = t;
+    t += 0.05;
+    return { text: x, von, bis };
+  });
+  return { von: woerter[0]!.von, bis: woerter[woerter.length - 1]!.bis, text, woerter };
+}

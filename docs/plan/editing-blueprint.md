@@ -90,6 +90,43 @@ Aufbau und Beispiel: `prompts/beispiele/schnittplan.json`. Kurz: `quellen` (Date
 
 Nicht abgedeckt: Zeitlupe (50p und 60p als B-Roll laufen in der Übergabe in Echtzeit), Übergänge, Farbkorrektur, Tonmischung über den Pegel der Musik hinaus.
 
+## Skript-Zuordnung und Planbau
+
+`studio schnitt zuordnen` macht aus dem Skript und dem Whisper-Transkript einen Schnittplan (Bauplan v2, Kap. 3.2 bis 3.4). Ohne diesen Schritt entsteht `plan.json` nur von Hand.
+
+```
+whisper sprache-01.mov --model large-v3 --language de --word_timestamps True --output_format json
+studio schnitt sondiere <Medien>/rohmaterial/…/sprache-01.mov > quellen.json
+studio schnitt zuordnen --skript skript.md --transkript sprache-01=sprache-01.json --quellen quellen.json \
+  --marke alperna -o plan.json --bericht bericht.json
+```
+
+Der Whisper-Aufruf ist ein Beispiel. Welches Modell Schweizerdeutsch am besten trifft, entscheidet Test T2, nicht dieses Dokument. Gelesen werden drei Formate: openai-whisper (`segments`, mit `--word_timestamps True` auch Wörter), whisper.cpp (`-oj`) und eine einfache Liste `{"segmente": [{"von", "bis", "text"}]}`. Die Kennung vor dem `=` ist die Kennung der Videoquelle in `quellen.json`; bei genau einer Videoquelle genügt der Dateiname.
+
+**Was der Befehl tut**
+
+1. **Zeilen.** Ein Satz pro Zeile (Überschriften, Kommentare und Zitatzeilen aus Markdown fallen weg).
+2. **Vergleich.** Unscharf, auf normalisierten Wörtern, über Segmentgrenzen hinweg (längste gemeinsame Teilfolge). Wörter ab vier Buchstaben gelten als gleich, wenn höchstens ein Viertel der Buchstaben abweicht; Zahl und Zahlwort («5», «fünf») sind gleich. Mehrere Treffer pro Zeile sind Takes.
+3. **Wortzeiten.** Segmente über 4 Sekunden werden an der grössten Pause nahe der Mitte oder nach Satzzeichen geteilt. Liefert Whisper Wortzeiten, gelten sie, sonst werden sie nach Zeichenzahl über das Segment verteilt (Plan Kap. 3.2). Verteilte Zeiten sind im Take als «nicht gemessen» vermerkt.
+4. **Bewertung** (Gewichte aus Plan Kap. 3.3, dort als Vermutung gekennzeichnet): Vollständig 30, Keine Füllwörter 25, Flüssig 20, Energie 15, Späterer Take 10 Prozent. «Flüssig» zählt Pausen über 0,35 s im Take und gibt es nur mit echten Wortzeiten. «Energie» ist der mittlere Pegel der Stelle (ffmpeg `volumedetect`), relativ zu den anderen Takes derselben Zeile; gemessen wird nur, wo es mehrere Takes gibt, und nur, wenn das Material auf dem Rechner liegt (`--ohne-pegel` schaltet es ab). «Später» richtet sich nach der Reihenfolge der Quellen im Aufruf, dann nach der Zeit in der Datei.
+5. **Ausscheiden.** Ein Take mit Füllwort (äh, ähm, also, gäll, gell, hm), Neustart («nochmal», «stopp», «Moment» im Take oder direkt danach), Abbruch (unter 85 Prozent der Wörter) oder fehlendem ersten oder letzten Wort scheidet aus. Bleibt nur ein solcher Take, ist die Zeile **gelb**: Der Plan schneidet das Füllwort heraus.
+6. **Verworfen** werden Segmente ohne Bezug zum Skript (Gespräche zwischen den Takes). Zeilen ohne Treffer stehen als **fehlt im Material** im Bericht und nicht im Plan. Eine Stelle gehört nur einer Zeile.
+7. **Abweichung.** Spricht jemand etwas anderes als das Skript, steht der Unterschied im Bericht (zusätzlich gesprochen, im Skript aber nicht gehört). Die Untertitel folgen dem Skript. Ob die Abweichung sinnvoll ist, beurteilt ein Mensch oder Claude im Gespräch, nie dieser Code; mit `--gesprochen 3,5` nehmen die Untertitel dieser Zeilen den gesprochenen Text. Zusätzlich gesprochene Wörter werden nicht herausgeschnitten.
+
+**Schnitt nach dem Schnittprofil der Marke** (Plan Kap. 3.4)
+
+- Die Clips folgen der Reihenfolge des Skripts, nicht der Aufnahme.
+- Pausen im Take über `laengstePause` werden herausgeschnitten (Jump-Cut). Vor dem ersten und nach dem letzten Wort eines Clips bleiben 0,06 s und 0,10 s stehen, höchstens 40 Prozent der Lücke zum Nachbarwort und zusammen höchstens 80 Prozent der längsten Pause.
+- Füllwörter eines gelben Takes werden nur herausgeschnitten, wenn Whisper echte Wortzeiten geliefert hat. Bei verteilten Zeiten bleibt das Füllwort drin, der Bericht sagt es.
+- Ein Clip über `laengsteEinstellung` wird an Wortgrenzen geteilt, ohne Zeit zu entfernen; Schnitte liegen bevorzugt in einer Lücke zwischen Wörtern oder nach einem Komma. Der Bildwechsel ist der Zoom-Wechsel.
+- Zoom-Punch: jeder zweite Clip zoomt (Plan: 1,1-fach bei jedem zweiten Schnitt). Das Zoom-Tempo der Marke wählt die Stufe: «mittel» 1,1 (Plan), «schnell» 1,15 (**Annahme**), «langsam» schaltet den Zoom-Punch und die Teilung ab. Die Federbewegung von 0,16 s aus dem Plan ist im Schnittplan nicht abgebildet; der Zoom ist fest und wird in Resolve bei Bedarf animiert.
+
+Der Plan enthält danach Clips und Wörter, aber keine B-Roll, Grafiken oder Musik. Die kommen aus dem Storyboard (Plan Kap. 3.5). Der Befehl prüft den Plan sofort gegen das Schnittprofil (`pruefe`) und gibt Hinweise aus. `--bericht` schreibt alle Takes mit Punkten, Gründen und Wortzeiten als JSON für das Gespräch über Abweichungen.
+
+**Annahmen, die mit echtem Material kalibriert werden müssen:** Mindestanteil wiedergefundener Wörter 60 Prozent und Gesamtähnlichkeit 0,6, Abbruch unter 85 Prozent, Pause als Stocken ab 0,35 s, Füllwort- und Neustartliste, Vor- und Nachlauf, Zoom-Stufe «schnell». Der Bericht nennt den Anteil zugeordneter Zeilen; das ist das Kriterium von T2 (mindestens 95 Prozent). Die Zeitabweichung der Wörter (höchstens 0,3 s) misst T2 an echten Clips.
+
+**Geprüft:** mit künstlichen Transkripten (Wiederholungen mit Füllwort, Abbruch und Neustart, Zeile über zwei Segmente, Segment über 4 Sekunden, fehlende Zeile, Abweichung, Zahlwort), mit Mutationsproben je Regel, der Pegelmessung an einer Datei mit zwei Lautstärken und dem Plan als FCPXML (gegen Apples DTD 1.8), OTIO und SRT. **Nicht geprüft:** mit echter Whisper-Ausgabe von Dialekt-Aufnahmen. Davon hängt ab, ob Schwellen und Füllwortliste stimmen.
+
 ## Presets
 
 Ordner `presets/`, geprüft mit `studio presets lint`. Jedes Preset trägt seine Herkunft: **entschieden** (steht im Bauplan oder im Datenblatt eines Stücks), **annahme** (Startwert) oder **unbelegt** (fremde Angabe).
@@ -121,8 +158,9 @@ Erst nach T9 gilt die Übergabe als belegt. Bis dahin ist sie gebaut, gegen Appl
 
 ## Was noch fehlt, damit ein Reel wirklich entsteht
 
-1. Whisper-Lauf und Zuordnung der Skriptzeilen zu Takes (Bauplan v2, Kap. 3.3). Davon hängt ab, dass `plan.json` aus echten Zeiten entsteht statt von Hand.
+1. Ein Whisper-Lauf auf echten Dialekt-Aufnahmen (Test T2). Die Zuordnung (`studio schnitt zuordnen`) ist gebaut, aber nur mit künstlichen Transkripten geprüft.
 2. Ein Probelauf mit echtem Material und echtem Resolve (T9) und dem privaten Upload (T4).
+3. Das Storyboard (Plan Kap. 3.5), das B-Roll, Grafiken und Musik in den Plan einträgt.
 3. Die fünf Stücke aus der Lückenliste der Presets, über die Motion-Werkstatt.
 
 ## Einwände und Risiken

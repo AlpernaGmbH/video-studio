@@ -8,15 +8,26 @@ import { findePreset, ladePresets } from "../presets/lader";
 import { messeDatei, sondiere } from "../presets/messen";
 import { GROSSE_UNTERORDNER, medienOrdner, studioHome } from "../setup";
 import { markeFuerExportFreigegeben } from "../core/schemas";
-import { leseSchnittplan } from "./plan";
+import { z } from "zod";
+import { zuordnungBericht } from "./bericht";
+import { messePegel, ordneZuMitPegel } from "./energie";
+import { bauePlan } from "./planbau";
+import { leseSchnittplan, platziere, SchnittQuelle } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
-import { erzeugeUebergabe } from "./uebergabe";
+import { erzeugeUebergabe, loesePfad } from "./uebergabe";
+import { leseTranskript } from "./transkript";
+import { ordneZu, skriptZeilen } from "./zuordnung";
 
 /** Befehle `studio schnitt …`: Schnittplan prüfen, an Resolve übergeben, Quellen sondieren, fertigen Export prüfen. */
 
 export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/plan/editing-blueprint.md)
   schnitt beispiel                    Beispiel eines Schnittplans (JSON) ausgeben. Aufbau: prompts/beispiele/schnittplan.json
   schnitt sondiere <datei...>         Länge, Bildrate, Grösse, Ton und Timecode-Beginn mit ffprobe lesen (für die Liste «quellen» im Plan)
+  schnitt zuordnen --skript skript.md --transkript <quelle>=<whisper.json>[,…] --quellen quellen.json --marke key -o plan.json
+                                      [--name "Titel"] [--inhalt c-0007] [--gesprochen 3,5] [--ohne-pegel] [--bericht bericht.json]
+                                      Skript und Whisper-Transkript zu einem Schnittplan: pro Zeile der beste Take (Bauplan v2, Kap. 3.3), Pausen, Füllwörter und Bildwechsel
+                                      nach dem Schnittprofil der Marke (Kap. 3.4). Die Quelle im Transkript ist die Kennung aus quellen.json (Ausgabe von «schnitt sondiere»).
+                                      --gesprochen: Zeilen, deren Untertitel den gesprochenen statt den Skripttext nehmen. B-Roll, Grafiken und Musik kommen später ins Storyboard.
   schnitt pruefe --plan plan.json [--marke key] [--entwurf]
                                       Plan prüfen: Quellen, Grenzen, Regeln des Schnittprofils der Marke (Pausen, Bildwechsel, Hook, Sprechtempo)
   schnitt resolve --plan plan.json [--aus ordner] [--preset reel] [--audio standard] [--marke key] [--nicht-strikt] [--entwurf]
@@ -70,6 +81,58 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         console.error(`Hinweis: Pfade im Plan sind relativ zum Studio-Ordner (Rohmaterial und Renders zum Medien-Ordner, Unterordner ${GROSSE_UNTERORDNER.join(", ")}).`);
         return 1;
       }
+      return 0;
+    }
+    case "zuordnen": {
+      const marke = ladeMarke(env, pflicht(a, "marke", "Schlüssel des Markenprofils, zum Beispiel alperna"));
+      const skriptDatei = pflicht(a, "skript", "Skript als Text oder Markdown");
+      const quellen = z.array(SchnittQuelle).min(1).parse(lesJson(pflicht(a, "quellen", "Liste der Quellen als JSON, Ausgabe von «schnitt sondiere»")));
+      const ausDatei = pflicht(a, "o", "Zieldatei für den Schnittplan, zum Beispiel -o plan.json");
+      const videos = quellen.filter((q) => q.art === "video");
+      const roh = pflicht(a, "transkript", "Quelle=Datei, mehrere durch Komma getrennt");
+      const eintraege = roh.split(",").map((x) => x.trim()).filter(Boolean).map((x) => {
+        if (x.includes("=")) return [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)] as const;
+        if (videos.length !== 1) throw new Error(`--transkript ${x}: Bei mehreren Videoquellen braucht jedes Transkript die Kennung (<quelle>=<datei>)`);
+        return [videos[0]!.id, x] as const;
+      });
+      const transkripte = eintraege.map(([id, datei]) => {
+        if (!quellen.some((q) => q.id === id && q.art === "video")) throw new Error(`--transkript: «${id}» ist keine Videoquelle aus ${a.opt["quellen"]}`);
+        return { quelle: id, segmente: leseTranskript(lesJson(datei)) };
+      });
+      const zeilen = skriptZeilen(fs.readFileSync(skriptDatei, "utf8"));
+      if (!zeilen.length) throw new Error(`Das Skript ${skriptDatei} enthält keinen Satz`);
+
+      // Energie: nur messen, wenn das Material auf diesem Rechner liegt
+      const home = studioHome();
+      let messe: ((q: string, von: number, bis: number) => Promise<number | undefined>) | null = null;
+      let pegelNotiz = "";
+      if (a.opt["ohne-pegel"] === true) pegelNotiz = "Energie nicht gemessen (--ohne-pegel)";
+      else if (!home) pegelNotiz = "Energie nicht gemessen: Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet";
+      else {
+        const dateien = new Map(videos.map((q) => [q.id, loesePfad(home, q.pfad)]));
+        const fehlt = transkripte.map((t) => dateien.get(t.quelle)!).filter((d) => !fs.existsSync(d));
+        if (fehlt.length) pegelNotiz = `Energie nicht gemessen: Datei fehlt auf diesem Rechner (${fehlt[0]})`;
+        else messe = (q, von, bis) => messePegel(dateien.get(q)!, von, bis);
+      }
+      const zuordnung = messe ? await ordneZuMitPegel(zeilen, transkripte, messe) : ordneZu(zeilen, transkripte);
+
+      const gesprochen = typeof a.opt["gesprochen"] === "string" ? (a.opt["gesprochen"] as string).split(",").map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x > 0) : [];
+      const name = typeof a.opt["name"] === "string" ? (a.opt["name"] as string) : path.basename(skriptDatei, path.extname(skriptDatei));
+      const inhalt = typeof a.opt["inhalt"] === "string" ? (a.opt["inhalt"] as string) : undefined;
+      const { plan, markierungen } = bauePlan(zuordnung, { projekt: { name, ...(inhalt ? { inhalt } : {}), marke: marke.schluessel }, quellen, ...(marke.schnittprofil ? { profil: marke.schnittprofil } : {}), gesprochen });
+
+      fs.writeFileSync(ausDatei, `${JSON.stringify(plan, null, 2)}\n`);
+      if (typeof a.opt["bericht"] === "string") fs.writeFileSync(a.opt["bericht"] as string, `${JSON.stringify({ zuordnung, markierungen }, null, 2)}\n`);
+
+      for (const l of zuordnungBericht(zuordnung, markierungen)) console.log(l);
+      if (pegelNotiz) console.log(`\n${pegelNotiz}`);
+      const befunde = pruefeSchnittplan(plan, { profil: marke.schnittprofil });
+      if (befunde.length) {
+        console.log("\nPrüfung des Plans:");
+        zeige(befunde);
+      }
+      const dauerPlan = platziere(plan);
+      console.log(`\nPlan: ${ausDatei} (${plan.clips.length} Clips, ${(dauerPlan.gesamtFrames / plan.projekt.fps).toFixed(1).replace(".", ",")} s)\nNächster Schritt: Abweichungen und gelbe Stellen entscheiden, B-Roll und Grafiken im Storyboard ergänzen, dann «schnitt pruefe --plan ${ausDatei}» und «schnitt resolve».`);
       return 0;
     }
     case "pruefe": {

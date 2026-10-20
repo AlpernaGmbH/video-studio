@@ -73,7 +73,7 @@ export function lautheitAusEbur128(stderr: string): { lufs: number; truePeak: nu
   return { lufs: Number(i[1]), truePeak: p[1] === "-inf" ? Number.NEGATIVE_INFINITY : Number(p[1]) };
 }
 
-function lauf(cmd: string, args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
+export function lauf(cmd: string, args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const c = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
