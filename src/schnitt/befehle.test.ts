@@ -6,11 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseArgs } from "../args";
 import { Markenprofil } from "../core/schemas";
 import { umgebung, type Umgebung } from "../motion/werkstatt";
+import { katalogBefehl } from "../katalog/befehle";
 import { rendereStueck } from "../motion/werkstatt";
 import { schnittBefehl } from "./befehle";
 import { bauePlan } from "./planbau";
 import { ordneZu } from "./zuordnung";
-import { leseSchnittplan } from "./plan";
+import { leseSchnittplan, platziere } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
 import { testSatz } from "./testdaten";
 import type { Segment } from "./transkript";
@@ -534,5 +535,74 @@ describe("schnitt vorschau", () => {
     vi.stubEnv("STUDIO_HOME", "");
     await expect(lauf("schnitt", "vorschau", "--plan", plan())).rejects.toThrow(/studio init/);
   });
+});
+describe.skipIf(!hatFfmpeg)("ganzer Durchlauf: Zuordnung, Katalog, Storyboard, Kontaktbogen, Vorschau, Resolve", () => {
+  it("jeder Schritt nimmt, was der vorige schreibt, und am Ende stimmen Länge, Dateien und Betonung überein", async () => {
+    const medien = path.join(tmp, "Medien");
+    const ff = (...a: string[]) => expect(spawnSync("ffmpeg", ["-loglevel", "error", "-y", ...a]).status, a.join(" ")).toBe(0);
+    fs.mkdirSync(path.join(medien, "rohmaterial", "bib"), { recursive: true });
+    // Aufnahme: 45 s mit Ton, Takes an den Stellen des Transkripts
+    ff("-f", "lavfi", "-i", "testsrc2=size=320x568:rate=25:duration=45", "-f", "lavfi", "-i", "sine=frequency=300:duration=45", "-shortest", path.join(medien, "rohmaterial", "sprache.mp4"));
+    ff("-f", "lavfi", "-i", "color=c=magenta:s=640x360:r=25:d=6", path.join(medien, "rohmaterial", "bib", "laptop.mp4"));
+
+    const Zeilen = [Z1, Z2, Z3];
+    const t = schreibe("t.json", whisper(testSatz(1, "Wir haben diese Woche ähm eine Küche komplett umgebaut."), testSatz(6, "Moment nochmal von vorne."), testSatz(10, Z1), testSatz(20, Z2), testSatz(30, Z3)));
+    const skript = schreibe("skript.md", Zeilen.join("\n"));
+    const quellen = schreibe("quellen.json", [{ ...videoQuelle("sprache"), dauer: 45 }]);
+    const plan1 = path.join(tmp, "plan.json");
+    expect(await lauf("schnitt", "zuordnen", "--skript", skript, "--transkript", t, "--quellen", quellen, "--marke", "alperna", "--name", "Küche Gossau", "--inhalt", "c-0007", "-o", plan1, "--ohne-pegel")).toBe(0);
+    expect(ausgabe.join("\n")).toContain("Zugeordnet: 3 von 3 (100 Prozent");
+
+    // Katalog: scannen, beschreiben
+    const mc = (...argv: string[]) => katalogBefehl(argv[1]!, parseArgs(argv), env);
+    expect(await mc("katalog", "scan", path.join(medien, "rohmaterial", "bib"))).toBe(0);
+    const b = schreibe("beschreibungen.json", [{ schluessel: "k-0001", titel: "Intern_Gossau_Laptop", beschreibung: "Testfarbe", tags: ["Test"], sicherheit: "hoch", besteSekunden: { von: 0.5, bis: 5 } }]);
+    expect(await mc("katalog", "beschreibe", "--json", b)).toBe(0);
+
+    // Auftrag, Storyboard (der Render ist ersetzt: eine echte WebM mit Alpha an dem Ort, den der Befehl nennt)
+    const auftrag = path.join(tmp, "auftrag.md");
+    expect(await lauf("schnitt", "auftrag", "--plan", plan1, "-o", auftrag)).toBe(0);
+    expect(fs.readFileSync(auftrag, "utf8")).toContain("k-0001");
+    const mock = vi.mocked(rendereStueck);
+    mock.mockReset();
+    mock.mockImplementation(async (_env, _id, o) => {
+      fs.mkdirSync(path.dirname(o.ausgabe), { recursive: true });
+      ff("-f", "lavfi", "-i", "color=c=white@0.6:s=1080x1920:r=25:d=3,format=yuva420p", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", o.ausgabe);
+      return { datei: o.ausgabe, dauer: 3, variablen: {}, pruefung: { bestanden: true, befunde: [] }, renderMs: 1, warnungen: [] } as never;
+    });
+    const sb = schreibe("sb.json", {
+      hook: "Warum die Küche anders aussieht",
+      overlays: [
+        { effekt: "zahl-zaehler", t: 0.5, dauer: 1.5, params: { wert: 3, label: "Wochen" }, begruendung: "Kennzahl im Skript" },
+        { effekt: "broll", t: 3, dauer: 1, params: { katalog: "k-0001" }, begruendung: "Zeigt die Aussage, bringt Bildwechsel" },
+      ],
+      betonung: [5],
+    });
+    const plan2 = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", plan1, "--storyboard", sb, "-o", plan2, "--entwurf", "--rendern")).toBe(0);
+    const p2 = leseSchnittplan(JSON.parse(fs.readFileSync(plan2, "utf8")));
+    expect(p2.overlays).toHaveLength(1);
+    expect(p2.broll.map((x) => x.katalog)).toEqual(["k-0001"]);
+    expect(p2.woerter.filter((w) => w.betont).map((w) => w.text)).toEqual(["Küche"]);
+
+    // Kontaktbogen, Vorschau, Resolve
+    const bogen = path.join(tmp, "bogen.html");
+    expect(await lauf("schnitt", "kontaktbogen", "--plan", plan2, "-o", bogen)).toBe(0);
+    expect(fs.readFileSync(bogen, "utf8").match(/data:image\/jpeg/g)).toHaveLength(2);
+    const vorschau = path.join(tmp, "vorschau.mp4");
+    expect(await lauf("schnitt", "vorschau", "--plan", plan2, "-o", vorschau)).toBe(0);
+    const gesamt = platziere(p2).gesamtFrames / p2.projekt.fps;
+    const laenge = Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", vorschau]).stdout.toString());
+    expect(Math.abs(laenge - gesamt)).toBeLessThan(0.15);
+    expect(await lauf("schnitt", "resolve", "--plan", plan2, "--entwurf")).toBe(0);
+    const ordner = path.join(tmp, "Studio", "inhalte", "c-0007", "ergebnis", "resolve");
+    expect(fs.readdirSync(ordner).sort()).toEqual(["LIESMICH.md", "overlays", "plan.json", "timeline.fcpxml", "timeline.otio", "untertitel.srt"]);
+    expect(fs.readFileSync(path.join(ordner, "LIESMICH.md"), "utf8")).toMatch(/## Betonte Wörter[\s\S]*Küche/);
+    expect(fs.readFileSync(path.join(ordner, "timeline.fcpxml"), "utf8")).toContain("broll-k-0001");
+
+    // nach dem Video: B-Roll als genutzt vermerken
+    expect(await mc("katalog", "genutzt", "--plan", plan2, "--datum", "2026-10-20")).toBe(0);
+    expect(JSON.parse(fs.readFileSync(path.join(env.datenDir, "katalog.json"), "utf8"))[0].zuletztGenutzt).toEqual({ datum: "2026-10-20", projekt: "Küche Gossau [alperna]" });
+  }, 240_000);
 });
 });
