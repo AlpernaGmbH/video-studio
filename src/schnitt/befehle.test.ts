@@ -480,4 +480,59 @@ describe("schnitt kontaktbogen", () => {
     await expect(lauf("schnitt", "kontaktbogen", "--plan", plan("renders/x.webm"))).rejects.toThrow(/studio init/);
   });
 });
+describe("schnitt vorschau", () => {
+  const medien = () => path.join(tmp, "Medien");
+  const material = () => {
+    fs.mkdirSync(path.join(medien(), "rohmaterial"), { recursive: true });
+    fs.mkdirSync(path.join(medien(), "renders", "c-0007"), { recursive: true });
+    const ff = (...a: string[]) => spawnSync("ffmpeg", ["-loglevel", "error", "-y", ...a]);
+    ff("-f", "lavfi", "-i", "color=c=red:s=320x568:r=25:d=3", "-f", "lavfi", "-i", "sine=duration=3", "-shortest", path.join(medien(), "rohmaterial", "sprache.mp4"));
+    ff("-f", "lavfi", "-i", "color=c=white@0.7:s=1080x1920:r=25:d=1,format=yuva420p", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", path.join(medien(), "renders", "c-0007", "grafik.webm"));
+  };
+  const plan = (grafik = "renders/c-0007/grafik.webm") =>
+    schreibe("plan.json", {
+      version: 1,
+      projekt: { name: "Küche Gossau", inhalt: "c-0007", marke: "alperna" },
+      quellen: [{ id: "sprache", pfad: "rohmaterial/sprache.mp4", art: "video", dauer: 3, fps: 25, breite: 320, hoehe: 568, hatAudio: true }],
+      clips: [{ id: "k01", quelle: "sprache", von: 0, bis: 2, zeile: 1 }],
+      overlays: [{ datei: grafik, effekt: "zahl-zaehler", t: 0.5, dauer: 0.8, begruendung: "Kennzahl im Skript" }],
+      woerter: [{ text: "Hallo", quelle: "sprache", von: 0.2, bis: 0.6 }, { text: "zusammen.", quelle: "sprache", von: 0.7, bis: 1.3 }],
+    });
+  const dauer = (f: string): number => Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).stdout.toString());
+
+  it.skipIf(!hatFfmpeg)("schreibt die Vorschau in den Ergebnisordner des Inhalts und nummeriert weitere Fassungen, ohne etwas zu überschreiben", async () => {
+    material();
+    expect(await lauf("schnitt", "vorschau", "--plan", plan())).toBe(0);
+    const erste = path.join(tmp, "Studio", "inhalte", "c-0007", "ergebnis", "vorschau.mp4");
+    expect(dauer(erste)).toBeGreaterThan(1.9);
+    expect(ausgabe.join("\n")).toMatch(/vorschau\.mp4\n[\d,]+ MB, 2,0 s/);
+    expect(ausgabe.join("\n")).toContain("Eine Näherung");
+    const bytes = fs.statSync(erste).size;
+    expect(await lauf("schnitt", "vorschau", "--plan", plan(), "--ohne-untertitel")).toBe(0);
+    expect(fs.existsSync(path.join(path.dirname(erste), "vorschau-v2.mp4"))).toBe(true);
+    expect(fs.statSync(erste).size).toBe(bytes);
+    expect(ausgabe.join("\n")).toContain("ohne Untertitel (--ohne-untertitel)");
+    // keine Reste der Untertitel-Datei
+    expect(fs.readdirSync(path.dirname(erste)).filter((n) => n.endsWith(".srt"))).toEqual([]);
+  }, 120_000);
+
+  it.skipIf(!hatFfmpeg)("nimmt ein eigenes Ziel mit -o", async () => {
+    material();
+    const ziel = path.join(tmp, "mein", "v.mp4");
+    expect(await lauf("schnitt", "vorschau", "--plan", plan(), "-o", ziel)).toBe(0);
+    expect(fs.existsSync(ziel)).toBe(true);
+  }, 120_000);
+
+  it.skipIf(!hatFfmpeg)("nennt fehlende Dateien, bevor ffmpeg läuft, und legt nichts an", async () => {
+    material();
+    await expect(lauf("schnitt", "vorschau", "--plan", plan("renders/c-0007/fehlt.webm"))).rejects.toThrow(/fehlen Dateien[\s\S]*--rendern[\s\S]*fehlt\.webm/);
+    expect(fs.existsSync(path.join(tmp, "Studio", "inhalte"))).toBe(false);
+  });
+
+  it("verlangt den Plan und einen eingerichteten Studio-Ordner", async () => {
+    await expect(lauf("schnitt", "vorschau")).rejects.toThrow(/--plan fehlt/);
+    vi.stubEnv("STUDIO_HOME", "");
+    await expect(lauf("schnitt", "vorschau", "--plan", plan())).rejects.toThrow(/studio init/);
+  });
+});
 });

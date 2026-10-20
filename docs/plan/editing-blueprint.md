@@ -136,6 +136,7 @@ studio schnitt auftrag --plan plan.json --katalog katalog.json --regeln regeln.j
    (Claude liest auftrag.md und schreibt sb.json)
 studio schnitt storyboard --plan plan.json --storyboard sb.json -o plan-storyboard.json --rendern
 studio schnitt kontaktbogen --plan plan-storyboard.json -o kontaktbogen.html
+studio schnitt vorschau --plan plan-storyboard.json
 studio schnitt pruefe --plan plan-storyboard.json
 studio schnitt resolve --plan plan-storyboard.json
 ```
@@ -151,9 +152,11 @@ studio schnitt resolve --plan plan-storyboard.json
 
 **Kontaktbogen.** `schnitt kontaktbogen` macht aus dem Plan eine HTML-Datei ohne externe Teile: ein Standbild pro Grafik und pro B-Roll mit Zeit, Art und Begründung (Plan Kap. 3.5, «Kontaktbogen und Liste»). Bei einer Grafik liegt ihr Standbild aus dem Render in der Mitte ihrer Dauer über dem Bild der Sprache an dieser Stelle; die Grafik muss dafür gerendert sein, sonst steht es im Bild und der Exit-Code ist 1. Zoom, Untertitel und Übergänge fehlen im Standbild. Die Datei lässt sich im Browser öffnen oder als Artifact teilen; sie ist die Grundlage für die Bestätigung.
 
+**Vorschau.** `schnitt vorschau` rechnet den Plan mit ffmpeg zu einem Video (540×960, 25p, H.264/AAC) und legt es unter `<Studio>/inhalte/<ID>/ergebnis/vorschau.mp4` ab (weitere Fassungen als `vorschau-v2.mp4`, nie überschrieben). Enthalten sind Clips mit Zoom, B-Roll (stumm), Grafiken mit Transparenz, Musik mit ihrem Pegel und die eingebrannten Untertitel (wenn dieses ffmpeg libass kann; sonst steht es in der Ausgabe). Es ist eine Näherung zum Ansehen: kein Look, keine Übergänge, keine Federbewegung des Zoom-Punch, roher Ton, hohe Kompression. Fehlen Quellen oder noch nicht gerenderte Grafiken, nennt der Befehl sie, bevor ffmpeg läuft. Ein ganzes 30-s-Reel rechnet in Sekunden bis wenigen Minuten, je nach Rechner (im Container 8,6 s Video in 4 s).
+
 **Freigabe.** Das Ergebnis ist ein Entwurf. Freigegeben ist ein Storyboard, wenn ein Mensch es bestätigt oder per Satz ändert («Hook kürzer»); Änderungen setzen die Freigabe zurück (Plan Kap. 3.5). Diese Freigabe gibt es im Code noch nicht, sie läuft im Gespräch. Der Befehl schreibt nie eine Freigabe.
 
-**Nicht umgesetzt:** Soundeffekte und Musik-Beats (Plan Kap. 3.8), Fotos mit Kamerabewegung, eine Vorschau als Video (nur Standbilder). Die Zahl der Overlays pro Sekunde ist nicht begrenzt; die Regeln im Auftrag und das Schnittprofil tragen das.
+**Nicht umgesetzt:** Soundeffekte und Musik-Beats (Plan Kap. 3.8), Fotos mit Kamerabewegung. Die Zahl der Overlays pro Sekunde ist nicht begrenzt; die Regeln im Auftrag und das Schnittprofil tragen das.
 
 **Geprüft:** mit künstlichen Daten und Mutationsproben je Regel, im Container mit einem echten HyperFrames-Render des Stücks `zahl-zaehler` (27 s, Prüfung bestanden) und dem anschliessenden `schnitt resolve` (WebM nach ProRes 4444, FCPXML gegen Apples DTD 1.8 gültig, betonte Wörter in `LIESMICH.md`). Nicht geprüft: B-Roll aus echtem Katalogmaterial, ein Storyboard, das Claude aus einem echten Auftrag geschrieben hat.
 

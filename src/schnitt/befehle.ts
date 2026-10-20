@@ -10,6 +10,9 @@ import { GROSSE_UNTERORDNER, medienOrdner, studioHome } from "../setup";
 import { markeFuerExportFreigegeben } from "../core/schemas";
 import { z } from "zod";
 import { erzeugeBogen } from "./kontaktbogen";
+import { fehlendeDateien, erzeugeVorschau, kannUntertitel } from "./vorschau";
+import { STANDARD_SCHNITTPROFIL } from "./planbau";
+import { gruppiere, schreibeSrt, woerterAufTimeline } from "./untertitel";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { zuordnungBericht } from "./bericht";
 import { messePegel, ordneZuMitPegel } from "./energie";
@@ -44,6 +47,9 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
   schnitt kontaktbogen --plan plan.json [-o kontaktbogen.html]
                                       Ein Standbild pro Grafik und B-Roll mit Zeit und Begründung als eine HTML-Datei (ohne externe Teile) für die Bestätigung des Storyboards.
                                       Standard: .cache/kontaktbogen-<Inhalt>.html im Repo. Nicht gerenderte Grafiken und fehlende Dateien stehen im Bild und in der Ausgabe.
+  schnitt vorschau --plan plan.json [-o vorschau.mp4] [--ohne-untertitel]
+                                      Vorschau-Video (540x960, 25p) mit Clips, Zoom, B-Roll, Grafiken, Musik und eingebrannten Untertiteln. Eine Näherung zum Ansehen, kein Export.
+                                      Standard: <Studio>/inhalte/<Inhalt-ID>/ergebnis/vorschau.mp4, eine vorhandene Datei wird nie überschrieben (vorschau-v2.mp4).
   schnitt pruefe --plan plan.json [--marke key] [--entwurf]
                                       Plan prüfen: Quellen, Grenzen, Regeln des Schnittprofils der Marke (Pausen, Bildwechsel, Hook, Sprechtempo)
   schnitt resolve --plan plan.json [--aus ordner] [--preset reel] [--audio standard] [--marke key] [--nicht-strikt] [--entwurf]
@@ -156,6 +162,40 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       return auftragBefehl(a, env);
     case "storyboard":
       return storyboardBefehl(a, env);
+    case "vorschau": {
+      const home = studioHome();
+      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «studio init» ausführen");
+      const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
+      const loese = (rel: string): string => loesePfad(home, rel);
+      const fehlt = fehlendeDateien(plan, loese);
+      if (fehlt.length) throw new Error(`Für die Vorschau fehlen Dateien auf diesem Rechner (Grafiken: zuerst «schnitt storyboard … --rendern»):\n- ${fehlt.join("\n- ")}`);
+      let ziel: string;
+      if (typeof a.opt["o"] === "string") ziel = path.resolve(a.opt["o"] as string);
+      else {
+        const basis = path.join(home.pfad, "inhalte", plan.projekt.inhalt ?? "ohne-inhalt", "ergebnis");
+        ziel = path.join(basis, "vorschau.mp4");
+        for (let n = 2; fs.existsSync(ziel); n++) ziel = path.join(basis, `vorschau-v${n}.mp4`);
+      }
+      fs.mkdirSync(path.dirname(ziel), { recursive: true });
+      let srt: string | undefined;
+      let notiz = "";
+      if (a.opt["ohne-untertitel"] === true) notiz = "ohne Untertitel (--ohne-untertitel)";
+      else if (!plan.woerter.length) notiz = "ohne Untertitel (der Plan hat keine Wörter)";
+      else if (!(await kannUntertitel())) notiz = "ohne Untertitel: dieses ffmpeg hat keinen Filter «subtitles» (libass)";
+      else {
+        const profil = ladeMarke(env, plan.projekt.marke).schnittprofil ?? STANDARD_SCHNITTPROFIL;
+        srt = path.join(path.dirname(ziel), `.vorschau-${process.pid}.srt`);
+        fs.writeFileSync(srt, schreibeSrt(gruppiere(woerterAufTimeline(plan, platziere(plan)), profil), plan.projekt.fps));
+      }
+      try {
+        const r = await erzeugeVorschau({ plan, loese: (rel) => loese(rel), ausgabe: ziel, untertitel: srt });
+        console.log(`${r.datei}\n${(fs.statSync(ziel).size / 1024 / 1024).toFixed(1).replace(".", ",")} MB, ${r.dauer.toFixed(1).replace(".", ",")} s${notiz ? `, ${notiz}` : ""}`);
+      } finally {
+        if (srt) fs.rmSync(srt, { force: true });
+      }
+      console.log("Eine Näherung zum Ansehen: kein Look, keine Übergänge, roher Ton, 540p. Als Video taugt erst der Export aus Resolve.");
+      return 0;
+    }
     case "kontaktbogen": {
       const home = studioHome();
       if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «studio init» ausführen");
