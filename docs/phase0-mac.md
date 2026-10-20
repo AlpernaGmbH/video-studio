@@ -83,5 +83,5 @@ Zeigt Claude Code kein Notion, fehlt die Verbindung: in claude.ai Einstellungen 
 | T3 | mit deinem Test bestanden für eine Person. Für Leander fehlt es |
 | T4 | 25p oder 30p |
 | T5 | OneDrive-Weg bestätigt oder Material lokal kopieren |
-| T2 | Möglich, sobald Whisper auf dem Mac läuft: `whisper <clip> --language de --word_timestamps True --output_format json` für 3 echte Clips, dann `studio schnitt zuordnen …` (siehe `docs/plan/editing-blueprint.md`). Der Bericht nennt den Anteil zugeordneter Zeilen (Ziel mindestens 95 Prozent); die Zeitabweichung der Wörter (höchstens 0,3 s) musst du am Video gegenprüfen |
+| T2 | Möglich, sobald Whisper auf dem Mac installiert ist (`pip install openai-whisper`, `studio doctor` prüft es): `studio schnitt transkribiere <clip>` für 3 echte Clips (ruft Whisper mit Wortzeiten auf), dann `studio schnitt zuordnen …` (siehe `docs/plan/editing-blueprint.md`). Der Bericht nennt den Anteil zugeordneter Zeilen (Ziel mindestens 95 Prozent); die Zeitabweichung der Wörter (höchstens 0,3 s) musst du am Video gegenprüfen |
 | T6, T7 | **Nicht hier möglich.** Sie brauchen Code, den Plan v3 erst in Phase 2 baut (siehe `STATUS.md`) |

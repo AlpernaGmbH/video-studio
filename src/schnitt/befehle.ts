@@ -17,6 +17,7 @@ import { leseSchnittplan, platziere, SchnittQuelle } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
 import { erzeugeUebergabe, loesePfad, relativierePfad } from "./uebergabe";
 import { leseTranskript } from "./transkript";
+import { STANDARD_MODELL, transkribiere } from "./whisper";
 import { ordneZu, skriptZeilen } from "./zuordnung";
 
 /** Befehle `studio schnitt …`: Schnittplan prüfen, an Resolve übergeben, Quellen sondieren, fertigen Export prüfen. */
@@ -24,6 +25,9 @@ import { ordneZu, skriptZeilen } from "./zuordnung";
 export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/plan/editing-blueprint.md)
   schnitt beispiel                    Beispiel eines Schnittplans (JSON) ausgeben. Aufbau: prompts/beispiele/schnittplan.json
   schnitt sondiere <datei...>         Länge, Bildrate, Grösse, Ton und Timecode-Beginn mit ffprobe lesen (für die Liste «quellen» im Plan)
+  schnitt transkribiere <aufnahme> [--modell large-v3] [--sprache de] [-o transkript.json]
+                                      Whisper lokal aufrufen (openai-whisper, STUDIO_WHISPER_BIN ersetzt das Programm) und das JSON mit Wortzeiten ablegen,
+                                      Standard <Datenordner>/transkripte/<Name>.json. Das Modell «large-v3» ist eine Annahme, Test T2 entscheidet.
   schnitt zuordnen --skript skript.md --transkript <quelle>=<whisper.json>[,…] --quellen quellen.json --marke key -o plan.json
                                       [--name "Titel"] [--inhalt c-0007] [--gesprochen 3,5] [--ohne-pegel] [--bericht bericht.json]
                                       Skript und Whisper-Transkript zu einem Schnittplan: pro Zeile der beste Take (Bauplan v2, Kap. 3.3), Pausen, Füllwörter und Bildwechsel
@@ -79,6 +83,17 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         console.error(`Hinweis: Pfade im Plan sind relativ zum Studio-Ordner (Rohmaterial und Renders zum Medien-Ordner, Unterordner ${GROSSE_UNTERORDNER.join(", ")}).`);
         return 1;
       }
+      return 0;
+    }
+    case "transkribiere": {
+      const eingang = a.pos[2];
+      if (!eingang) throw new Error("Aufruf: schnitt transkribiere <aufnahme>");
+      const name = path.basename(eingang, path.extname(eingang)).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "aufnahme";
+      const ziel = typeof a.opt["o"] === "string" ? (a.opt["o"] as string) : path.join(env.datenDir, "transkripte", `${name}.json`);
+      const r = await transkribiere({ eingang, ziel, modell: typeof a.opt["modell"] === "string" ? (a.opt["modell"] as string) : STANDARD_MODELL, sprache: typeof a.opt["sprache"] === "string" ? (a.opt["sprache"] as string) : "de" });
+      console.log(`${r.datei}: ${r.segmente} Segmente über ${r.spanne.toFixed(1).replace(".", ",")} s, ${r.mitWortzeiten} mit Wortzeiten, ${r.ueberLimit} über ${4} s (werden geteilt)`);
+      if (r.mitWortzeiten < r.segmente) console.log(`Hinweis: ${r.segmente - r.mitWortzeiten} Segmente ohne Wortzeiten. Sie werden nach Zeichenzahl verteilt, Pausen im Satz und Füllwörter lassen sich dort nicht schneiden (--word_timestamps True).`);
+      console.log(`Nächster Schritt: «studio schnitt zuordnen --transkript <quelle>=${r.datei} …»`);
       return 0;
     }
     case "zuordnen": {

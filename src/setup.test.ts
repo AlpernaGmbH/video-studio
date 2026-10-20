@@ -125,6 +125,19 @@ describe("doctor", () => {
     expect(p.find((x) => x.name === "OneDrive-Dateien")?.text).toMatch(/Immer auf diesem Gerät behalten/);
   });
 
+  it("Whisper fehlt: Warnung mit der Installation, kein Fehler; vorhanden oder über STUDIO_WHISPER_BIN eingetragen: ok", () => {
+    onedrive();
+    initialisiere({ env: env(), userHome: user });
+    const ohne = pruefeUmgebung(sonde({ befehl: (cmd) => (cmd === "whisper" ? undefined : "vorhanden") }));
+    expect(ohne.find((x) => x.name === "Whisper")).toMatchObject({ stufe: "warnung" });
+    expect(ohne.find((x) => x.name === "Whisper")?.text).toMatch(/pip install openai-whisper/);
+    expect(hatFehler(ohne)).toBe(false);
+    expect(pruefeUmgebung(sonde()).find((x) => x.name === "Whisper")?.stufe).toBe("ok");
+    const eigenes = pruefeUmgebung(sonde({ env: { ...env(), STUDIO_WHISPER_BIN: "/opt/w" }, befehl: (cmd) => (cmd === "/opt/w" ? "vorhanden" : undefined) }));
+    expect(eigenes.find((x) => x.name === "Whisper")).toMatchObject({ stufe: "ok" });
+    expect(eigenes.find((x) => x.name === "Whisper")?.text).toContain("/opt/w");
+  });
+
   it("ohne Einrichtung: Fehler mit dem nächsten Schritt", () => {
     const p = pruefeUmgebung(sonde());
     expect(hatFehler(p)).toBe(true);

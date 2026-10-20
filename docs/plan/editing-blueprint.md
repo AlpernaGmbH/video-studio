@@ -95,13 +95,13 @@ Nicht abgedeckt: Zeitlupe (50p und 60p als B-Roll laufen in der Übergabe in Ech
 `studio schnitt zuordnen` macht aus dem Skript und dem Whisper-Transkript einen Schnittplan (Bauplan v2, Kap. 3.2 bis 3.4). Ohne diesen Schritt entsteht `plan.json` nur von Hand.
 
 ```
-whisper sprache-01.mov --model large-v3 --language de --word_timestamps True --output_format json
+studio schnitt transkribiere <Medien>/rohmaterial/…/sprache-01.mov
 studio schnitt sondiere <Medien>/rohmaterial/…/sprache-01.mov > quellen.json
-studio schnitt zuordnen --skript skript.md --transkript sprache-01=sprache-01.json --quellen quellen.json \
+studio schnitt zuordnen --skript skript.md --transkript sprache-01=<Daten>/transkripte/sprache-01.json --quellen quellen.json \
   --marke alperna -o plan.json --bericht bericht.json
 ```
 
-Der Whisper-Aufruf ist ein Beispiel. Welches Modell Schweizerdeutsch am besten trifft, entscheidet Test T2, nicht dieses Dokument. Gelesen werden drei Formate: openai-whisper (`segments`, mit `--word_timestamps True` auch Wörter), whisper.cpp (`-oj`) und eine einfache Liste `{"segmente": [{"von", "bis", "text"}]}`. Die Kennung vor dem `=` ist die Kennung der Videoquelle in `quellen.json`; bei genau einer Videoquelle genügt der Dateiname.
+`transkribiere` ruft die Kommandozeile von openai-whisper lokal auf (`pip install openai-whisper`; `STUDIO_WHISPER_BIN` setzt ein anderes Programm mit denselben Schaltern ein) mit `--word_timestamps True` und legt das JSON unter `<Daten>/transkripte/<Name>.json` ab. Es prüft, ob es sich lesen lässt, und nennt Segmente ohne Wortzeiten. `studio doctor` warnt, wenn Whisper fehlt. Welches Modell Schweizerdeutsch am besten trifft, entscheidet Test T2, nicht dieses Dokument: «large-v3» ist eine Annahme, `--modell` ändert sie. Gelesen werden drei Formate: openai-whisper (`segments`, mit `--word_timestamps True` auch Wörter), whisper.cpp (`-oj`) und eine einfache Liste `{"segmente": [{"von", "bis", "text"}]}`. Die Kennung vor dem `=` ist die Kennung der Videoquelle in `quellen.json`; bei genau einer Videoquelle genügt der Dateiname.
 
 **Was der Befehl tut**
 

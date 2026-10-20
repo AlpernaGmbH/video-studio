@@ -376,4 +376,61 @@ describe("schnitt auftrag und schnitt storyboard", () => {
     expect(await lauf("schnitt", "storyboard", "--plan", planDatei(), "--storyboard", sb([b]), "--katalog", katalog, "-o", path.join(tmp, "p.json"))).toBe(1);
     expect(ausgabe.join("\n")).toContain("broll-ueber-ende");
   }, 60_000);
+describe("schnitt transkribiere", () => {
+  /** Ein Ersatz-Whisper als Skript: schreibt ein Transkript nach --output_dir und merkt sich seine Schalter. */
+  const ersatzWhisper = (): { bin: string; merk: string } => {
+    const merk = path.join(tmp, "aufruf.json");
+    const bin = path.join(tmp, "whisper-ersatz");
+    fs.writeFileSync(
+      bin,
+      `#!/usr/bin/env node
+const fs = require("node:fs"), path = require("node:path");
+const a = process.argv.slice(2);
+fs.writeFileSync(${JSON.stringify(merk)}, JSON.stringify(a));
+const out = a[a.indexOf("--output_dir") + 1];
+const name = path.basename(a[0], path.extname(a[0])) + ".json";
+fs.writeFileSync(path.join(out, name), JSON.stringify({ segments: [{ start: 0, end: 3, text: "Hallo zusammen", words: [{ word: " Hallo", start: 0, end: 1 }, { word: " zusammen", start: 1.1, end: 2 }] }, { start: 3, end: 9, text: "Das ist ein langes Segment" }] }));
+`,
+    );
+    fs.chmodSync(bin, 0o755);
+    return { bin, merk };
+  };
+
+  it("ruft Whisper auf, legt das Transkript unter dem Namen der Aufnahme im Datenordner ab und fasst es zusammen", async () => {
+    const { bin, merk } = ersatzWhisper();
+    vi.stubEnv("STUDIO_WHISPER_BIN", bin);
+    const aufnahme = path.join(tmp, "Sprache 01.mov");
+    fs.writeFileSync(aufnahme, "x");
+    expect(await lauf("schnitt", "transkribiere", aufnahme)).toBe(0);
+    const ziel = path.join(env.datenDir, "transkripte", "sprache-01.json");
+    expect(fs.existsSync(ziel)).toBe(true);
+    const text = ausgabe.join("\n");
+    expect(text).toContain(`${ziel}: 2 Segmente über 9,0 s, 1 mit Wortzeiten, 1 über 4 s (werden geteilt)`);
+    expect(text).toContain("1 Segmente ohne Wortzeiten");
+    expect(text).toContain("schnitt zuordnen --transkript");
+    const args = JSON.parse(fs.readFileSync(merk, "utf8")) as string[];
+    expect(args).toEqual([aufnahme, "--model", "large-v3", "--language", "de", "--word_timestamps", "True", "--output_format", "json", "--output_dir", expect.any(String)]);
+  });
+
+  it("nimmt Modell, Sprache und Ziel aus den Schaltern, und das Ergebnis lässt sich direkt in «zuordnen» verwenden", async () => {
+    const { bin, merk } = ersatzWhisper();
+    vi.stubEnv("STUDIO_WHISPER_BIN", bin);
+    const aufnahme = path.join(tmp, "a.mp4");
+    fs.writeFileSync(aufnahme, "x");
+    const ziel = path.join(tmp, "mein.json");
+    expect(await lauf("schnitt", "transkribiere", aufnahme, "--modell", "medium", "--sprache", "de", "-o", ziel)).toBe(0);
+    expect(JSON.parse(fs.readFileSync(merk, "utf8"))).toEqual(expect.arrayContaining(["--model", "medium"]));
+    const skript = schreibe("skript.md", "Hallo zusammen.");
+    const quellen = schreibe("quellen.json", [videoQuelle("sprache")]);
+    expect(await lauf("schnitt", "zuordnen", "--skript", skript, "--transkript", ziel, "--quellen", quellen, "--marke", "alperna", "-o", path.join(tmp, "plan.json"), "--ohne-pegel")).toBe(0);
+  });
+
+  it("fehlt Whisper, steht die Installation in der Meldung", async () => {
+    vi.stubEnv("STUDIO_WHISPER_BIN", path.join(tmp, "gibt-es-nicht"));
+    const aufnahme = path.join(tmp, "a.mp4");
+    fs.writeFileSync(aufnahme, "x");
+    await expect(lauf("schnitt", "transkribiere", aufnahme)).rejects.toThrow(/pip install openai-whisper/);
+    await expect(lauf("schnitt", "transkribiere")).rejects.toThrow(/Aufruf/);
+  });
+});
 });

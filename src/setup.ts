@@ -211,6 +211,10 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
     if (v) add("ok", cmd, v.split("\n")[0] ?? "vorhanden");
     else add("fehler", cmd, `fehlt. Installieren mit «brew install ffmpeg»`);
   }
+  // Whisper ist nur für «schnitt transkribiere» nötig: fehlt es, ist das eine Warnung, kein Fehler
+  const whisper = s.env["STUDIO_WHISPER_BIN"] || "whisper";
+  if (s.befehl(whisper, ["--help"])) add("ok", "Whisper", `${whisper} vorhanden (schnitt transkribiere)`);
+  else add("warnung", "Whisper", `«${whisper}» fehlt. Für «schnitt transkribiere»: «pip install openai-whisper», oder STUDIO_WHISPER_BIN setzen. Ohne Whisper lässt sich ein Transkript auch anderswo erzeugen und mit «schnitt zuordnen» benutzen`);
   if (s.befehl("npx", ["--version"])) add("ok", "npx", "vorhanden (holt HyperFrames in der fest eingetragenen Version)");
   else add("fehler", "npx", "fehlt. Node samt npm installieren");
 
