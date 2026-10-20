@@ -433,4 +433,51 @@ fs.writeFileSync(path.join(out, name), JSON.stringify({ segments: [{ start: 0, e
     await expect(lauf("schnitt", "transkribiere")).rejects.toThrow(/Aufruf/);
   });
 });
+describe("schnitt kontaktbogen", () => {
+  const legeAn = () => {
+    const medien = path.join(tmp, "Medien");
+    fs.mkdirSync(path.join(medien, "rohmaterial", "bib"), { recursive: true });
+    fs.mkdirSync(path.join(medien, "renders", "c-0007"), { recursive: true });
+    spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x568:rate=25:duration=10", path.join(medien, "rohmaterial", "sprache.mp4")]);
+    spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=6", path.join(medien, "rohmaterial", "bib", "laptop.mp4")]);
+    return medien;
+  };
+  const plan = (overlayDatei: string) =>
+    schreibe("plan.json", {
+      version: 1,
+      projekt: { name: "Küche Gossau", inhalt: "c-0007", marke: "alperna" },
+      quellen: [
+        { id: "sprache", pfad: "rohmaterial/sprache.mp4", art: "video", dauer: 10, fps: 25, breite: 320, hoehe: 568, hatAudio: false },
+        { id: "broll-k-0001", pfad: "rohmaterial/bib/laptop.mp4", art: "video", dauer: 6, fps: 25, breite: 640, hoehe: 360 },
+      ],
+      clips: [{ id: "k01", quelle: "sprache", von: 0, bis: 8, zeile: 1 }],
+      broll: [{ quelle: "broll-k-0001", katalog: "k-0001", t: 4, dauer: 1.5, von: 1, begruendung: "Zeigt die Aussage" }],
+      overlays: [{ datei: overlayDatei, effekt: "zahl-zaehler", t: 1, dauer: 2, begruendung: "Kennzahl im Skript" }],
+    });
+
+  it.skipIf(!hatFfmpeg)("schreibt eine HTML-Datei mit einem Standbild je Eintrag", async () => {
+    const medien = legeAn();
+    spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=red@0.6:s=1080x1920:r=25:d=2,format=yuva420p", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", path.join(medien, "renders", "c-0007", "zahl-zaehler-01.webm")]);
+    const aus = path.join(tmp, "bogen.html");
+    expect(await lauf("schnitt", "kontaktbogen", "--plan", plan("renders/c-0007/zahl-zaehler-01.webm"), "-o", aus)).toBe(0);
+    const html = fs.readFileSync(aus, "utf8");
+    expect(html.match(/data:image\/jpeg;base64,/g)).toHaveLength(2);
+    expect(html).toContain("Kontaktbogen Küche Gossau");
+    expect(ausgabe.join("\n")).toMatch(/bogen\.html\n\d+ KB, 2 Einträge, 2 mit Standbild/);
+  }, 60_000);
+
+  it.skipIf(!hatFfmpeg)("Exit-Code 1 und ein klarer Hinweis, wenn eine Grafik noch nicht gerendert ist", async () => {
+    legeAn();
+    const aus = path.join(tmp, "bogen.html");
+    expect(await lauf("schnitt", "kontaktbogen", "--plan", plan("renders/c-0007/fehlt.webm"), "-o", aus)).toBe(1);
+    expect(ausgabe.join("\n")).toContain("Nicht gerendert: Eintrag 1");
+    expect(fs.readFileSync(aus, "utf8")).toContain("Grafik noch nicht gerendert: renders/c-0007/fehlt.webm");
+  }, 60_000);
+
+  it("verlangt den Plan und einen eingerichteten Studio-Ordner", async () => {
+    await expect(lauf("schnitt", "kontaktbogen")).rejects.toThrow(/--plan fehlt/);
+    vi.stubEnv("STUDIO_HOME", "");
+    await expect(lauf("schnitt", "kontaktbogen", "--plan", plan("renders/x.webm"))).rejects.toThrow(/studio init/);
+  });
+});
 });

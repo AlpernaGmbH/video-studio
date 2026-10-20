@@ -135,6 +135,7 @@ Nach der Zuordnung hat der Plan Clips und Wörter, aber keine B-Roll, keine Graf
 studio schnitt auftrag --plan plan.json --katalog katalog.json --regeln regeln.json -o auftrag.md
    (Claude liest auftrag.md und schreibt sb.json)
 studio schnitt storyboard --plan plan.json --storyboard sb.json -o plan-storyboard.json --rendern
+studio schnitt kontaktbogen --plan plan-storyboard.json -o kontaktbogen.html
 studio schnitt pruefe --plan plan-storyboard.json
 studio schnitt resolve --plan plan-storyboard.json
 ```
@@ -148,9 +149,11 @@ studio schnitt resolve --plan plan-storyboard.json
 - **Betonung** (Wortnummern aus dem Auftrag) markiert Wörter im Plan. Die SRT trägt keine Hervorhebung; `LIESMICH.md` listet die betonten Wörter mit Zeit für Resolve.
 - Ein früheres Storyboard im Plan wird **ersetzt**, nicht ergänzt. Wer ein neues Storyboard anwendet, geht vom Plan der Zuordnung oder vom letzten Ergebnis aus.
 
+**Kontaktbogen.** `schnitt kontaktbogen` macht aus dem Plan eine HTML-Datei ohne externe Teile: ein Standbild pro Grafik und pro B-Roll mit Zeit, Art und Begründung (Plan Kap. 3.5, «Kontaktbogen und Liste»). Bei einer Grafik liegt ihr Standbild aus dem Render in der Mitte ihrer Dauer über dem Bild der Sprache an dieser Stelle; die Grafik muss dafür gerendert sein, sonst steht es im Bild und der Exit-Code ist 1. Zoom, Untertitel und Übergänge fehlen im Standbild. Die Datei lässt sich im Browser öffnen oder als Artifact teilen; sie ist die Grundlage für die Bestätigung.
+
 **Freigabe.** Das Ergebnis ist ein Entwurf. Freigegeben ist ein Storyboard, wenn ein Mensch es bestätigt oder per Satz ändert («Hook kürzer»); Änderungen setzen die Freigabe zurück (Plan Kap. 3.5). Diese Freigabe gibt es im Code noch nicht, sie läuft im Gespräch. Der Befehl schreibt nie eine Freigabe.
 
-**Nicht umgesetzt:** Soundeffekte und Musik-Beats (Plan Kap. 3.8), der Kontaktbogen (Standbilder pro Effekt), das Eintragen von «zuletzt genutzt» in den Katalog nach dem Export, Fotos mit Kamerabewegung. Die Zahl der Overlays pro Sekunde ist nicht begrenzt; die Regeln im Auftrag und das Schnittprofil tragen das.
+**Nicht umgesetzt:** Soundeffekte und Musik-Beats (Plan Kap. 3.8), Fotos mit Kamerabewegung, eine Vorschau als Video (nur Standbilder). Die Zahl der Overlays pro Sekunde ist nicht begrenzt; die Regeln im Auftrag und das Schnittprofil tragen das.
 
 **Geprüft:** mit künstlichen Daten und Mutationsproben je Regel, im Container mit einem echten HyperFrames-Render des Stücks `zahl-zaehler` (27 s, Prüfung bestanden) und dem anschliessenden `schnitt resolve` (WebM nach ProRes 4444, FCPXML gegen Apples DTD 1.8 gültig, betonte Wörter in `LIESMICH.md`). Nicht geprüft: B-Roll aus echtem Katalogmaterial, ein Storyboard, das Claude aus einem echten Auftrag geschrieben hat.
 

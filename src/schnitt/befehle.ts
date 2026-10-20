@@ -9,6 +9,7 @@ import { messeDatei, sondiere } from "../presets/messen";
 import { GROSSE_UNTERORDNER, medienOrdner, studioHome } from "../setup";
 import { markeFuerExportFreigegeben } from "../core/schemas";
 import { z } from "zod";
+import { erzeugeBogen } from "./kontaktbogen";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { zuordnungBericht } from "./bericht";
 import { messePegel, ordneZuMitPegel } from "./energie";
@@ -40,6 +41,9 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
                                       Antwort von Claude prüfen und in den Plan übernehmen: B-Roll auf V2 (Dateien werden sondiert), Grafiken auf V3 (Verweis auf renders/<Inhalt>/…webm),
                                       betonte Wörter. Verworfenes steht mit Grund in der Ausgabe. --rendern rendert die Grafiken (HyperFrames), sonst steht der Befehl dafür in der Ausgabe.
                                       Ein früheres Storyboard im Plan wird ersetzt. Das Ergebnis ist ein Entwurf: Freigeben tut ein Mensch.
+  schnitt kontaktbogen --plan plan.json [-o kontaktbogen.html]
+                                      Ein Standbild pro Grafik und B-Roll mit Zeit und Begründung als eine HTML-Datei (ohne externe Teile) für die Bestätigung des Storyboards.
+                                      Standard: .cache/kontaktbogen-<Inhalt>.html im Repo. Nicht gerenderte Grafiken und fehlende Dateien stehen im Bild und in der Ausgabe.
   schnitt pruefe --plan plan.json [--marke key] [--entwurf]
                                       Plan prüfen: Quellen, Grenzen, Regeln des Schnittprofils der Marke (Pausen, Bildwechsel, Hook, Sprechtempo)
   schnitt resolve --plan plan.json [--aus ordner] [--preset reel] [--audio standard] [--marke key] [--nicht-strikt] [--entwurf]
@@ -152,6 +156,19 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       return auftragBefehl(a, env);
     case "storyboard":
       return storyboardBefehl(a, env);
+    case "kontaktbogen": {
+      const home = studioHome();
+      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «studio init» ausführen");
+      const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
+      const ziel = typeof a.opt["o"] === "string" ? path.resolve(a.opt["o"] as string) : path.join(env.studioRoot, ".cache", `kontaktbogen-${plan.projekt.inhalt ?? "plan"}.html`);
+      const r = await erzeugeBogen({ plan, loese: (p) => loesePfad(home, p) });
+      fs.mkdirSync(path.dirname(ziel), { recursive: true });
+      fs.writeFileSync(ziel, r.html);
+      console.log(`${ziel}\n${(Buffer.byteLength(r.html) / 1024).toFixed(0)} KB, ${r.eintraege.length} Einträge, ${r.eintraege.length - r.ohneBild.length} mit Standbild`);
+      if (r.nichtGerendert.length) console.log(`Nicht gerendert: Eintrag ${r.nichtGerendert.join(", ")} (zuerst «schnitt storyboard … --rendern»)`);
+      if (r.ohneBild.length) console.log(`Ohne Standbild: Eintrag ${r.ohneBild.join(", ")}`);
+      return r.ohneBild.length || r.nichtGerendert.length ? 1 : 0;
+    }
     case "pruefe": {
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
       const marke = typeof a.opt["marke"] === "string" ? ladeMarke(env, a.opt["marke"]) : ladeMarke(env, plan.projekt.marke);
