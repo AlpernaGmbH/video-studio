@@ -5,7 +5,8 @@ import type { KatalogEintrag } from "../core/schemas";
 import type { Umgebung } from "../motion/werkstatt";
 import { studioHome } from "../setup";
 import { relativierePfad } from "../schnitt/uebergabe";
-import { fuegeBeschreibungenEin, ladeKatalog, ladeOffen, naechsterSchluessel, speichereKatalog, speichereOffen, sucheKatalog } from "./katalog";
+import { leseSchnittplan } from "../schnitt/plan";
+import { fuegeBeschreibungenEin, ladeKatalog, ladeOffen, markiereGenutzt, naechsterSchluessel, projektKennung, speichereKatalog, speichereOffen, sucheKatalog } from "./katalog";
 import { scanne, type ScanWerkzeuge } from "./scan";
 
 /** Befehle `studio katalog …` (Bauplan v2, Kap. 3.7). Der Katalog liegt im Datenordner: katalog.json, katalog-offen.json, katalog/vorschau/. */
@@ -18,6 +19,9 @@ export const KATALOG_HILFE = `Katalog der Fotos, B-Roll und Sounds (Bauplan v2, 
   katalog beschreibe --json datei.json
                                       Beschreibungen von Claude übernehmen: [{"schluessel","titel","beschreibung","tags","sicherheit","besteSekunden"?,"personen"?,"log"?}].
                                       Ein vorhandener Eintrag wird überschrieben (Korrektur). Ungültiges bleibt mit Grund liegen.
+  katalog genutzt --plan plan.json [--datum JJJJ-MM-TT]
+                                      Trägt ein, dass die B-Roll des Plans in diesem Video vorkam (Feld «zuletzt genutzt», Kennung «Name [marke]»).
+                                      Erst aufrufen, wenn das Video fertig ist: Danach gilt die B-Roll im nächsten Video derselben Marke als «lief schon».
   katalog liste [--suche "begriffe"] [--art video|foto|sound] [--offen]
   katalog zeige <schluessel>          Ein Eintrag als JSON
 `;
@@ -80,6 +84,22 @@ export async function katalogBefehl(sub: string, a: Args, env: Umgebung, werkzeu
       console.log(`${e.neu.length} neu im Katalog, ${e.ueberschrieben.length} überschrieben, ${e.fehler.length} abgelehnt; ${e.offen.length} offen, ${e.katalog.length} im Katalog`);
       for (const f of e.fehler) console.log(`  ${f.schluessel}: ${f.grund}`);
       return e.fehler.length ? 1 : 0;
+    }
+    case "genutzt": {
+      const planDatei = a.opt["plan"];
+      if (typeof planDatei !== "string") throw new Error("Aufruf: katalog genutzt --plan plan.json");
+      const plan = leseSchnittplan(JSON.parse(fs.readFileSync(planDatei, "utf8")));
+      const datum = typeof a.opt["datum"] === "string" ? (a.opt["datum"] as string) : new Date().toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) throw new Error("--datum erwartet JJJJ-MM-TT");
+      const schluessel = [...new Set(plan.broll.map((b) => b.katalog))];
+      if (!schluessel.length) {
+        console.log("Der Plan hat keine B-Roll: nichts einzutragen");
+        return 0;
+      }
+      const r = markiereGenutzt(ladeKatalog(dd), schluessel, { datum, projekt: projektKennung(plan.projekt.name, plan.projekt.marke) });
+      if (r.markiert.length) speichereKatalog(dd, r.katalog);
+      console.log(`${r.markiert.length} Einträge als zuletzt genutzt vermerkt (${projektKennung(plan.projekt.name, plan.projekt.marke)}, ${datum})${r.unbekannt.length ? `; nicht im Katalog: ${r.unbekannt.join(", ")}` : ""}`);
+      return r.unbekannt.length ? 1 : 0;
     }
     case "liste": {
       if (a.opt["offen"] === true) {

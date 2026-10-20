@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { KatalogEintrag } from "../core/schemas";
-import { fuegeBeschreibungenEin, ladeKatalog, ladeOffen, naechsterSchluessel, OffenerEintrag, speichereKatalog, speichereOffen, sucheKatalog } from "./katalog";
+import { fuegeBeschreibungenEin, ladeKatalog, ladeOffen, markiereGenutzt, naechsterSchluessel, OffenerEintrag, projektKennung, speichereKatalog, speichereOffen, sucheKatalog } from "./katalog";
 
 const offen = (o: Record<string, unknown> = {}) =>
   OffenerEintrag.parse({ schluessel: "k-0001", art: "video", pfad: "rohmaterial/bib/a.mov", dauer: 8, bildrate: 25, orientierung: "hoch", zeitlupe: false, log: false, ...o });
@@ -80,6 +80,27 @@ describe("sucheKatalog", () => {
   it("filtert nach Art und gibt ohne Begriff alle der Art zurück", () => {
     expect(sucheKatalog(k, "", { art: "foto" }).map((x) => x.schluessel)).toEqual(["k-0002"]);
     expect(sucheKatalog(k, "platz", { art: "video" })).toEqual([]);
+  });
+});
+
+describe("markiereGenutzt", () => {
+  const k = [
+    KatalogEintrag.parse({ ...beschreibung({ schluessel: "k-0001" }), art: "video", pfad: "a.mov", zuletztGenutzt: { datum: "2026-09-01", projekt: "Alt [alperna]" } }),
+    KatalogEintrag.parse({ ...beschreibung({ schluessel: "k-0002" }), art: "video", pfad: "b.mov" }),
+    KatalogEintrag.parse({ ...beschreibung({ schluessel: "k-0003" }), art: "video", pfad: "c.mov" }),
+  ];
+  it("vermerkt Datum und Projekt, ersetzt einen früheren Vermerk und lässt die übrigen unberührt", () => {
+    const r = markiereGenutzt(k, ["k-0001", "k-0002"], { datum: "2026-10-20", projekt: projektKennung("Küche", "alperna") });
+    expect(r.markiert).toEqual(["k-0001", "k-0002"]);
+    expect(r.katalog[0]!.zuletztGenutzt).toEqual({ datum: "2026-10-20", projekt: "Küche [alperna]" });
+    expect(r.katalog[1]!.zuletztGenutzt).toEqual({ datum: "2026-10-20", projekt: "Küche [alperna]" });
+    expect(r.katalog[2]!.zuletztGenutzt).toBeUndefined();
+    expect(k[0]!.zuletztGenutzt!.projekt).toBe("Alt [alperna]");
+  });
+  it("nennt Schlüssel, die es nicht gibt", () => {
+    const r = markiereGenutzt(k, ["k-0002", "k-0999"], { datum: "2026-10-20", projekt: "x" });
+    expect(r.markiert).toEqual(["k-0002"]);
+    expect(r.unbekannt).toEqual(["k-0999"]);
   });
 });
 

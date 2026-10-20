@@ -23,6 +23,7 @@ studio katalog offen --limit 10         die nächsten offenen Dateien als JSON (
 studio katalog beschreibe --json beschreibungen.json
 studio katalog liste --suche "laptop büro"
 studio katalog zeige k-0142
+studio katalog genutzt --plan plan.json   erst wenn das Video fertig ist
 ```
 
 1. **Scan.** Pro Datei liest ffprobe Dauer, Bildrate, Grösse (nach der Drehung: iPhone-Videos sind hochkant), Ton, Aufnahmezeit, Kamera und, wenn die Kamera einen schreibt, den Ort. 50p und 60p gelten als Zeitlupe. Ordnernamen vom gescannten Ordner bis zur Datei stehen als `ordnerHinweis` im Eintrag: Kunde und Ort kommen von dort und aus dem Ort in den Metadaten, nicht aus dem Raten. Bekannte Pfade werden übersprungen, `--max n` begrenzt einen Lauf (der Rest kommt beim nächsten), eine nicht lesbare Datei wird gemeldet und bleibt liegen.
@@ -32,7 +33,7 @@ studio katalog zeige k-0142
 ## Was fehlt
 
 - **Notion-Datenbank «Katalog»** (Plan v3, Phase 1) und der Abgleich dorthin. Bis dahin ist `katalog.json` die einzige Quelle.
-- **«Zuletzt genutzt»** wird nirgends zurückgeschrieben. Es müsste beim Export eines Videos geschehen; ohne das findet das «nicht im letzten Video der Marke» nur Einträge, bei denen jemand das Feld von Hand setzt.
+- **«Zuletzt genutzt»** trägt `studio katalog genutzt --plan plan.json` ein, wenn das Video fertig ist (Kennung «Name [marke]»). Es läuft nicht von selbst beim Export: Wer es vergisst, hat im nächsten Video dieselbe B-Roll wieder im Angebot.
 - **Fotos:** GPS und Aufnahmezeit aus EXIF liest der Scan nicht (ffprobe liefert sie bei Fotos kaum), HEIC geht nur, wenn die ffmpeg-Version es kann. Fotos als B-Roll kann der Schnittplan noch nicht (Ken Burns).
 - **Regel «Korrektur merken»** (Plan Kap. 3.7, Schritt 5): Eine Korrektur überschreibt den Eintrag, wird aber nicht als Regel gemerkt.
 - **Tokenkosten:** Der Plan schätzt grob eine halbe Million Token für 300 Clips und will sie an 20 Dateien messen. Das ist nicht gemessen.

@@ -24,7 +24,7 @@ const basis = (): Schnittplan => bauePlan(ordneZu([Z1, Z2, Z3, Z4], [{ quelle: "
 
 const katalog = [
   KatalogEintrag.parse({ schluessel: "k-0142", art: "video", pfad: "rohmaterial/bib/laptop.mov", titel: "Intern_Gossau_Laptop", beschreibung: "Hände auf Laptop", tags: ["Laptop", "Büro"], dauer: 8.4, orientierung: "hoch", besteSekunden: { von: 1.2, bis: 5.0 }, sicherheit: "hoch" }),
-  KatalogEintrag.parse({ schluessel: "k-0143", art: "video", pfad: "rohmaterial/bib/kueche.mov", titel: "Intern_Gossau_Kueche", beschreibung: "Küche von aussen", tags: ["Küche"], dauer: 6, sicherheit: "hoch", zuletztGenutzt: { datum: "2026-10-10", projekt: "Vorgänger" } }),
+  KatalogEintrag.parse({ schluessel: "k-0143", art: "video", pfad: "rohmaterial/bib/kueche.mov", titel: "Intern_Gossau_Kueche", beschreibung: "Küche von aussen", tags: ["Küche"], dauer: 6, sicherheit: "hoch", zuletztGenutzt: { datum: "2026-10-10", projekt: "Vorgänger [alperna]" } }),
   KatalogEintrag.parse({ schluessel: "k-0200", art: "foto", pfad: "rohmaterial/bib/platz.jpg", titel: "Intern_Speicher_Dorfplatz", beschreibung: "Dorfplatz", tags: ["Speicher"], sicherheit: "mittel" }),
   KatalogEintrag.parse({ schluessel: "k-0300", art: "sound", pfad: "rohmaterial/bib/whoosh.wav", titel: "Whoosh_kurz", beschreibung: "Whoosh", tags: ["Whoosh"], sicherheit: "hoch" }),
 ];
@@ -52,6 +52,20 @@ describe("renderOrdnerName und imLetztenVideo", () => {
     ];
     expect(imLetztenVideo(k, "Aktuell")).toEqual(["k-0143"]);
     expect(imLetztenVideo(katalog.slice(0, 1), "x")).toEqual([]);
+  });
+  it("zählt mit Marke nur die Videos dieser Marke: das jüngste Video einer anderen Marke sperrt nichts", () => {
+    const k = [
+      KatalogEintrag.parse({ ...katalog[0], zuletztGenutzt: { datum: "2026-10-01", projekt: "Küche [alperna]" } }),
+      KatalogEintrag.parse({ ...katalog[1], zuletztGenutzt: { datum: "2026-10-09", projekt: "Bäckerei [kunde-x]" } }),
+    ];
+    expect(imLetztenVideo(k, "Neu [alperna]", "alperna")).toEqual(["k-0142"]);
+    expect(imLetztenVideo(k, "Neu [kunde-x]", "kunde-x")).toEqual(["k-0143"]);
+    expect(imLetztenVideo(k, "Neu [kunde-y]", "kunde-y")).toEqual([]);
+    expect(imLetztenVideo(k, "Neu")).toEqual(["k-0143"]);
+  });
+  it("sperrt ein Video nicht gegen sich selbst: die Einträge des aktuellen Projekts zählen nicht als «letztes Video»", () => {
+    const k = [KatalogEintrag.parse({ ...katalog[0], zuletztGenutzt: { datum: "2026-10-10", projekt: "Küche Gossau [alperna]" } })];
+    expect(imLetztenVideo(k, "Küche Gossau [alperna]", "alperna")).toEqual([]);
   });
 });
 
@@ -98,6 +112,17 @@ describe("bauAuftrag", () => {
     expect(text).toContain("r-002 (optik): Alperna: Grafiken ruhig einblenden.");
     expect(text).not.toContain("r-003");
     expect(text).not.toContain("r-004");
+  });
+
+  it("sperrt nur B-Roll aus dem letzten Video derselben Marke, nicht aus dem einer anderen", () => {
+    const k = [
+      KatalogEintrag.parse({ ...katalog[0], zuletztGenutzt: { datum: "2026-10-01", projekt: "Küche [alperna]" } }),
+      KatalogEintrag.parse({ ...katalog[1], zuletztGenutzt: { datum: "2026-10-09", projekt: "Bäckerei [kunde-x]" } }),
+    ];
+    const t = bauAuftrag(plan, { stuecke: [], katalog: k }).join("\n");
+    expect(t).toMatch(/- k-0143 ·/);
+    expect(t).not.toMatch(/- k-0142 ·/);
+    expect(t).toContain("1 Einträge fehlen");
   });
 
   it("enthält das Format der Antwort", () => {
@@ -149,6 +174,16 @@ describe("wendeStoryboardAn", () => {
   it("verwirft B-Roll aus dem letzten Video der Marke, auch ohne Liste, wenn der Katalog es verrät", () => {
     const r = wendeStoryboardAn(basis(), { ...kopf, overlays: [broll("k-0143", 3)] }, ctx());
     expect(r.plan.broll).toEqual([]);
+    expect(r.verworfen[0]!.grund).toContain("letzten Video");
+  });
+
+  it("lässt B-Roll zu, die zuletzt in einem Video einer anderen Marke lief, und verwirft die aus dem letzten Video derselben", () => {
+    const k = [
+      KatalogEintrag.parse({ ...katalog[0], zuletztGenutzt: { datum: "2026-10-01", projekt: "Küche [alperna]" } }),
+      KatalogEintrag.parse({ ...katalog[1], zuletztGenutzt: { datum: "2026-10-09", projekt: "Bäckerei [kunde-x]" } }),
+    ];
+    const r = wendeStoryboardAn(basis(), { ...kopf, overlays: [broll("k-0142", 2), broll("k-0143", 5)] }, ctx({ katalog: k }));
+    expect(r.plan.broll.map((b) => b.katalog)).toEqual(["k-0143"]);
     expect(r.verworfen[0]!.grund).toContain("letzten Video");
   });
 

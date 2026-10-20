@@ -3,6 +3,7 @@ import { pruefeStoryboard, StoryboardFehler, type VerworfenesOverlay } from "../
 import { kompakterIndex } from "../motion/bibliothek";
 import type { Stueck } from "../motion/stueck";
 import { leseSchnittplan, platziere, sekunden, type Schnittplan, type SchnittQuelle } from "./plan";
+import { projektKennung } from "../katalog/katalog";
 import { woerterMitHerkunft } from "./untertitel";
 
 /**
@@ -23,9 +24,12 @@ export function renderOrdnerName(plan: Schnittplan): string {
   return plan.projekt.inhalt ?? (plan.projekt.name.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss").normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "video");
 }
 
-/** Katalog-Schlüssel, die im letzten Video der Marke vorkamen: alle Einträge, deren letzte Nutzung zum jüngsten Projekt gehört, das nicht das aktuelle ist. */
-export function imLetztenVideo(katalog: KatalogEintrag[], aktuellesProjekt: string): string[] {
-  const genutzt = katalog.filter((k) => k.zuletztGenutzt && k.zuletztGenutzt.projekt !== aktuellesProjekt);
+/**
+ * Katalog-Schlüssel, die im letzten Video der Marke vorkamen: alle Einträge, deren letzte Nutzung zum jüngsten Projekt gehört, das nicht das aktuelle ist.
+ * Mit `marke` zählen nur Videos dieser Marke (Kennung «Name [marke]», siehe `projektKennung`); ohne sie alle.
+ */
+export function imLetztenVideo(katalog: KatalogEintrag[], aktuellesProjekt: string, marke?: string): string[] {
+  const genutzt = katalog.filter((k) => k.zuletztGenutzt && k.zuletztGenutzt.projekt !== aktuellesProjekt && (!marke || k.zuletztGenutzt.projekt.endsWith(` [${marke}]`)));
   if (!genutzt.length) return [];
   const juengstes = genutzt.reduce((a, b) => (b.zuletztGenutzt!.datum > a.zuletztGenutzt!.datum ? b : a)).zuletztGenutzt!.projekt;
   return genutzt.filter((k) => k.zuletztGenutzt!.projekt === juengstes).map((k) => k.schluessel);
@@ -79,7 +83,7 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
   aus.push("## Grafiken (aktive Stücke)", "", aktive.length ? kompakterIndex(aktive) : "(Keine aktiven Stücke: Es gibt nur B-Roll. Fehlt eine Grafik, gehört sie ins Ideenprotokoll der Motion-Werkstatt, nicht ins Storyboard.)", "");
   aus.push("Parameter mit * sind Pflicht. Die Datenblätter stehen in `library/motion/<id>/piece.json`.", "");
 
-  const letzte = new Set(imLetztenVideo(ctx.katalog, plan.projekt.name));
+  const letzte = new Set(imLetztenVideo(ctx.katalog, projektKennung(plan.projekt.name, plan.projekt.marke), plan.projekt.marke));
   const bilder = ctx.katalog.filter((k) => k.art !== "sound");
   const frei = bilder.filter((k) => !letzte.has(k.schluessel));
   aus.push("## B-Roll (Katalog)", "");
@@ -158,7 +162,7 @@ export function wendeStoryboardAn(plan: Schnittplan, roh: unknown, ctx: Anwenden
     stuecke: ctx.stuecke,
     nurAktive: ctx.nurAktive,
     katalog: ctx.katalog,
-    imLetztenVideoDerMarke: ctx.imLetztenVideoDerMarke ?? imLetztenVideo(ctx.katalog, plan.projekt.name),
+    imLetztenVideoDerMarke: ctx.imLetztenVideoDerMarke ?? imLetztenVideo(ctx.katalog, projektKennung(plan.projekt.name, plan.projekt.marke), plan.projekt.marke),
     videoDauer: gesamt,
   });
   const verworfen = [...geprueft.verworfen];

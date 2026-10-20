@@ -43,6 +43,45 @@ const legeMaterialAn = () => {
   ff("-f", "lavfi", "-i", "sine=duration=1", path.join(bib(), "whoosh.wav"));
 };
 
+describe("katalog genutzt", () => {
+  const eintrag = (schluessel: string) => ({ schluessel, art: "video", pfad: `rohmaterial/bib/${schluessel}.mov`, titel: `Intern_${schluessel}`, beschreibung: "Testmaterial", tags: ["Test"], dauer: 6, sicherheit: "hoch" });
+  const plan = (broll: unknown[]) => ({
+    version: 1,
+    projekt: { name: "Küche Gossau", marke: "alperna" },
+    quellen: [{ id: "a", pfad: "rohmaterial/a.mov", art: "video", dauer: 60, fps: 25, breite: 1080, hoehe: 1920, hatAudio: true }, { id: "broll-k-0001", pfad: "rohmaterial/bib/k-0001.mov", art: "video", dauer: 6, fps: 25, breite: 1080, hoehe: 1920 }],
+    clips: [{ id: "k01", quelle: "a", von: 0, bis: 5 }],
+    broll,
+  });
+  const schreibeJson = (name: string, inhalt: unknown) => {
+    const d = path.join(tmp, name);
+    fs.writeFileSync(d, JSON.stringify(inhalt));
+    return d;
+  };
+  const b = (key: string) => ({ quelle: "broll-k-0001", katalog: key, t: 1, dauer: 1.5, von: 0, begruendung: "Zeigt die Aussage" });
+
+  it("vermerkt die B-Roll des Plans mit Datum und Kennung «Name [marke]»", async () => {
+    fs.mkdirSync(env.datenDir, { recursive: true });
+    fs.writeFileSync(path.join(env.datenDir, "katalog.json"), JSON.stringify([eintrag("k-0001"), eintrag("k-0002")]));
+    expect(await lauf("katalog", "genutzt", "--plan", schreibeJson("plan.json", plan([b("k-0001")])), "--datum", "2026-10-20")).toBe(0);
+    const k = ladeKatalog(env.datenDir);
+    expect(k.find((x) => x.schluessel === "k-0001")!.zuletztGenutzt).toEqual({ datum: "2026-10-20", projekt: "Küche Gossau [alperna]" });
+    expect(k.find((x) => x.schluessel === "k-0002")!.zuletztGenutzt).toBeUndefined();
+    expect(ausgabe.join("\n")).toContain("1 Einträge als zuletzt genutzt vermerkt (Küche Gossau [alperna], 2026-10-20)");
+  });
+
+  it("meldet Schlüssel, die nicht im Katalog stehen (Exit-Code 1), einen Plan ohne B-Roll und ein falsches Datum", async () => {
+    fs.mkdirSync(env.datenDir, { recursive: true });
+    fs.writeFileSync(path.join(env.datenDir, "katalog.json"), JSON.stringify([eintrag("k-0001")]));
+    expect(await lauf("katalog", "genutzt", "--plan", schreibeJson("plan.json", plan([b("k-0001"), b("k-0099")])), "--datum", "2026-10-20")).toBe(1);
+    expect(ausgabe.join("\n")).toContain("nicht im Katalog: k-0099");
+    ausgabe.length = 0;
+    expect(await lauf("katalog", "genutzt", "--plan", schreibeJson("leer.json", plan([])))).toBe(0);
+    expect(ausgabe.join("\n")).toContain("keine B-Roll");
+    await expect(lauf("katalog", "genutzt", "--plan", schreibeJson("p.json", plan([b("k-0001")])), "--datum", "gestern")).rejects.toThrow(/JJJJ-MM-TT/);
+    await expect(lauf("katalog", "genutzt")).rejects.toThrow(/Aufruf/);
+  });
+});
+
 describe("katalog ohne Material", () => {
   it("scan verlangt einen Ordner, einen eingerichteten Studio-Ordner und einen Ordner im Studio- oder Medien-Ordner", async () => {
     await expect(lauf("katalog", "scan")).rejects.toThrow(/Aufruf/);

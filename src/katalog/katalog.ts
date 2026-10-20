@@ -140,3 +140,25 @@ export function sucheKatalog(katalog: KatalogEintrag[], begriffe: string, filter
       return teile.every((t) => heu.includes(t));
     });
 }
+
+/** Kennung des Videos im Feld «zuletzt genutzt»: Name und Marke, damit «nicht im letzten Video derselben Marke» je Marke gilt. */
+export const projektKennung = (name: string, marke: string): string => `${name} [${marke}]`;
+
+export interface GenutztErgebnis {
+  katalog: KatalogEintrag[];
+  markiert: string[];
+  /** Schlüssel, die es im Katalog nicht gibt. */
+  unbekannt: string[];
+}
+
+/** Trägt ein, dass die Einträge in diesem Video vorkamen. Ein früherer Vermerk wird ersetzt: gemerkt wird immer nur die letzte Nutzung. */
+export function markiereGenutzt(katalog: KatalogEintrag[], schluessel: string[], genutzt: { datum: string; projekt: string }): GenutztErgebnis {
+  const gesucht = new Set(schluessel);
+  const markiert: string[] = [];
+  const neu = katalog.map((k) => {
+    if (!gesucht.has(k.schluessel)) return k;
+    markiert.push(k.schluessel);
+    return { ...k, zuletztGenutzt: genutzt };
+  });
+  return { katalog: neu, markiert, unbekannt: [...gesucht].filter((s) => !markiert.includes(s)) };
+}

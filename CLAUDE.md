@@ -24,7 +24,7 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 - `src/notion/` – Abbild Idee ↔ Notion-Zeile, `src/setup.ts` – `init` und `doctor`, `src/pruefplatz.ts` – Daten für das Artifact
 - `pruefplatz/index.html` – Vorlage des Prüfplatzes (Artifact): Seitenleiste mit Heute, Plattformen und Werkstatt, Seitenfenster für Details und Aktionen, `notion.json` – Kennungen von Notion-Seite, Datenbank und Prüfplatz
 - Daten (Ideenprotokoll, Ereignisse, Standbilder): `<Studio-Ordner>/daten/` in OneDrive, Pfad je Mac in `~/.config/video-studio/config.json`. Ohne Einrichtung `data/`
-- `prompts/`, `.claude/skills/` – Arbeitsanleitung für Claude (`motion-werkstatt`, `inhalte-werkstatt`, `studio-einrichten`)
+- `prompts/`, `.claude/skills/` – Arbeitsanleitung für Claude (`motion-werkstatt`, `inhalte-werkstatt`, `reel-werkstatt`, `studio-einrichten`)
 - `docs/motion-werkstatt.md` – Konzept der Wachstumsschleife
 
 ## Harte Regeln
