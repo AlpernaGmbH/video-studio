@@ -9,6 +9,7 @@ import { messeDatei, sondiere } from "../presets/messen";
 import { GROSSE_UNTERORDNER, medienOrdner, studioHome } from "../setup";
 import { markeFuerExportFreigegeben } from "../core/schemas";
 import { z } from "zod";
+import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { zuordnungBericht } from "./bericht";
 import { messePegel, ordneZuMitPegel } from "./energie";
 import { bauePlan } from "./planbau";
@@ -28,6 +29,13 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
                                       Skript und Whisper-Transkript zu einem Schnittplan: pro Zeile der beste Take (Bauplan v2, Kap. 3.3), Pausen, Füllwörter und Bildwechsel
                                       nach dem Schnittprofil der Marke (Kap. 3.4). Die Quelle im Transkript ist die Kennung aus quellen.json (Ausgabe von «schnitt sondiere»).
                                       --gesprochen: Zeilen, deren Untertitel den gesprochenen statt den Skripttext nehmen. B-Roll, Grafiken und Musik kommen später ins Storyboard.
+  schnitt auftrag --plan plan.json [--katalog katalog.json] [--regeln regeln.json] [--marke key] [-o auftrag.md]
+                                      Auftrag für das Storyboard (Bauplan v2, Kap. 3.5): Skript mit Zeiten der Timeline, aktive Stücke, B-Roll aus dem Katalog, aktive Regeln, Format der Antwort.
+                                      Katalog: Liste von Katalog-Einträgen (JSON), Standard <Datenordner>/katalog.json
+  schnitt storyboard --plan plan.json --storyboard sb.json -o plan-storyboard.json [--katalog …] [--entwurf] [--rendern [--final]]
+                                      Antwort von Claude prüfen und in den Plan übernehmen: B-Roll auf V2 (Dateien werden sondiert), Grafiken auf V3 (Verweis auf renders/<Inhalt>/…webm),
+                                      betonte Wörter. Verworfenes steht mit Grund in der Ausgabe. --rendern rendert die Grafiken (HyperFrames), sonst steht der Befehl dafür in der Ausgabe.
+                                      Ein früheres Storyboard im Plan wird ersetzt. Das Ergebnis ist ein Entwurf: Freigeben tut ein Mensch.
   schnitt pruefe --plan plan.json [--marke key] [--entwurf]
                                       Plan prüfen: Quellen, Grenzen, Regeln des Schnittprofils der Marke (Pausen, Bildwechsel, Hook, Sprechtempo)
   schnitt resolve --plan plan.json [--aus ordner] [--preset reel] [--audio standard] [--marke key] [--nicht-strikt] [--entwurf]
@@ -135,6 +143,10 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       console.log(`\nPlan: ${ausDatei} (${plan.clips.length} Clips, ${(dauerPlan.gesamtFrames / plan.projekt.fps).toFixed(1).replace(".", ",")} s)\nNächster Schritt: Abweichungen und gelbe Stellen entscheiden, B-Roll und Grafiken im Storyboard ergänzen, dann «schnitt pruefe --plan ${ausDatei}» und «schnitt resolve».`);
       return 0;
     }
+    case "auftrag":
+      return auftragBefehl(a, env);
+    case "storyboard":
+      return storyboardBefehl(a, env);
     case "pruefe": {
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
       const marke = typeof a.opt["marke"] === "string" ? ladeMarke(env, a.opt["marke"]) : ladeMarke(env, plan.projekt.marke);

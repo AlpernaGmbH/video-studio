@@ -29,18 +29,23 @@ const SATZENDE = /[.!?…:]["»«')\]]*$/;
  * Reicht es über die Clipgrenze, wird es an die Grenze gekürzt.
  */
 export function woerterAufTimeline(plan: Schnittplan, zeit: Zeitleiste): TimelineWort[] {
+  return woerterMitHerkunft(plan, zeit).map(({ text, von, bis }) => ({ text, von, bis }));
+}
+
+/** Wie `woerterAufTimeline`, dazu die Stelle jedes Wortes in `plan.woerter` (für Betonung und Verweise). Die Reihenfolge ist die der Timeline. */
+export function woerterMitHerkunft(plan: Schnittplan, zeit: Zeitleiste): (TimelineWort & { index: number })[] {
   const fps = plan.projekt.fps;
-  const aus: TimelineWort[] = [];
-  for (const w of plan.woerter) {
+  const aus: (TimelineWort & { index: number })[] = [];
+  plan.woerter.forEach((w, index) => {
     const mitte = (w.von + w.bis) / 2;
     const treffer = zeit.clips.find((p) => p.clip.quelle === w.quelle && mitte >= p.clip.von && mitte < p.clip.bis);
-    if (!treffer) continue;
+    if (!treffer) return;
     const start = sekunden(treffer.startFrame, fps);
     const ende = start + sekunden(treffer.frames, fps);
     const von = start + (Math.max(w.von, treffer.clip.von) - treffer.clip.von);
     const bis = start + (Math.min(w.bis, treffer.clip.bis) - treffer.clip.von);
-    aus.push({ text: w.text, von: rastere(Math.min(von, ende), fps), bis: rastere(Math.min(Math.max(bis, von), ende), fps) });
-  }
+    aus.push({ text: w.text, von: rastere(Math.min(von, ende), fps), bis: rastere(Math.min(Math.max(bis, von), ende), fps), index });
+  });
   return aus.sort((a, b) => a.von - b.von || a.bis - b.bis);
 }
 

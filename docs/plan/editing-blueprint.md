@@ -127,6 +127,33 @@ Der Plan enthält danach Clips und Wörter, aber keine B-Roll, Grafiken oder Mus
 
 **Geprüft:** mit künstlichen Transkripten (Wiederholungen mit Füllwort, Abbruch und Neustart, Zeile über zwei Segmente, Segment über 4 Sekunden, fehlende Zeile, Abweichung, Zahlwort), mit Mutationsproben je Regel, der Pegelmessung an einer Datei mit zwei Lautstärken und dem Plan als FCPXML (gegen Apples DTD 1.8), OTIO und SRT. **Nicht geprüft:** mit echter Whisper-Ausgabe von Dialekt-Aufnahmen. Davon hängt ab, ob Schwellen und Füllwortliste stimmen.
 
+## Storyboard im Schnittplan
+
+Nach der Zuordnung hat der Plan Clips und Wörter, aber keine B-Roll, keine Grafiken und keine Betonung. Die kommen aus dem Storyboard (Bauplan v2, Kap. 3.5). Der Ablauf hat zwei Befehle, dazwischen schreibt Claude in der Sitzung das Storyboard:
+
+```
+studio schnitt auftrag --plan plan.json --katalog katalog.json --regeln regeln.json -o auftrag.md
+   (Claude liest auftrag.md und schreibt sb.json)
+studio schnitt storyboard --plan plan.json --storyboard sb.json -o plan-storyboard.json --rendern
+studio schnitt pruefe --plan plan-storyboard.json
+studio schnitt resolve --plan plan-storyboard.json
+```
+
+**Auftrag.** Enthält das Skript mit Zeiten der Timeline (nicht der Quelldatei) und durchnummerierten Wörtern, die aktiven Stücke mit ihren Parametern (`motion index`), den Katalog ohne Sounds und ohne die Einträge, die im letzten Video der Marke liefen, die aktiven Regeln (Handwerk und die Optik der Marke), das Schnittprofil und das Format der Antwort (Anhang A1 des Bauplans). Der Katalog liegt bis zur Notion-Datenbank als Liste von Katalog-Einträgen (JSON) in `<Datenordner>/katalog.json` oder wird mit `--katalog` übergeben. Das «letzte Video der Marke» ergibt sich aus dem Feld «zuletzt genutzt» der Einträge (jüngstes Projekt, das nicht das aktuelle ist).
+
+**Anwenden.** `pruefeStoryboard` prüft jeden Eintrag einzeln, ungültige fallen mit Grund heraus: B-Roll nur mit Katalog-Schlüssel, nicht zweimal im Video, nicht aus dem letzten Video der Marke, nicht kürzer als das Overlay; Grafiken nur aus aktiven Stücken (Regel 3, `--entwurf` lässt auch gebaute und geprüfte zu) und mit Parametern nach dem Datenblatt; nichts über das Ende des Videos hinaus; Begründung Pflicht. Danach:
+
+- **B-Roll** kommt als Clip auf V2 in den Plan. Die Datei wird am Katalogpfad sondiert (sie muss auf diesem Rechner liegen), der Einstieg liegt bei den besten Sekunden des Katalogs. **Fotos** werden verworfen: Ken Burns ist im Schnittplan noch nicht abgebildet.
+- **Grafiken** kommen als Verweis auf `renders/<Inhalt-ID>/<Stück>-<Nr>.webm` auf V3. `--rendern` rendert sie mit HyperFrames (Variablen und Marke aus dem Storyboard und dem Markenprofil, Prüfung des Renders wie bei `motion render`), sonst nennt die Ausgabe die Befehle. Ein Render, der die Prüfung nicht besteht, gibt Exit-Code 1.
+- **Betonung** (Wortnummern aus dem Auftrag) markiert Wörter im Plan. Die SRT trägt keine Hervorhebung; `LIESMICH.md` listet die betonten Wörter mit Zeit für Resolve.
+- Ein früheres Storyboard im Plan wird **ersetzt**, nicht ergänzt. Wer ein neues Storyboard anwendet, geht vom Plan der Zuordnung oder vom letzten Ergebnis aus.
+
+**Freigabe.** Das Ergebnis ist ein Entwurf. Freigegeben ist ein Storyboard, wenn ein Mensch es bestätigt oder per Satz ändert («Hook kürzer»); Änderungen setzen die Freigabe zurück (Plan Kap. 3.5). Diese Freigabe gibt es im Code noch nicht, sie läuft im Gespräch. Der Befehl schreibt nie eine Freigabe.
+
+**Nicht umgesetzt:** Soundeffekte und Musik-Beats (Plan Kap. 3.8), der Kontaktbogen (Standbilder pro Effekt), das Eintragen von «zuletzt genutzt» in den Katalog nach dem Export, Fotos mit Kamerabewegung. Die Zahl der Overlays pro Sekunde ist nicht begrenzt; die Regeln im Auftrag und das Schnittprofil tragen das.
+
+**Geprüft:** mit künstlichen Daten und Mutationsproben je Regel, im Container mit einem echten HyperFrames-Render des Stücks `zahl-zaehler` (27 s, Prüfung bestanden) und dem anschliessenden `schnitt resolve` (WebM nach ProRes 4444, FCPXML gegen Apples DTD 1.8 gültig, betonte Wörter in `LIESMICH.md`). Nicht geprüft: B-Roll aus echtem Katalogmaterial, ein Storyboard, das Claude aus einem echten Auftrag geschrieben hat.
+
 ## Presets
 
 Ordner `presets/`, geprüft mit `studio presets lint`. Jedes Preset trägt seine Herkunft: **entschieden** (steht im Bauplan oder im Datenblatt eines Stücks), **annahme** (Startwert) oder **unbelegt** (fremde Angabe).
@@ -160,7 +187,7 @@ Erst nach T9 gilt die Übergabe als belegt. Bis dahin ist sie gebaut, gegen Appl
 
 1. Ein Whisper-Lauf auf echten Dialekt-Aufnahmen (Test T2). Die Zuordnung (`studio schnitt zuordnen`) ist gebaut, aber nur mit künstlichen Transkripten geprüft.
 2. Ein Probelauf mit echtem Material und echtem Resolve (T9) und dem privaten Upload (T4).
-3. Das Storyboard (Plan Kap. 3.5), das B-Roll, Grafiken und Musik in den Plan einträgt.
+3. Ein Storyboard, das Claude aus einem echten Auftrag mit echtem Katalog schreibt (der Katalog ist noch nicht in Notion; bis dahin eine JSON-Liste). Musik und Soundeffekte fehlen im Plan.
 3. Die fünf Stücke aus der Lückenliste der Presets, über die Motion-Werkstatt.
 
 ## Einwände und Risiken

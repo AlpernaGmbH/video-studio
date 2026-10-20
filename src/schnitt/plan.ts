@@ -95,7 +95,14 @@ export type SchnittMusik = z.infer<typeof SchnittMusik>;
 
 /** Ein gesprochenes Wort in Quellzeit. Der Text stammt aus dem Skript, nur das Timing aus Whisper (Bauplan v2, Entscheidungsprotokoll). */
 export const SchnittWort = z
-  .object({ text: z.string().min(1), quelle: KennId, von: z.number().min(0), bis: z.number().min(0) })
+  .object({
+    text: z.string().min(1),
+    quelle: KennId,
+    von: z.number().min(0),
+    bis: z.number().min(0),
+    /** Betontes Wort aus dem Storyboard (Bauplan v2, Kap. 3.5). Die SRT trägt es nicht, `LIESMICH.md` nennt die Stellen. */
+    betont: z.boolean().optional(),
+  })
   .refine((w) => w.bis >= w.von, { message: "«bis» darf nicht vor «von» liegen", path: ["bis"] });
 export type SchnittWort = z.infer<typeof SchnittWort>;
 

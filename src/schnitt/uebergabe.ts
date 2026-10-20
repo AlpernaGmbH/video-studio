@@ -10,7 +10,7 @@ import { schreibeFcpxml, type PfadLoeser } from "./fcpxml";
 import { schreibeOtio } from "./otio";
 import { platziere, sekunden, type Schnittplan } from "./plan";
 import { pruefeSchnittplan, verlangeGueltig, type Befund } from "./pruefung";
-import { gruppiere, schreibeSrt, woerterAufTimeline } from "./untertitel";
+import { gruppiere, schreibeSrt, woerterAufTimeline, woerterMitHerkunft } from "./untertitel";
 
 /**
  * Die Übergabe an DaVinci Resolve: ein Ordner mit der Timeline (FCPXML 1.8 und OTIO), den Untertiteln (SRT), den Grafiken als ProRes 4444
@@ -141,6 +141,19 @@ export function erzeugeUebergabe(o: UebergabeOptionen): UebergabeErgebnis {
 
 const s1 = (n: number): string => n.toFixed(1).replace(".", ",");
 
+/** Abschnitt für `LIESMICH.md`: Wörter, die das Storyboard betont, mit Zeit in der Timeline. Leer, wenn es keine gibt. */
+function betonteWoerter(plan: Schnittplan): string {
+  const w = woerterMitHerkunft(plan, platziere(plan)).filter((x) => plan.woerter[x.index]?.betont);
+  if (!w.length) return "";
+  return `## Betonte Wörter
+
+Das Storyboard betont diese Wörter. Die SRT trägt keine Hervorhebung: In Resolve beim Untertitel hervorheben (Farbe, Grösse) oder im Caption-Overlay.
+
+${w.map((x) => `- ${s1(x.von)} s: ${x.text}`).join("\n")}
+
+`;
+}
+
 export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; dateien: string[] }): string {
   const { plan, export: e, audio } = a;
   const hinweise = a.befunde.filter((b) => b.stufe === "hinweis");
@@ -188,7 +201,7 @@ Danach die fertige Datei prüfen lassen:
 npm run studio -- schnitt export-pruefen <datei.mp4> --preset ${e.id} --audio ${audio.id}
 \`\`\`
 
-## Stellen, die Claude beim Schnitt auffielen
+${betonteWoerter(plan)}## Stellen, die Claude beim Schnitt auffielen
 
 ${hinweise.length ? hinweise.map((h) => `- ${h.text}`).join("\n") : "Keine."}
 `;

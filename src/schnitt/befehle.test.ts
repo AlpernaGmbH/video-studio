@@ -6,11 +6,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseArgs } from "../args";
 import { Markenprofil } from "../core/schemas";
 import { umgebung, type Umgebung } from "../motion/werkstatt";
+import { rendereStueck } from "../motion/werkstatt";
 import { schnittBefehl } from "./befehle";
+import { bauePlan } from "./planbau";
+import { ordneZu } from "./zuordnung";
 import { leseSchnittplan } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
 import { testSatz } from "./testdaten";
 import type { Segment } from "./transkript";
+
+vi.mock("../motion/werkstatt", async (orig) => {
+  const m = await orig<typeof import("../motion/werkstatt")>();
+  return { ...m, rendereStueck: vi.fn(m.rendereStueck) };
+});
 
 const hatFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 const root = path.resolve(import.meta.dirname, "..", "..");
@@ -242,5 +250,130 @@ describe("schnitt zuordnen", () => {
     const plan = leseSchnittplan(JSON.parse(fs.readFileSync(v.aus, "utf8")));
     expect(plan.clips[0]!.von).toBeLessThan(2);
     expect(ausgabe.join("\n")).toMatch(/Bester\s+sprache 1,\d bis [\d,]+ s, Punkte [\d,]+, -\d+,\d dB/);
+  }, 60_000);
+});
+
+/* ---------- schnitt auftrag und schnitt storyboard ---------- */
+
+describe("schnitt auftrag und schnitt storyboard", () => {
+  const Zeilen = [Z1, Z2, Z3, "Dafür brauchte er nur drei Wochen."];
+  const basisPlan = () =>
+    bauePlan(ordneZu(Zeilen, [{ quelle: "sprache", segmente: [testSatz(20, Zeilen[0]!), testSatz(3, Zeilen[1]!), testSatz(30, Zeilen[2]!), testSatz(40, Zeilen[3]!)] }]), {
+      projekt: { name: "Küche Gossau", inhalt: "c-0007", marke: "alperna" },
+      quellen: [videoQuelle("sprache") as never],
+    }).plan;
+  const planDatei = () => schreibe("plan.json", basisPlan());
+  const zahl = (extra: Record<string, unknown> = {}) => ({ effekt: "zahl-zaehler", t: 1, dauer: 2.6, params: { wert: 7, suffix: " von 10", label: "laden zu langsam" }, begruendung: "Kennzahl im Skript, Zahl wirkt stärker als Wort", ...extra });
+  const sb = (overlays: unknown[], extra: Record<string, unknown> = {}) => schreibe("sb.json", { hook: "Warum die Küche anders aussieht", overlays, betonung: [5], ...extra });
+  const medien = () => path.join(tmp, "Medien");
+
+  it("auftrag: schreibt den Auftrag mit Zeiten und sagt, dass noch kein Stück aktiv ist", async () => {
+    const ziel = path.join(tmp, "auftrag.md");
+    expect(await lauf("schnitt", "auftrag", "--plan", planDatei(), "-o", ziel)).toBe(0);
+    const text = fs.readFileSync(ziel, "utf8");
+    expect(text).toContain("# Storyboard-Auftrag: Küche Gossau");
+    expect(text).toMatch(/\*\*Zeile 1, 0,0 bis/);
+    expect(text).toContain("Keine aktiven Stücke");
+    expect(text).toContain("spätestens alle 1,5 s");
+    expect(fehlerAusgabe.join("\n")).toContain("Kein Katalog gefunden");
+  });
+
+  it("auftrag: nimmt Katalog und Regeln aus Dateien", async () => {
+    const katalog = schreibe("katalog.json", [{ schluessel: "k-0142", art: "video", pfad: "rohmaterial/bib/laptop.mov", titel: "Intern_Gossau_Laptop", beschreibung: "Hände auf Laptop", tags: ["Laptop"], dauer: 8.4, sicherheit: "hoch" }]);
+    const regeln = schreibe("regeln.json", [{ id: "r-001", text: "Zahlen immer mit Einheit nennen.", typ: "handwerk", status: "aktiv", beleg: { anzahl: 3, verweise: ["x"] }, freigabe: { wer: "Andrej", wann: "2026-10-10T10:00:00.000Z" } }]);
+    expect(await lauf("schnitt", "auftrag", "--plan", planDatei(), "--katalog", katalog, "--regeln", regeln)).toBe(0);
+    const text = ausgabe.join("\n");
+    expect(text).toContain("k-0142");
+    expect(text).toContain("r-001 (handwerk)");
+  });
+
+  it("storyboard: Regel 3, ein Stück, das nicht «aktiv» ist, wird verworfen, mit --entwurf übernommen", async () => {
+    const plan = planDatei();
+    const storyboard = sb([zahl()]);
+    const aus = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", plan, "--storyboard", storyboard, "-o", aus)).toBe(0);
+    expect(ausgabe.join("\n")).toMatch(/Status «geprueft»/);
+    expect(leseSchnittplan(JSON.parse(fs.readFileSync(aus, "utf8"))).overlays).toEqual([]);
+    ausgabe.length = 0;
+    expect(await lauf("schnitt", "storyboard", "--plan", plan, "--storyboard", storyboard, "-o", aus, "--entwurf")).toBe(0);
+    const p2 = leseSchnittplan(JSON.parse(fs.readFileSync(aus, "utf8")));
+    expect(p2.overlays.map((o) => o.datei)).toEqual(["renders/c-0007/zahl-zaehler-01.webm"]);
+    expect(p2.woerter.filter((w) => w.betont)).toHaveLength(1);
+    const text = ausgabe.join("\n");
+    expect(text).toContain("Übernommen: 1 Grafiken, 0 B-Roll, 1 betonte Wörter");
+    expect(text).toMatch(/motion render zahl-zaehler -o \S*renders\/c-0007\/zahl-zaehler-01\.webm --dauer 2\.6 --marke alperna --set wert=7 --set 'suffix= von 10' --set 'label=laden zu langsam'/);
+    expect(text).toContain("Entwurf");
+  });
+
+  it("storyboard: liest auch eine Antwort mit Text und Codezaun drumherum", async () => {
+    const storyboard = schreibe("sb.md", `Hier das Storyboard:\n\n\`\`\`json\n${JSON.stringify({ hook: "x", overlays: [zahl()], betonung: [] })}\n\`\`\`\nViel Erfolg.`);
+    const aus = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", planDatei(), "--storyboard", storyboard, "-o", aus, "--entwurf")).toBe(0);
+    expect(leseSchnittplan(JSON.parse(fs.readFileSync(aus, "utf8"))).overlays).toHaveLength(1);
+  });
+
+  it("storyboard --rendern: rendert jede Grafik an den Zielpfad im Medien-Ordner und meldet das Ergebnis der Prüfung", async () => {
+    const mock = vi.mocked(rendereStueck);
+    mock.mockReset();
+    mock.mockResolvedValue({ datei: "x", dauer: 2.6, variablen: {}, pruefung: { bestanden: true, befunde: [] }, renderMs: 4200, warnungen: [] } as never);
+    const aus = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", planDatei(), "--storyboard", sb([zahl(), zahl({ t: 5, params: { wert: 3, label: "Wochen" } })]), "-o", aus, "--entwurf", "--rendern")).toBe(0);
+    expect(mock).toHaveBeenCalledTimes(2);
+    const [, id, opt] = mock.mock.calls[0]!;
+    expect(id).toBe("zahl-zaehler");
+    expect(opt).toMatchObject({ werte: { wert: 7, suffix: " von 10", label: "laden zu langsam" }, dauer: 2.6, ausgabe: path.join(medien(), "renders", "c-0007", "zahl-zaehler-01.webm"), final: false });
+    expect((opt as { marke?: { schluessel: string } }).marke?.schluessel).toBe("alperna");
+    expect(ausgabe.join("\n")).toContain("zahl-zaehler-01: bestanden");
+  });
+
+  it("storyboard --rendern: eine nicht bestandene Prüfung macht den Exit-Code 1", async () => {
+    const mock = vi.mocked(rendereStueck);
+    mock.mockReset();
+    mock.mockResolvedValue({ datei: "x", dauer: 2.6, variablen: {}, pruefung: { bestanden: false, befunde: [{ stufe: "fehler", code: "alpha", text: "Kein Alphakanal" }] }, renderMs: 100, warnungen: [] } as never);
+    const aus = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", planDatei(), "--storyboard", sb([zahl()]), "-o", aus, "--entwurf", "--rendern")).toBe(1);
+    expect(ausgabe.join("\n")).toContain("NICHT bestanden");
+    expect(ausgabe.join("\n")).toContain("Kein Alphakanal");
+  });
+
+  it("storyboard: ohne --rendern wird nichts gerendert", async () => {
+    const mock = vi.mocked(rendereStueck);
+    mock.mockReset();
+    await lauf("schnitt", "storyboard", "--plan", planDatei(), "--storyboard", sb([zahl()]), "-o", path.join(tmp, "p.json"), "--entwurf");
+    expect(mock).not.toHaveBeenCalled();
+  });
+
+  it("storyboard: verlangt das Ziel und die Antwort von Claude", async () => {
+    await expect(lauf("schnitt", "storyboard", "--plan", planDatei(), "--storyboard", sb([]))).rejects.toThrow(/--o fehlt/);
+    await expect(lauf("schnitt", "storyboard", "--plan", planDatei(), "-o", path.join(tmp, "p.json"))).rejects.toThrow(/--storyboard fehlt/);
+  });
+
+  it.skipIf(!hatFfmpeg)("storyboard: sondiert B-Roll am Katalogpfad und trägt sie auf V2 ein; fehlt die Datei, steht es in der Ausgabe", async () => {
+    const dir = path.join(medien(), "rohmaterial", "bib");
+    fs.mkdirSync(dir, { recursive: true });
+    const q = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x568:rate=25:duration=6", "-f", "lavfi", "-i", "sine=duration=6", "-shortest", path.join(dir, "laptop.mp4")]);
+    expect(q.status).toBe(0);
+    const eintrag = (schluessel: string, pfad: string) => ({ schluessel, art: "video", pfad, titel: `Intern_${schluessel}`, beschreibung: "Testmaterial", tags: ["Test"], dauer: 6, besteSekunden: { von: 1, bis: 5 }, sicherheit: "hoch" });
+    const katalog = schreibe("katalog.json", [eintrag("k-0142", "rohmaterial/bib/laptop.mp4"), eintrag("k-0143", "rohmaterial/bib/fehlt.mp4")]);
+    const b = (key: string, t: number) => ({ effekt: "broll", t, dauer: 1.5, params: { katalog: key }, begruendung: "Zeigt die Aussage, bringt Bildwechsel" });
+    const aus = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", planDatei(), "--storyboard", sb([b("k-0142", 2), b("k-0143", 5)]), "--katalog", katalog, "-o", aus)).toBe(0);
+    const p2 = leseSchnittplan(JSON.parse(fs.readFileSync(aus, "utf8")));
+    expect(p2.broll).toHaveLength(1);
+    expect(p2.broll[0]).toMatchObject({ katalog: "k-0142", quelle: "broll-k-0142", von: 1, t: 2 });
+    expect(p2.quellen.find((x) => x.id === "broll-k-0142")).toMatchObject({ art: "video", fps: 25, breite: 320, hoehe: 568, hatAudio: true, pfad: "rohmaterial/bib/laptop.mp4" });
+    const text = ausgabe.join("\n");
+    expect(text).toContain("Übernommen: 0 Grafiken, 1 B-Roll");
+    expect(text).toContain("rohmaterial/bib/fehlt.mp4");
+    expect(text).toMatch(/nicht sondiert/);
+  }, 60_000);
+  it.skipIf(!hatFfmpeg)("storyboard: Exit-Code 1, wenn die B-Roll-Datei kürzer ist, als der Katalog behauptet", async () => {
+    const dir = path.join(medien(), "rohmaterial", "bib");
+    fs.mkdirSync(dir, { recursive: true });
+    spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x568:rate=25:duration=2", path.join(dir, "kurz.mp4")]);
+    const katalog = schreibe("katalog.json", [{ schluessel: "k-0142", art: "video", pfad: "rohmaterial/bib/kurz.mp4", titel: "Intern_kurz", beschreibung: "Zu kurz", tags: ["Test"], dauer: 6, besteSekunden: { von: 1, bis: 5 }, sicherheit: "hoch" }]);
+    const b = { effekt: "broll", t: 2, dauer: 1.5, params: { katalog: "k-0142" }, begruendung: "Zeigt die Aussage, bringt Bildwechsel" };
+    expect(await lauf("schnitt", "storyboard", "--plan", planDatei(), "--storyboard", sb([b]), "--katalog", katalog, "-o", path.join(tmp, "p.json"))).toBe(1);
+    expect(ausgabe.join("\n")).toContain("broll-ueber-ende");
   }, 60_000);
 });
