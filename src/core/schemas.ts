@@ -83,6 +83,25 @@ export const CaptionPreset = z.object({
 });
 export type CaptionPreset = z.infer<typeof CaptionPreset>;
 
+/**
+ * Ein Look für Bildmaterial (Plan v4, 1.4), als wenige Zahlen. `schwarz` und `weiss` sind die Eingangswerte (0 bis 1), die Schwarz und Weiss werden sollen.
+ * Fehlen sie, misst das System sie am Material (10. und 90. Perzentil der Helligkeit). Gerechnet wird in `src/schnitt/lut.ts`.
+ */
+export const Farblook = z
+  .object({
+    schwarz: z.number().min(0).max(0.5).optional(),
+    weiss: z.number().min(0.3).max(1).optional(),
+    /** Mitten: über 1 heller, unter 1 dunkler. */
+    gamma: z.number().min(0.4).max(2.5).default(1),
+    /** Stärke der S-Kurve, 0 bis 1. */
+    kontrast: z.number().min(0).max(1).default(0),
+    saettigung: z.number().min(0).max(2).default(1),
+    /** Über 0 kühl (Blau in Schatten und Mitten), unter 0 warm. */
+    kuehle: z.number().min(-1).max(1).default(0),
+  })
+  .refine((l) => l.schwarz === undefined || l.weiss === undefined || l.weiss > l.schwarz + 0.1, { message: "«weiss» muss mindestens 0,1 über «schwarz» liegen", path: ["weiss"] });
+export type Farblook = z.infer<typeof Farblook>;
+
 export const Markenprofil = z.object({
   schluessel: Slug,
   name: z.string().min(1),
@@ -118,6 +137,11 @@ export const Markenprofil = z.object({
     musik: z.boolean(),
   }),
   look: z.string().optional(),
+  /**
+   * Der Look in Zahlen (Plan v4, 1.4): `log` für flaches Material (Log), `angleich` für normales Material und B-Roll, damit beides zusammenpasst.
+   * Daraus entstehen die LUTs für Vorschau und Resolve. Eine Näherung, keine Kamera-LUT.
+   */
+  farbe: z.object({ log: Farblook.optional(), angleich: Farblook.optional() }).optional(),
   schnittprofil: Schnittprofil.optional(),
   schlusskarte: z.object({ text: z.string(), handle: z.string().optional() }).optional(),
   hashtags: z.object({ fest: z.array(z.string()).default([]), anzahl: z.number().int().min(0).max(30) }),

@@ -26,7 +26,7 @@ export function parseArgs(argv: string[]): Args {
     const key = eq >= 0 ? roh.slice(0, eq) : roh;
     let value: string | true;
     if (eq >= 0) value = roh.slice(eq + 1);
-    else if (argv[i + 1] !== undefined && !argv[i + 1]!.startsWith("--")) value = argv[++i]!;
+    else if (argv[i + 1] !== undefined && !argv[i + 1]!.startsWith("--") && !/^-[A-Za-z]$/.test(argv[i + 1]!)) value = argv[++i]!;
     else value = true;
     if (key === "set") {
       if (value === true || !value.includes("=")) throw new Error("--set erwartet Schlüssel=Wert");

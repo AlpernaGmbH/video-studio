@@ -10,6 +10,7 @@ import { GROSSE_UNTERORDNER, medienOrdner, studioHome } from "../setup";
 import { markeFuerExportFreigegeben } from "../core/schemas";
 import { z } from "zod";
 import { erzeugeBogen } from "./kontaktbogen";
+import { findeLuts, type LutPfade } from "./farbe-ablauf";
 import { fehlendeDateien, erzeugeVorschau, kannUntertitel } from "./vorschau";
 import { STANDARD_SCHNITTPROFIL } from "./planbau";
 import { gruppiere, schreibeSrt, woerterAufTimeline } from "./untertitel";
@@ -46,13 +47,14 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
   schnitt kontaktbogen --plan plan.json [-o kontaktbogen.html]
                                       Ein Standbild pro Grafik und B-Roll mit Zeit und Begründung als eine HTML-Datei (ohne externe Teile) für die Bestätigung des Storyboards.
                                       Standard: .cache/kontaktbogen-<Inhalt>.html im Repo. Nicht gerenderte Grafiken und fehlende Dateien stehen im Bild und in der Ausgabe.
-  schnitt vorschau --plan plan.json [-o vorschau.mp4] [--ohne-untertitel]
-                                      Vorschau-Video (540x960, 25p) mit Clips, Zoom, B-Roll, Grafiken, Musik und eingebrannten Untertiteln. Eine Näherung zum Ansehen, kein Export.
+  schnitt vorschau --plan plan.json [-o vorschau.mp4] [--ohne-untertitel] [--ohne-look] [--lut-log datei.cube] [--lut-angleich datei.cube]
+                                      Vorschau-Video (540x960, 25p) mit Clips, Zoom, B-Roll, Grafiken, Musik und eingebrannten Untertiteln. Der Look kommt aus den LUTs des Inhalts (ergebnis/lut/), Grafiken
+                                      bekommen nie einen Look. Eine Näherung zum Ansehen, kein Export.
                                       Standard: <Studio>/inhalte/<Inhalt-ID>/ergebnis/vorschau.mp4, eine vorhandene Datei wird nie überschrieben (vorschau-v2.mp4).
   schnitt pruefe --plan plan.json [--marke key] [--entwurf]
                                       Plan prüfen: Quellen, Grenzen, Regeln des Schnittprofils der Marke (Pausen, Bildwechsel, Hook, Sprechtempo)
-  schnitt resolve --plan plan.json [--aus ordner] [--preset reel] [--audio standard] [--marke key] [--nicht-strikt] [--entwurf]
-                                      Ordner für Resolve schreiben: timeline.fcpxml, timeline.otio, untertitel.srt, Grafiken als ProRes 4444, LIESMICH.md.
+  schnitt resolve --plan plan.json [--aus ordner] [--preset reel] [--audio standard] [--marke key] [--nicht-strikt] [--entwurf] [--ohne-look] [--lut-log datei.cube] [--lut-angleich datei.cube]
+                                      Ordner für Resolve schreiben: timeline.fcpxml, timeline.otio, untertitel.srt, Grafiken als ProRes 4444, die LUTs des Inhalts (lut/, von «reel vorbereiten»), LIESMICH.md.
                                       Ohne --aus: <Studio>/inhalte/<Inhalt-ID>/ergebnis/resolve. Ein vorhandener Ordner wird nie überschrieben (resolve-v2).
                                       --entwurf: auch Stücke zulassen, die noch nicht «aktiv» sind (sonst gilt Regel 3: nur aktive Stücke).
   schnitt export-pruefen <datei> [--preset reel] [--audio standard]
@@ -69,6 +71,19 @@ const opt = (a: Args, name: string, standard: string): string => (typeof a.opt[n
 const zeige = (b: { stufe: string; code: string; text: string }[]): void => {
   for (const x of b) console.log(`${x.stufe === "fehler" ? "FEHLER " : "Hinweis"} ${x.code}: ${x.text}`);
 };
+
+/** Die LUTs für einen Plan: von Hand angegeben (`--lut-log`, `--lut-angleich`) oder die des Inhalts (`ergebnis/lut/`, von `reel vorbereiten`). */
+function lutsFuer(a: Args, home: { pfad: string }, plan: { projekt: { inhalt?: string } }): LutPfade {
+  const aus: LutPfade = plan.projekt.inhalt ? findeLuts(path.join(home.pfad, "inhalte", plan.projekt.inhalt, "ergebnis")) : {};
+  for (const [opt, art] of [["lut-log", "log"], ["lut-angleich", "angleich"]] as const) {
+    const v = a.opt[opt];
+    if (typeof v !== "string") continue;
+    const datei = path.resolve(v);
+    if (!fs.existsSync(datei)) throw new Error(`Die LUT fehlt: ${datei}`);
+    aus[art] = datei;
+  }
+  return aus;
+}
 
 export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promise<number> {
   const presetDir = path.join(env.studioRoot, "presets");
@@ -183,13 +198,15 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         srt = path.join(path.dirname(ziel), `.vorschau-${process.pid}.srt`);
         fs.writeFileSync(srt, schreibeSrt(gruppiere(woerterAufTimeline(plan, platziere(plan)), profil), plan.projekt.fps));
       }
+      const luts = a.opt["ohne-look"] === true ? {} : lutsFuer(a, home, plan);
+      const look = luts.log || luts.angleich ? "mit Look (LUT)" : "ohne Look";
       try {
-        const r = await erzeugeVorschau({ plan, loese: (rel) => loese(rel), ausgabe: ziel, untertitel: srt });
-        console.log(`${r.datei}\n${(fs.statSync(ziel).size / 1024 / 1024).toFixed(1).replace(".", ",")} MB, ${r.dauer.toFixed(1).replace(".", ",")} s${notiz ? `, ${notiz}` : ""}`);
+        const r = await erzeugeVorschau({ plan, loese: (rel) => loese(rel), ausgabe: ziel, untertitel: srt, lut: luts });
+        console.log(`${r.datei}\n${(fs.statSync(ziel).size / 1024 / 1024).toFixed(1).replace(".", ",")} MB, ${r.dauer.toFixed(1).replace(".", ",")} s, ${look}${notiz ? `, ${notiz}` : ""}`);
       } finally {
         if (srt) fs.rmSync(srt, { force: true });
       }
-      console.log("Eine Näherung zum Ansehen: kein Look, keine Übergänge, roher Ton, 540p. Als Video taugt erst der Export aus Resolve.");
+      console.log(`Eine Näherung zum Ansehen: ${luts.log || luts.angleich ? "Look aus Zahlen der Marke (keine Kamera-LUT)" : "kein Look"}, keine Übergänge, roher Ton, 540p. Als Video taugt erst der Export aus Resolve.`);
       return 0;
     }
     case "kontaktbogen": {
@@ -232,6 +249,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         export: findePreset(lib, "export", opt(a, "preset", "reel")),
         audio: findePreset(lib, "audio", opt(a, "audio", "standard")),
         strikt: a.opt["nicht-strikt"] !== true,
+        luts: a.opt["ohne-look"] === true ? {} : lutsFuer(a, home, plan),
       });
       zeige(r.befunde);
       const freigabe = markeFuerExportFreigegeben(marke);

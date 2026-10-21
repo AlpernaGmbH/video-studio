@@ -12,6 +12,8 @@ import { findeStille, type Stille } from "./stille";
 import { schnittBefehl } from "./befehle";
 import { SchnittQuelle, platziere } from "./plan";
 import { leseSchnittplan } from "./plan";
+import { bestimmeFarbe, lutOrdner, schreibeLuts } from "./farbe-ablauf";
+import type { Farbart, Farbmessung } from "./farbe";
 import { ordneTonZu, parseVersatzOption } from "./ton-ablauf";
 import { listeTonDateien, schneideTonFenster } from "./ton-sync";
 import { pruefeSchnittplan } from "./pruefung";
@@ -34,10 +36,11 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
   reel transkript <ID> [--marke key] [--aufnahmen ordner] [--modell large-v3] [--neu] [--ohne-ton-sync] [--versatz …]
                                       Ohne Skript, oder wenn es nicht stimmt: transkribiert die Videos und schreibt ergebnis/transkript.md (nummerierte Sätze mit Zeiten).
                                       Claude wählt daraus die Sätze und schreibt sie wörtlich in skript.md.
-  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--ohne-ton-sync] [--versatz 5.3 | clip=5.3;clip2=-2:aufnahme] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
+  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--ohne-farbe] [--farbe log|rec709|auto] [--ohne-ton-sync] [--versatz 5.3 | clip=5.3;clip2=-2:aufnahme] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
                                       Sondiert die Videos, legt getrennte Tonaufnahmen (wav, m4a, mp3 im selben Ordner) über die Videos (Versatz aus der Lautstärkekurve, oder von Hand mit --versatz;
                                       ein Versatz von Hand wird gemerkt), transkribiert mit Whisper (vorhandene Transkripte bleiben, --neu erzwingt), misst die Stille der Tonspur, ordnet das Skript zu
-                                      und baut den Schnittplan. Schreibt ergebnis/gegenlesen.md. Die Untertitel nehmen das Gehörte.
+                                      stellt fest, ob das Material flach (Log) ist, baut daraus die LUTs für den Look der Marke (ergebnis/lut/, Schwarz- und Weisspunkt am Material gemessen; bei falschem Urteil
+                                      --farbe setzen, es wird gemerkt), ordnet das Skript zu und baut den Schnittplan. Schreibt ergebnis/gegenlesen.md. Die Untertitel nehmen das Gehörte.
   reel gegenlesen <ID> [--zwischenablage | --datei antwort.json] [--nicht-kopieren] [--regeln regeln.json] [--katalog katalog.json]
                                       Claude hat gegenlesen.md gelesen und ergebnis/gegenlesen.json geschrieben (Regie, Abbrüche, Verhörer). Der Befehl wendet es auf den Plan an
                                       und schreibt ergebnis/auftrag.md fürs Storyboard (auf dem Mac auch in die Zwischenablage). Ohne gültiges Gegenlesen läuft «reel storyboard» nicht.
@@ -179,6 +182,8 @@ const ReelDatei = z.object({
   untertitel: z.enum(["gehoert", "skript"]).optional(),
   /** Von Hand angegebene Versätze des getrennten Tons je Videoquelle (Sekunden: Zeit in der Aufnahme = Zeit im Video + Versatz). `ton` nennt die Aufnahme, wenn es mehrere gibt. */
   versatz: z.record(z.string(), z.object({ versatz: z.number(), ton: z.string().optional() })).optional(),
+  /** Von Hand festgelegte Farbart für alle Videos (sonst wird gemessen). */
+  farbe: z.enum(["log", "rec709"]).optional(),
 });
 type ReelDatei = z.infer<typeof ReelDatei>;
 
@@ -482,6 +487,21 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const gr = await holeGrundlage(a, env, g, home, p, alt);
   const { quellen, transkripte } = gr;
 
+  // Farbe: flaches Material (Log) bekommt einen Look, normales einen Angleich
+  const farbeOpt = str(a, "farbe");
+  if (farbeOpt !== undefined && farbeOpt !== "log" && farbeOpt !== "rec709" && farbeOpt !== "auto") throw new Error("--farbe erwartet «log», «rec709» oder «auto»");
+  const farbVorgabe: Farbart | undefined = farbeOpt === "auto" ? undefined : ((farbeOpt as Farbart | undefined) ?? alt?.farbe);
+  let messungen = new Map<string, Farbmessung>();
+  let farbeGemessen = false;
+  if (a.opt["ohne-farbe"] === true) console.log("Farbe nicht gemessen (--ohne-farbe): keine LUT, das Material bleibt unverändert");
+  else {
+    const fr = await bestimmeFarbe({ videos: quellen.filter((q) => q.art === "video").map((q) => ({ id: q.id, datei: gr.pfade.get(q.id)!, dauer: q.dauer })), ...(farbVorgabe ? { vorgabe: farbVorgabe } : {}) });
+    for (const m of fr.meldungen) console.log(m);
+    for (const [id, f] of fr.farbart) quellen.find((q) => q.id === id)!.farbe = f;
+    messungen = fr.messungen;
+    farbeGemessen = fr.farbart.size > 0;
+  }
+
   // Stille der Tonspur: Anfang und Ende der Clips rasten dort ein, wo wirklich nichts gesprochen wird
   const stille = new Map<string, Stille[]>();
   let stilleNotiz = "";
@@ -517,6 +537,8 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const planText = `${JSON.stringify(ergebnis.plan, null, 2)}\n`;
   fs.writeFileSync(p.planRoh, planText);
   fs.writeFileSync(p.plan, planText);
+  if (farbeGemessen) for (const m of schreibeLuts({ ergebnis: p.ergebnis, marke, quellen: ergebnis.plan.quellen, messungen }).meldungen) console.log(m);
+  else fs.rmSync(lutOrdner(p.ergebnis), { recursive: true, force: true });
   fs.rmSync(p.gegenlesenStand, { force: true });
   fs.rmSync(p.auftrag, { force: true });
   fs.writeFileSync(p.bericht, `${JSON.stringify({ zuordnung: ergebnis.zuordnung, markierungen: ergebnis.markierungen }, null, 2)}\n`);
@@ -533,6 +555,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     ...(untertitel !== "gehoert" ? { untertitel } : {}),
     ...(str(a, "modell") ?? alt?.modell ? { modell: gr.modell } : {}),
     ...(str(a, "sprache") ?? alt?.sprache ? { sprache: gr.sprache } : {}),
+    ...(farbVorgabe ? { farbe: farbVorgabe } : {}),
     ...versatzFelder(gr),
   });
 

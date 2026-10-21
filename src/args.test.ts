@@ -14,6 +14,13 @@ describe("parseArgs", () => {
   it("alles nach -- ist positional", () => {
     expect(parseArgs(["a", "--", "--b"]).pos).toEqual(["a", "--b"]);
   });
+  it("ein Schalter ohne Wert frisst die folgende Kurzform nicht als seinen Wert (--ohne-look -o datei)", () => {
+    const r = parseArgs(["schnitt", "vorschau", "--ohne-untertitel", "--ohne-look", "-o", "v.mp4"]);
+    expect(r.opt).toEqual({ "ohne-untertitel": true, "ohne-look": true, o: "v.mp4" });
+    // negative Zahlen bleiben Werte (--versatz -5)
+    expect(parseArgs(["--versatz", "-5"]).opt["versatz"]).toBe("-5");
+  });
+
   it("-o wert ist die Kurzform, wie in Hilfe und README dokumentiert", () => {
     expect(parseArgs(["motion", "render", "zahl-zaehler", "-o", "out.webm", "--dauer", "2.6"])).toMatchObject({ pos: ["motion", "render", "zahl-zaehler"], opt: { o: "out.webm", dauer: "2.6" } });
     expect(parseArgs(["x", "-o"]).opt["o"]).toBe(true);

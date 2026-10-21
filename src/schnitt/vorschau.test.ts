@@ -45,6 +45,57 @@ describe("vorschauArgs", () => {
     expect(g.match(/scale=594:1056/g)).toHaveLength(1);
   });
 
+  describe("Look (LUT)", () => {
+    const luts = { log: "/l/farbe-log.cube", angleich: "/l/farbe-angleich.cube" };
+    const mitFarbe = (farbe: "log" | "rec709" | undefined, extra: Record<string, unknown> = {}) =>
+      plan({
+        quellen: [
+          { id: "sprache", pfad: "rohmaterial/farben.mp4", art: "video", dauer: 4, fps: 25, breite: 320, hoehe: 568, hatAudio: true, ...(farbe ? { farbe } : {}) },
+          { id: "broll-k-0001", pfad: "rohmaterial/magenta.mp4", art: "video", dauer: 2, fps: 25, breite: 640, hoehe: 360 },
+        ],
+        ...extra,
+      });
+
+    it("eine Log-Quelle bekommt die LUT «log», jede andere Videoquelle die LUT «angleich»", () => {
+      const g = graph(args(mitFarbe("log"), { lut: luts }));
+      expect(g.match(/lut3d=file='\/l\/farbe-log\.cube'/g)).toHaveLength(2);
+      expect(g).not.toContain("farbe-angleich");
+      const n = graph(args(mitFarbe("rec709"), { lut: luts }));
+      expect(n.match(/lut3d=file='\/l\/farbe-angleich\.cube'/g)).toHaveLength(2);
+      expect(n).not.toContain("farbe-log");
+      // ohne Angabe gilt das Material als normal
+      expect(graph(args(mitFarbe(undefined), { lut: luts }))).toContain("farbe-angleich");
+    });
+
+    it("die B-Roll bekommt den Angleich, die Grafiken nie einen Look", () => {
+      const p = mitFarbe("log", {
+        broll: [{ quelle: "broll-k-0001", katalog: "k-0001", t: 0.4, dauer: 0.4, von: 1, begruendung: "Zeigt die Aussage" }],
+        overlays: [{ datei: "renders/grafik.webm", effekt: "x", t: 1.2, dauer: 0.4, begruendung: "Kennzahl im Skript" }],
+      });
+      const g = graph(args(p, { lut: luts }));
+      const zeilen = g.split(";");
+      const broll = zeilen.find((z) => z.endsWith("[b0]"))!;
+      expect(broll).toContain("farbe-angleich.cube");
+      const grafik = zeilen.find((z) => z.endsWith("[g0]"))!;
+      expect(grafik).not.toContain("lut3d");
+      expect(zeilen.filter((z) => z.includes("lut3d"))).toHaveLength(3);
+    });
+
+    it("ohne LUT bleibt das Bild unverändert, und eine fehlende einzelne LUT lässt nur diese Quellen aus", () => {
+      expect(graph(args(mitFarbe("log")))).not.toContain("lut3d");
+      expect(graph(args(mitFarbe("log"), { lut: { angleich: luts.angleich } }))).not.toContain("farbe-log");
+      const mitBroll = mitFarbe("log", { broll: [{ quelle: "broll-k-0001", katalog: "k-0001", t: 0.4, dauer: 0.4, von: 1, begruendung: "Zeigt die Aussage" }] });
+      const nurAngleich = graph(args(mitBroll, { lut: { angleich: luts.angleich } }));
+      expect(nurAngleich).toContain("farbe-angleich"); // die B-Roll
+      expect(nurAngleich.match(/lut3d/g)).toHaveLength(1); // die Clips aus Log haben ohne LUT «log» keinen Look
+    });
+
+    it("maskiert Doppelpunkt und Apostroph im Pfad der LUT", () => {
+      const g = graph(args(mitFarbe("log"), { lut: { log: "C:\\Look's\\a.cube" } }));
+      expect(g).toContain("lut3d=file='C\\:/Look\\\\\\'s/a.cube'");
+    });
+  });
+
   describe("getrennter Ton", () => {
     const mitTon = (versatz: number) =>
       plan({
@@ -217,6 +268,39 @@ describe.skipIf(!hatFfmpeg)("Vorschau mit echtem ffmpeg", () => {
     expect(r5!).toBeLessThan(60); // danach wieder reines Blau
     expect(g5!).toBeLessThan(60);
   }, 120_000);
+
+  it("der Look wirkt auf Clips und B-Roll, die Grafik bleibt unberührt: Rot wird zu Grau, Magenta wird zu Grau, die weisse Grafik bleibt weiss", async () => {
+    material();
+    const { baueCube } = await import("./lut");
+    const grauLut = path.join(dir, "grau.cube");
+    fs.writeFileSync(grauLut, baueCube("grau", { schwarz: 0, weiss: 1, gamma: 1, kontrast: 0, saettigung: 0, kuehle: 0 }, 17));
+    const p = plan({
+      broll: [{ quelle: "broll-k-0001", katalog: "k-0001", t: 0.4, dauer: 0.4, von: 0.2, begruendung: "Zeigt die Aussage" }],
+      overlays: [{ datei: "renders/grafik.webm", effekt: "x", t: 1.2, dauer: 0.4, begruendung: "Kennzahl im Skript" }],
+    });
+    const mit = path.join(dir, "mit.mp4");
+    const ohne = path.join(dir, "ohne.mp4");
+    await erzeugeVorschau({ plan: p, loese: lo, ausgabe: ohne });
+    await erzeugeVorschau({ plan: p, loese: lo, ausgabe: mit, lut: { angleich: grauLut } });
+    // Clip 1 (rot) ohne Look rot, mit Look grau
+    const [r0, g0] = bildBei(ohne, 0.1);
+    expect(r0! - g0!).toBeGreaterThan(100);
+    const [r1, g1, b1] = bildBei(mit, 0.1);
+    expect(Math.abs(r1! - g1!)).toBeLessThan(25);
+    expect(Math.abs(g1! - b1!)).toBeLessThan(25);
+    // B-Roll (magenta) bei 0,6 s: ohne Look Rot und Blau weit über Grün, mit Look grau
+    const [rb0, gb0] = bildBei(ohne, 0.6);
+    expect(rb0! - gb0!).toBeGreaterThan(100);
+    const [rb1, gb1, bb1] = bildBei(mit, 0.6);
+    expect(Math.abs(rb1! - gb1!)).toBeLessThan(25);
+    expect(Math.abs(bb1! - gb1!)).toBeLessThan(25);
+    // Grafik (weiss, 70 Prozent) über Blau bei 1,4 s: in beiden Fassungen gleich hell, nur das Blau darunter ist grau: Der Weissanteil kommt unverändert an
+    const [rg0, gg0] = bildBei(ohne, 1.4);
+    const [rg1, gg1] = bildBei(mit, 1.4);
+    expect(rg0!).toBeGreaterThan(100);
+    expect(rg1!).toBeGreaterThan(100);
+    expect(Math.abs(gg1! - gg0!)).toBeLessThan(60);
+  }, 180_000);
 
   it("nimmt den Ton von der Tonaufnahme an der Stelle des Versatzes, nicht von der Kamera", async () => {
     // Kamera: 4 s Bild, Dauerton 440 Hz. Aufnahme: 10 s Stille mit einem Piepton (1 kHz) von 7,0 bis 7,5 s.

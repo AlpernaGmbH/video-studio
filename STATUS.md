@@ -3,7 +3,7 @@
 Stand: 21.10.2026, nach Freigabe von **Bauplan v4** (`docs/plan/bauplan-v4.md`, gilt vor v3; Umsetzungsstand im Abschnitt «Plan v4» unten). Etappe 1 (**Fundament und Motion-Werkstatt**) und Etappe 2 (**Notion, OneDrive, Prüfplatz, Einrichtung je Mac**) sind fertig. Als Nächstes: Phase 0 auf dem ersten Mac (`docs/phase0-mac.md`).
 Phase 0 des Bauplans (Tests T1 bis T6) ist **nicht** gelaufen, weil sie M4/M5-Macs, echte Clips, Instagram und Notion-Praxis braucht.
 
-`npm run check`: 1160 Tests in 70 Dateien grün (3 übersprungen, brauchen Apples DTD und Python mit OpenTimelineIO), Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
+`npm run check`: 1236 Tests in 74 Dateien grün (3 übersprungen, brauchen Apples DTD und Python mit OpenTimelineIO), Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
 Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion, Modus `view`), 14 Prüfungen bestanden. Er gehört nicht zu `npm run check`, weil er Playwright braucht.
 
 ## Plan v4 (21.10.2026): Stand der Phase 1 (Schnittqualität)
@@ -15,15 +15,19 @@ Auslöser war der erste echte Testlauf: Das Video wirkte billig (hektisch, 40 Zo
 - 1.2 Zoom nur am Schluss: Der Planbau setzt keinen Zoom mehr. Das Storyboard hat das Feld `zooms` (nur auf betonten Wörtern, höchstens `maxProMinute`, Abstand 1 s, Begründung); ein Zoom zählt nicht als Bildwechsel.
 - 1.3 Getrennter Ton: Tonaufnahmen (wav, m4a, mp3, aif, flac) im Aufnahmen-Ordner werden über die Videos gelegt (`ton-sync.ts`: Lautstärkekurve und FFT-Kreuzkorrelation, Versatz auf 10 ms; `ton-ablauf.ts`: Paarung, Handeingabe `--versatz`, gemerkt in `reel.json`). Whisper, Stille und Pegel rechnen auf dem Stück der Aufnahme, das zum Video gehört (`ergebnis/ton/<quelle>.wav`). Der Plan trägt `quelle.ton {quelle, versatz}`; FCPXML (Audio-Clip auf Lane −1, Musik auf −2), OTIO (A1 aus der Aufnahme), Vorschau und LIESMICH folgen. Die Prüfung meldet `ton-vor-beginn` und `ton-nach-ende` als Fehler, `clip-ohne-ton` als Hinweis.
 
+- 1.4 Farbe: `reel vorbereiten` stellt fest, ob das Material flach (Log) ist (`farbe.ts`: Etikett `color_transfer`, sonst Messung an fünf Bildern, Urteil aus der Messung gilt als Vermutung; `--farbe log|rec709|auto` setzt es von Hand und wird gemerkt, `--ohne-farbe` lässt es aus). Aus dem Look der Marke (`farbe` im Markenprofil: Mitten, Kontrast, Sättigung, Kühle) und dem Material entstehen zwei 3D-LUTs in `ergebnis/lut/` (`lut.ts`, `farbe-ablauf.ts`): «log» mit am Material gemessenem Schwarz- und Weisspunkt, «angleich» für normales Material und B-Roll. Die Vorschau wendet sie pro Quelle an, Grafiken bekommen nie einen Look; die Übergabe legt sie nach `lut/` und erklärt in der LIESMICH, wohin sie gehören.
+- Am Rand behoben: Der Argument-Parser frass bei `--schalter -o datei` das `-o` als Wert des Schalters.
+
 **Geändert am Markenprofil Alperna** (`marken/alperna.json`, Feld `schnittprofil`): `laengstePause` 0,4 s, `laengsteEinstellung` 5 s, `zoom {modus: betonung, maxProMinute: 4}`, `minClip` 0,7 s. Die Gate-0-Freigabe vom 17.10. bezog sich auf die früheren, hektischeren Werte: Ein Mensch sollte die neuen bestätigen.
 
 **Nicht geprüft und bekannte Grenzen des Tons:**
 - Resolve (T9) hat die FCPXML mit dem externen Audio-Clip nie geöffnet. Dass er die Sprache als A2 zeigt und A1 leer bleibt, ist eine Vermutung.
 - Die Schwellen der Sicherheit (Korrelation ab 0,75 «hoch», 0,55 «mittel») sind Annahmen und gehören an echtem Material geprüft (T10). Die Tests nutzen synthetisches «Sprachrauschen».
 - Die Aufnahme muss das Video zu mindestens 80 Prozent abdecken. Eine Kamera ohne Tonspur lässt sich nicht messen: Dann geht der Versatz nur von Hand. Die Paarung über Timecode oder Aufnahmezeit (Plan v4, 1.3) gibt es nicht.
+- Der Look ist eine **Näherung aus Zahlen** (Startwerte, Vermutung), keine Kamera-LUT: Welche Kamera und welches Log-Profil das Material hat, ist nicht bekannt, die Umrechnung des Herstellers fehlt. Die Schwellen der Log-Erkennung (Sättigung unter 0,08 und Helligkeitsspanne unter 0,45) sind Annahmen (T10). Hauttöne richtet ein Mensch am Vectorscope aus. Wie das Ergebnis aussieht, ist nie gesehen worden: Bilder kann ich nicht ansehen, nur messen.
 - Die Aufnahme wird pro Video als Stück transkribiert: Läuft eine lange Aufnahme über mehrere Videos, hört Whisper jedes Stück einzeln (dafür nie mehr als die Länge der Videos).
 
-**Noch offen in Phase 1:** 1.4 Farbe (Log-Erkennung, LUT, Vorschau nur auf V1), 1.5 Premium-Look und Grafikfamilien (braucht die Look-Wahl eines Menschen, Regel 2), 1.6 `reel messe`, 1.7 Tempo (Caches, parallele Renders, Whisper-Benchmark), 1.8 Doku. Phase 2 bis 5 (Alperna-Tool, Supabase, Bibliothek, Videoanalyse) sind nicht begonnen: Sie warten auf das bestätigte Datenmodell (Plan v4, Anhang B) und geprüften Schreibzugriff auf `AlpernaGmbH/tool`.
+**Noch offen in Phase 1:** 1.5 Premium-Look und Grafikfamilien (braucht die Look-Wahl eines Menschen, Regel 2), 1.6 `reel messe`, 1.7 Tempo (Caches, parallele Renders, Whisper-Benchmark), 1.8 Doku. Phase 2 bis 5 (Alperna-Tool, Supabase, Bibliothek, Videoanalyse) sind nicht begonnen: Sie warten auf das bestätigte Datenmodell (Plan v4, Anhang B) und geprüften Schreibzugriff auf `AlpernaGmbH/tool`.
 
 ## Entscheide aus dem Chat (17.10.)
 

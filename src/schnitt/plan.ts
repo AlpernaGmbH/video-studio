@@ -35,6 +35,11 @@ export const SchnittQuelle = z
      * die Kameraspur bleibt stumm. Versatz: Zeit in der Tonaufnahme = Zeit im Video + versatz (in Sekunden, `ton-sync.ts`).
      */
     ton: z.object({ quelle: KennId, versatz: z.number() }).optional(),
+    /**
+     * Farbart (Plan v4, 1.4): «log» ist flaches Material, das einen Look braucht, «rec709» normales. Fehlt die Angabe, wurde nicht gemessen und das Material gilt als normal.
+     * Daraus wählen Vorschau und Übergabe die LUT.
+     */
+    farbe: z.enum(["log", "rec709"]).optional(),
   })
   .superRefine((q, ctx) => {
     if (q.art === "video") {
@@ -44,6 +49,7 @@ export const SchnittQuelle = z
     }
     if (q.art === "audio" && !q.hatAudio) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["hatAudio"], message: "Eine Audioquelle hat Audio" });
     if (q.ton && q.art !== "video") ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["ton"], message: "Nur eine Videoquelle hat einen getrennten Ton" });
+    if (q.farbe && q.art !== "video") ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["farbe"], message: "Nur eine Videoquelle hat eine Farbart" });
   });
 export type SchnittQuelle = z.infer<typeof SchnittQuelle>;
 

@@ -7,6 +7,7 @@ import { parseArgs } from "../args";
 import { rendereStueck, umgebung, type Umgebung } from "../motion/werkstatt";
 import { leseSchnittplan } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
+import { schnittBefehl } from "./befehle";
 import { findeStille } from "./stille";
 import { listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, transkriptMarkdown, type ReelGeraete, type ReelZustand } from "./reel";
 import { testSatz } from "./testdaten";
@@ -503,7 +504,9 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     expect(fs.existsSync(studio("inhalte", "c-0007", "ergebnis", "resolve"))).toBe(false);
     expect(await lauf("reel", "uebergabe", "c-0007", "--entwurf")).toBe(0);
     const ordner = studio("inhalte", "c-0007", "ergebnis", "resolve");
-    expect(fs.readdirSync(ordner).sort()).toEqual(["LIESMICH.md", "overlays", "plan.json", "timeline.fcpxml", "timeline.otio", "untertitel.srt"]);
+    // das Testbild gilt als normal: Der Angleich der Marke liegt als LUT bei
+    expect(fs.readdirSync(ordner).sort()).toEqual(["LIESMICH.md", "lut", "overlays", "plan.json", "timeline.fcpxml", "timeline.otio", "untertitel.srt"]);
+    expect(fs.readdirSync(path.join(ordner, "lut"))).toEqual(["farbe-angleich.cube"]);
     expect(fs.readFileSync(path.join(ordner, "LIESMICH.md"), "utf8")).toMatch(/## Betonte Wörter[\s\S]*Küche/);
     expect(await lauf("reel", "uebergabe", "c-0007", "--entwurf")).toBe(0);
     expect(fs.existsSync(`${ordner}-v2`)).toBe(true);
@@ -722,4 +725,100 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten mit getrenntem Ton", () => {
     expect(quellen.find((x: { id: string }) => x.id === "sprache-01").ton.quelle).toBe("recorder-01");
     expect(quellen.map((x: { id: string }) => x.id)).toEqual(["sprache-01", "recorder-01"]);
   }, 180_000);
+});
+
+describe.skipIf(!hatFfmpeg)("reel vorbereiten mit Farbe", () => {
+  const start = async (): Promise<void> => {
+    zwischenablage = SKRIPT;
+    await lauf("reel", "neu", "c-0007", "--marke", "alperna", "--zwischenablage", "--nicht-oeffnen");
+    ersatzWhisper(whisperJson(testSatz(1, Z1), testSatz(10, Z2), testSatz(20, Z3)));
+  };
+  /** `flach`: wenig Kontrast und kaum Farbe wie Log-Material. */
+  const video = (flach: boolean, name = "Sprache 01.mp4", dauer = 45): string => {
+    fs.mkdirSync(medien("rohmaterial", "c-0007"), { recursive: true });
+    const ziel = medien("rohmaterial", "c-0007", name);
+    ff("-f", "lavfi", "-i", `testsrc2=size=320x568:rate=25:duration=${dauer}`, "-f", "lavfi", "-i", `sine=frequency=300:duration=${dauer}`, ...(flach ? ["-vf", "eq=contrast=0.35:saturation=0.15,format=yuv420p"] : []), "-shortest", ziel);
+    return ziel;
+  };
+  const planLesen = () => leseSchnittplan(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"), "utf8")));
+  const lutPfad = (n: string) => studio("inhalte", "c-0007", "ergebnis", "lut", n);
+
+  it("flaches Material wird als Log erkannt, bekommt die LUT «log» mit gemessenen Punkten, der Plan trägt die Farbart", async () => {
+    await start();
+    video(true);
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(planLesen().quellen[0]!.farbe).toBe("log");
+    expect(text()).toMatch(/Farbe: sprache-01: sieht nach Log \(flach\) aus, unsicher/);
+    expect(text()).toMatch(/Look: farbe-log\.cube für sprache-01 \(Schwarzpunkt 0,\d\d, Weisspunkt 0,\d\d, am Material gemessen\)/);
+    expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(true);
+    expect(fs.existsSync(lutPfad("farbe-angleich.cube"))).toBe(true);
+  }, 180_000);
+
+  it("normales Material bekommt nur den Angleich", async () => {
+    await start();
+    video(false);
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(planLesen().quellen[0]!.farbe).toBe("rec709");
+    expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(false);
+    expect(fs.existsSync(lutPfad("farbe-angleich.cube"))).toBe(true);
+  }, 180_000);
+
+  it("--farbe setzt die Farbart von Hand, wird in reel.json gemerkt und gilt beim nächsten Lauf; --farbe auto kehrt zur Messung zurück", async () => {
+    await start();
+    video(false);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--farbe", "log");
+    expect(planLesen().quellen[0]!.farbe).toBe("log");
+    expect(text()).toContain("(von Hand, --farbe)");
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8")).farbe).toBe("log");
+    expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(true);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    expect(planLesen().quellen[0]!.farbe).toBe("log");
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--farbe", "auto");
+    expect(planLesen().quellen[0]!.farbe).toBe("rec709");
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8")).farbe).toBeUndefined();
+    expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(false);
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--farbe", "bunt")).rejects.toThrow(/log.*rec709.*auto/);
+  }, 300_000);
+
+  it("--ohne-farbe misst nichts, setzt keine Farbart und entfernt LUTs aus einem früheren Lauf", async () => {
+    await start();
+    video(true);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(true);
+    ausgabe.length = 0;
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--ohne-farbe");
+    expect(planLesen().quellen[0]!.farbe).toBeUndefined();
+    expect(text()).toContain("--ohne-farbe");
+    expect(fs.existsSync(path.join(studio("inhalte", "c-0007", "ergebnis", "lut")))).toBe(false);
+  }, 300_000);
+
+  it("die Übergabe nimmt die LUTs des Inhalts mit und nennt sie in der Anleitung; --ohne-look lässt sie weg", async () => {
+    await start();
+    video(true);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    fs.writeFileSync(studio("inhalte", "c-0007", "ergebnis", "gegenlesen.json"), JSON.stringify({ gelesen: true, schnitte: [], woerter: [] }));
+    await lauf("reel", "gegenlesen", "c-0007", "--nicht-kopieren");
+    expect(await lauf("reel", "uebergabe", "c-0007", "--nicht-strikt")).toBe(0);
+    const resolve = studio("inhalte", "c-0007", "ergebnis", "resolve");
+    expect(fs.readdirSync(path.join(resolve, "lut")).sort()).toEqual(["farbe-angleich.cube", "farbe-log.cube"]);
+    expect(fs.readFileSync(path.join(resolve, "LIESMICH.md"), "utf8")).toContain("`lut/farbe-log.cube` für Clips aus Log-Quellen (sprache-01)");
+    // eine zweite Fassung ohne Look: neuer Ordner ohne lut/
+    const r = await schnittBefehl("resolve", parseArgs(["schnitt", "resolve", "--plan", studio("inhalte", "c-0007", "ergebnis", "plan.json"), "--aus", resolve, "--nicht-strikt", "--ohne-look"]), env);
+    expect(r).toBe(0);
+    expect(fs.existsSync(path.join(`${resolve}-v2`, "lut"))).toBe(false);
+    expect(fs.readFileSync(path.join(`${resolve}-v2`, "LIESMICH.md"), "utf8")).toContain("Eine LUT liegt nicht bei");
+  }, 300_000);
+
+  it("die Vorschau über schnitt vorschau findet die LUTs des Inhalts selbst und sagt «mit Look»", async () => {
+    await start();
+    video(true);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    ausgabe.length = 0;
+    const plan = studio("inhalte", "c-0007", "ergebnis", "plan.json");
+    expect(await schnittBefehl("vorschau", parseArgs(["schnitt", "vorschau", "--plan", plan, "--ohne-untertitel", "-o", path.join(tmp, "v.mp4")]), env)).toBe(0);
+    expect(text()).toContain("mit Look (LUT)");
+    ausgabe.length = 0;
+    expect(await schnittBefehl("vorschau", parseArgs(["schnitt", "vorschau", "--plan", plan, "--ohne-untertitel", "--ohne-look", "-o", path.join(tmp, "w.mp4")]), env)).toBe(0);
+    expect(text()).toContain("ohne Look");
+  }, 300_000);
 });

@@ -6,6 +6,7 @@ import { relPath, resolveInRoot } from "../core/paths";
 import type { Stueck } from "../motion/stueck";
 import type { AudioPreset, ExportPreset } from "../presets/schema";
 import { GROSSE_UNTERORDNER, medienOrdner, type StudioHome } from "../setup";
+import type { LutPfade } from "./farbe-ablauf";
 import { schreibeFcpxml, type PfadLoeser } from "./fcpxml";
 import { schreibeOtio } from "./otio";
 import { externerTon, platziere, sekunden, type Schnittplan } from "./plan";
@@ -65,6 +66,8 @@ export interface UebergabeOptionen {
   strikt?: boolean;
   /** Ersetzt ffmpeg in Tests. */
   konvertiere?: (ein: string, aus: string) => void;
+  /** LUTs für den Look (Dateien, die es gibt): Sie werden nach `lut/` kopiert und in der Anleitung erklärt. */
+  luts?: LutPfade;
 }
 
 export interface UebergabeErgebnis {
@@ -140,9 +143,18 @@ export function erzeugeUebergabe(o: UebergabeOptionen): UebergabeErgebnis {
     if (gruppen.length) schreibe("untertitel.srt", schreibeSrt(gruppen, plan.projekt.fps));
   }
   schreibe("plan.json", JSON.stringify(plan, null, 2) + "\n");
+  const lutNamen: string[] = [];
+  for (const art of ["log", "angleich"] as const) {
+    const quelle = o.luts?.[art];
+    if (!quelle) continue;
+    fs.mkdirSync(path.join(ordner, "lut"), { recursive: true });
+    const name = path.basename(quelle);
+    fs.copyFileSync(quelle, path.join(ordner, "lut", name));
+    lutNamen.push(name);
+  }
 
   const dauer = sekunden(zeit.gesamtFrames, plan.projekt.fps);
-  schreibe("LIESMICH.md", liesmich({ plan, dauer, seiten, befunde, export: o.export, audio: o.audio, umgewandelt, dateien: [...dateien, "LIESMICH.md"] }));
+  schreibe("LIESMICH.md", liesmich({ plan, dauer, seiten, befunde, export: o.export, audio: o.audio, umgewandelt, luts: lutNamen, dateien: [...dateien, "LIESMICH.md"] }));
   return { ordner, dateien, befunde, fehlendeDateien: fehlend, umgewandelt, dauer, untertitel: seiten };
 }
 
@@ -181,7 +193,17 @@ Der Versatz ist aus der Lautstärkekurve gemessen (auf 10 Millisekunden), ein Bi
 `;
 }
 
-export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; dateien: string[] }): string {
+/** Der Punkt «Look» unter «Danach von Hand»: mit LUTs eine Anleitung, sonst der Hinweis, dass es keine gibt. */
+function lookPunkt(plan: Schnittplan, luts: string[]): string {
+  if (!luts.length) return `- Look: Der Look der Marke ${plan.projekt.marke} sitzt auf den Kamera-Clips, nicht auf den Grafiken. Eine LUT liegt nicht bei (Markenprofil, Feld «farbe»).`;
+  const log = plan.quellen.filter((q) => q.art === "video" && q.farbe === "log" && plan.clips.some((c) => c.quelle === q.id)).map((q) => q.id);
+  const zeilen: string[] = [];
+  if (luts.some((n) => n.includes("log"))) zeilen.push(`  - \`lut/farbe-log.cube\` für Clips aus Log-Quellen${log.length ? ` (${log.join(", ")})` : ""}: flaches Material wird zum Bild mit Kontrast und Farbe.`);
+  if (luts.some((n) => n.includes("angleich"))) zeilen.push("  - `lut/farbe-angleich.cube` für alle anderen Videoclips und die B-Roll: gleicht sie an den Look an, ohne sie flach zu behandeln.");
+  return `- Look: Die LUTs gehören auf die Videoclips (V1 und V2), **nie auf die Grafiken (V3)**: Die stehen in den Farben der Marke. In Resolve auf der Farbseite einen Knoten mit der LUT anlegen oder die LUT per Rechtsklick auf den Clip setzen.\n${zeilen.join("\n")}\n  - Die LUTs sind eine Näherung aus wenigen Zahlen der Marke, keine Kamera-LUT. Wer die Umrechnung des Herstellers hat (S-Log3, C-Log, Apple Log), setzt sie davor. Hauttöne am Vectorscope auf die Hautlinie legen. Die Vorschau zeigte denselben Look.`;
+}
+
+export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; luts?: string[]; dateien: string[] }): string {
   const { plan, export: e, audio } = a;
   const hinweise = a.befunde.filter((b) => b.stufe === "hinweis");
   const mbit = (e.bitrateMbit.min + e.bitrateMbit.max) / 2;
@@ -199,7 +221,7 @@ Alles in diesem Ordner hat Claude aus \`plan.json\` erzeugt. Resolve wird nicht 
 |---|---|
 ${a.dateien
   .map((d) => `| \`${d}\` | ${{ "timeline.fcpxml": "Timeline als FCPXML 1.8: Sprache auf V1/A1, B-Roll V2, Grafiken V3, Musik A2", "timeline.otio": "dieselbe Timeline als OpenTimelineIO, falls die FCPXML Probleme macht", "untertitel.srt": "Untertitel Wort für Wort, 2 bis 3 Wörter je Seite", "plan.json": "der Schnittplan, aus dem alles entstanden ist", "LIESMICH.md": "diese Anleitung" }[d] ?? d} |`)
-  .join("\n")}${a.umgewandelt.length ? `\n| \`overlays/\` | ${a.umgewandelt.length} Grafik${a.umgewandelt.length === 1 ? "" : "en"} als ProRes 4444 mit Transparenz (aus WebM umgewandelt) |` : ""}
+  .join("\n")}${a.umgewandelt.length ? `\n| \`overlays/\` | ${a.umgewandelt.length} Grafik${a.umgewandelt.length === 1 ? "" : "en"} als ProRes 4444 mit Transparenz (aus WebM umgewandelt) |` : ""}${a.luts?.length ? `\n| \`lut/\` | ${a.luts.length} LUT${a.luts.length === 1 ? "" : "s"} für den Look (.cube) |` : ""}
 
 ## Vor dem Import
 
@@ -214,7 +236,7 @@ ${a.dateien
 
 ## Danach von Hand
 
-- Look: Der Look der Marke ${plan.projekt.marke} sitzt auf den Kamera-Clips, nicht auf den Grafiken. Eine LUT liegt noch nicht vor (Markenprofil, Feld «look»).
+${lookPunkt(plan, a.luts ?? [])}
 - Ton: Ziel ${audio.zielLufs} LUFS (±${audio.toleranzLu} LU) bei höchstens ${audio.spitzeDbtp} dBTP, Preset «${audio.id}».${audio.musikPegelDb !== undefined ? ` Die Musik liegt auf ${audio.musikPegelDb} dB.` : ""}
 - Grafiken ansehen: Auf V3 muss der Hintergrund transparent bleiben. Wenn er schwarz ist, die Grafik als PNG-Folge neu rendern lassen.
 

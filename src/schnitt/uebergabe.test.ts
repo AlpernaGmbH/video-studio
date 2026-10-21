@@ -173,6 +173,47 @@ describe.skipIf(!hatFfmpeg)("Umwandlung mit echtem ffmpeg", () => {
   }, 60_000);
 });
 
+describe("erzeugeUebergabe mit Look (LUT)", () => {
+  const lutDatei = (root: string, name: string) => {
+    const p = path.join(root, "luts", name);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, "LUT_3D_SIZE 2\n");
+    return p;
+  };
+
+  it("kopiert die LUTs nach lut/, nennt sie in der Tabelle und erklärt, wohin sie gehören (nie auf die Grafiken)", () => {
+    const w = werkstatt();
+    w.plan.quellen.find((q) => q.id === "sprache")!.farbe = "log";
+    const r = lauf(w, { luts: { log: lutDatei(w.root, "farbe-log.cube"), angleich: lutDatei(w.root, "farbe-angleich.cube") } });
+    expect(fs.existsSync(path.join(r.ordner, "lut", "farbe-log.cube"))).toBe(true);
+    expect(fs.existsSync(path.join(r.ordner, "lut", "farbe-angleich.cube"))).toBe(true);
+    const liesmich = fs.readFileSync(path.join(r.ordner, "LIESMICH.md"), "utf8");
+    expect(liesmich).toContain("| `lut/` | 2 LUTs für den Look (.cube) |");
+    expect(liesmich).toContain("`lut/farbe-log.cube` für Clips aus Log-Quellen (sprache)");
+    expect(liesmich).toContain("`lut/farbe-angleich.cube` für alle anderen Videoclips und die B-Roll");
+    expect(liesmich).toContain("nie auf die Grafiken (V3)");
+    expect(liesmich).toContain("keine Kamera-LUT");
+  });
+
+  it("ohne LUT sagt die Anleitung, dass keine beiliegt, und es gibt keinen Ordner lut/", () => {
+    const w = werkstatt();
+    const r = lauf(w);
+    expect(fs.existsSync(path.join(r.ordner, "lut"))).toBe(false);
+    const liesmich = fs.readFileSync(path.join(r.ordner, "LIESMICH.md"), "utf8");
+    expect(liesmich).toContain("Eine LUT liegt nicht bei");
+    expect(liesmich).not.toContain("| `lut/` |");
+  });
+
+  it("nur die LUT «angleich»: kein Satz über Log-Quellen", () => {
+    const w = werkstatt();
+    const r = lauf(w, { luts: { angleich: lutDatei(w.root, "farbe-angleich.cube") } });
+    const liesmich = fs.readFileSync(path.join(r.ordner, "LIESMICH.md"), "utf8");
+    expect(liesmich).toContain("farbe-angleich.cube");
+    expect(liesmich).not.toContain("für Clips aus Log-Quellen");
+    expect(liesmich).toContain("| `lut/` | 1 LUT für den Look (.cube) |");
+  });
+});
+
 describe("erzeugeUebergabe mit getrenntem Ton", () => {
   const mitTon = () => {
     const w = werkstatt();

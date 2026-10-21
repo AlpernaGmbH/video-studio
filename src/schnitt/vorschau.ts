@@ -19,6 +19,11 @@ export interface VorschauOptionen {
   ausgabe: string;
   /** SRT-Datei, die ins Bild gebrannt wird (braucht ffmpeg mit libass). */
   untertitel?: string;
+  /**
+   * LUTs (.cube) für den Look: «log» für Quellen mit `farbe: "log"`, «angleich» für alle anderen Videoquellen (normales Material, B-Roll). Die Grafiken auf V3 bekommen nie einen Look.
+   * Ohne LUT bleibt das Bild unverändert.
+   */
+  lut?: { log?: string; angleich?: string };
   breite?: number;
   hoehe?: number;
 }
@@ -47,6 +52,11 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     return n++;
   };
   const filter: string[] = [];
+  /** Der Look einer Videoquelle als Filter, oder nichts. */
+  const look = (q: { farbe?: "log" | "rec709" }): string => {
+    const datei = q.farbe === "log" ? o.lut?.log : o.lut?.angleich;
+    return datei ? `,lut3d=file='${filterPfad(datei)}'` : "";
+  };
   /** Das Bild füllt den Ausschnitt ganz (Zuschnitt statt Ränder), dann optional der Zoom. */
   const deckend = (i: number, extra = ""): string => `[${i}:v]fps=${fpsText},scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}${extra},setsar=1`;
 
@@ -57,7 +67,7 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     const q = p.quelle;
     const i = eingang(["-ss", zahl(alsZahl(p.quellStart)), "-t", zahl(dauer + 2 / fps), "-i", o.loese(q.pfad, "quelle")]);
     const zoom = p.clip.zoom !== 1 ? `,scale=${gerade(W * p.clip.zoom)}:${gerade(H * p.clip.zoom)},crop=${W}:${H}` : "";
-    filter.push(`${deckend(i, zoom)},setpts=PTS-STARTPTS,trim=end_frame=${p.frames},setpts=PTS-STARTPTS[v${k}]`);
+    filter.push(`${deckend(i, zoom + look(q))},setpts=PTS-STARTPTS,trim=end_frame=${p.frames},setpts=PTS-STARTPTS[v${k}]`);
     const ton = externerTon(q, quellen);
     if (ton) {
       // Sprache von der Tonaufnahme: Zeit in der Aufnahme = Zeit im Video + Versatz
@@ -86,7 +96,7 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     if (!q) return;
     const i = eingang(["-ss", zahl(b.von), "-t", zahl(b.dauer + 2 / fps), "-i", o.loese(q.pfad, "quelle")]);
     const start = inFrames(b.t, fps) / fps;
-    filter.push(`${deckend(i)},setpts=PTS-STARTPTS+${zahl(start)}/TB[b${k}]`);
+    filter.push(`${deckend(i, look(q))},setpts=PTS-STARTPTS+${zahl(start)}/TB[b${k}]`);
     lege(`b${k}`, b.t, b.dauer);
   });
 
