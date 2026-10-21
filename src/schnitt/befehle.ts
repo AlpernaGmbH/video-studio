@@ -12,7 +12,7 @@ import { z } from "zod";
 import { erzeugeBogen } from "./kontaktbogen";
 import { fehlendeDateien, erzeugeVorschau, kannUntertitel } from "./vorschau";
 import { STANDARD_SCHNITTPROFIL, ZOOM_MODI, type ZoomModus } from "./planbau";
-import { gruppiere, schreibeSrt, woerterAufTimeline } from "./untertitel";
+import { gruppiere, schreibeSrt, seitenFuerOverlay, woerterAufTimeline } from "./untertitel";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { zuordnungBericht } from "./bericht";
 import { leseSchnittplan, platziere, SchnittQuelle } from "./plan";
@@ -49,6 +49,8 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
   schnitt vorschau --plan plan.json [-o vorschau.mp4] [--ohne-untertitel]
                                       Vorschau-Video (540x960, 25p) mit Clips, Zoom, B-Roll, Grafiken, Musik und eingebrannten Untertiteln. Eine Näherung zum Ansehen, kein Export.
                                       Standard: <Studio>/inhalte/<Inhalt-ID>/ergebnis/vorschau.mp4, eine vorhandene Datei wird nie überschrieben (vorschau-v2.mp4).
+  schnitt seiten --plan plan.json [--marke key] [-o seiten.json]
+                                      Untertitel-Seiten mit Wortzeiten und Betonung (Sekunden der Timeline) als JSON für den Parameter «seiten» des Stücks «untertitel-pop».
   schnitt pruefe --plan plan.json [--marke key] [--entwurf]
                                       Plan prüfen: Quellen, Grenzen, Regeln des Schnittprofils der Marke (Pausen, Bildwechsel, Hook, Sprechtempo)
   schnitt resolve --plan plan.json [--aus ordner] [--preset reel] [--audio standard] [--marke key] [--nicht-strikt] [--entwurf]
@@ -206,6 +208,19 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       if (r.nichtGerendert.length) console.log(`Nicht gerendert: Eintrag ${r.nichtGerendert.join(", ")} (zuerst «./studio schnitt storyboard … --rendern»)`);
       if (r.ohneBild.length) console.log(`Ohne Standbild: Eintrag ${r.ohneBild.join(", ")}`);
       return r.ohneBild.length || r.nichtGerendert.length ? 1 : 0;
+    }
+    case "seiten": {
+      const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
+      const marke = ladeMarke(env, typeof a.opt["marke"] === "string" ? a.opt["marke"] : plan.projekt.marke);
+      const seiten = seitenFuerOverlay(plan, platziere(plan), marke.schnittprofil ?? STANDARD_SCHNITTPROFIL);
+      const json = JSON.stringify(seiten);
+      const ausDatei = typeof a.opt["o"] === "string" ? (a.opt["o"] as string) : undefined;
+      if (ausDatei) {
+        fs.writeFileSync(ausDatei, `${json}\n`);
+        const ende = seiten.length ? seiten[seiten.length - 1]!.bis : 0;
+        console.log(`${seiten.length} Seiten, ${seiten.reduce((n, s) => n + s.woerter.filter((w) => w.betont).length, 0)} betonte Wörter, Ende ${ende.toFixed(2)} s → ${ausDatei}`);
+      } else console.log(json);
+      return 0;
     }
     case "pruefe": {
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));

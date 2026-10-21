@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.5 bis 120). Die Timeline endet hier.","default":3.4,"role":"timing"},{"id":"seiten","type":"string","label":"Seiten","description":"JSON-Liste der Untertitel-Seiten in Sekunden ab Beginn des Overlays: [{\"von\",\"bis\",\"woerter\":[{\"t\",\"von\",\"bis\",\"betont\"}]}]. Kommt aus «./studio schnitt seiten --plan …». Vorschauwert für Check und Snapshot ist ein Beispielsatz.","role":"content","default":"[{\"von\":0.12,\"bis\":1.04,\"woerter\":[{\"t\":\"Innerhalb\",\"von\":0.12,\"bis\":0.5,\"betont\":false},{\"t\":\"von\",\"von\":0.5,\"bis\":0.62,\"betont\":false},{\"t\":\"drei\",\"von\":0.62,\"bis\":0.84,\"betont\":false}]},{\"von\":1.04,\"bis\":2.0,\"woerter\":[{\"t\":\"Monaten\",\"von\":1.04,\"bis\":1.4,\"betont\":false},{\"t\":\"haben\",\"von\":1.4,\"bis\":1.6,\"betont\":false},{\"t\":\"wir\",\"von\":1.6,\"bis\":1.8,\"betont\":false}]},{\"von\":2.0,\"bis\":3.3,\"woerter\":[{\"t\":\"74.000\",\"von\":2.0,\"bis\":2.6,\"betont\":true},{\"t\":\"Aufrufe\",\"von\":2.6,\"bis\":3.2,\"betont\":false}]}]"},{"id":"position","type":"enum","label":"Position","description":"Wo die Untertitel stehen. «unten» steht im unteren Drittel über dem Sicherheitsrand, «mitte» in der Bildmitte für Szenen ohne Gesicht dort.","role":"layout","options":[{"value":"unten","label":"Unten"},{"value":"mitte","label":"Mitte"}],"default":"unten"},{"id":"groesse","type":"number","label":"Schriftgrösse","description":"Schriftgrösse in Pixeln. 76 passt für zwei bis drei Wörter in einer oder zwei Zeilen. Grösser als 96 bricht lange Wörter um.","role":"layout","default":76},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeAkzent2","type":"color","label":"markeAkzent2","description":"Zweite Akzentfarbe der Marke","default":"#4B3FD6","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
+<head>
+<meta charset="utf-8">
+<title>Untertitel Wort-Pop</title>
+<link rel="stylesheet" href="assets/brand.css">
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { position: relative; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  /* Sicherheitsrand (render.ts): oben 8 %, links 5 %, rechts und unten je 20 %. Inhalt nur in x 54 bis 864, y 154 bis 1536. */
+  #buehne { position: absolute; left: 54px; width: 810px; display: flex; justify-content: center; }
+  #buehne.unten { top: 1090px; height: 350px; align-items: flex-end; }
+  #buehne.mitte { top: 770px; height: 350px; align-items: center; }
+  .seite { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; opacity: 0; }
+  #buehne.unten .seite { bottom: 0; }
+  #buehne.mitte .seite { top: 50%; transform: translateY(-50%); }
+  .zeile {
+    display: inline-block; max-width: 810px; text-align: center; white-space: normal; text-wrap: balance;
+    font-family: var(--markeFontTitel), sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; line-height: 1.22;
+    color: var(--markeText);
+    text-shadow: 0 2px 18px var(--schatten), 0 0 3px var(--schatten);
+  }
+  /* Letter-spacing hängt am letzten Wort mit: dieser Ausgleich hält die Zeile mittig */
+  .zeile { padding-left: 0.12em; }
+  .w { display: inline-block; opacity: 0; margin: 0 0.12em; }
+  .w.betont { color: var(--markeAkzent1); text-shadow: 0 0 34px var(--glow), 0 2px 18px var(--schatten); }
+  .linie { height: 4px; margin-top: 16px; border-radius: 2px; transform-origin: center; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="untertitel-pop" data-start="0" data-width="1080" data-height="1920">
+  <div id="buehne"></div>
+</div>
+<script>
+(function () {
+  var v = window.__hyperframes.getVariables();
+  var root = document.getElementById("root");
+
+  // Marke in CSS-Variablen übernehmen
+  ["markeBg", "markeText", "markeAkzent1", "markeAkzent2", "markeFontTitel", "markeFontText", "markeRadius", "markeTempo"].forEach(function (k) {
+    if (v[k] !== undefined) root.style.setProperty("--" + k, String(v[k]));
+  });
+  function rgba(hex, a) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+  root.style.setProperty("--glow", rgba(v.markeAkzent1, 0.55));
+  root.style.setProperty("--schatten", rgba(v.markeBg, 0.88));
+
+  var d = Number(v.dauer);
+  var tempo = Math.min(2, Math.max(0.5, Number(v.markeTempo) || 1));
+  var k = 1 / tempo;
+  var px = Math.max(48, Math.min(120, Number(v.groesse) || 76));
+  var seiten = [];
+  try { seiten = JSON.parse(String(v.seiten || "[]")); } catch (e) { seiten = []; }
+  if (!Array.isArray(seiten)) seiten = [];
+
+  var buehne = document.getElementById("buehne");
+  buehne.className = v.position === "mitte" ? "mitte" : "unten";
+
+  // Seiten aufbauen: Alle Wörter stehen von Anfang an im Layout (unsichtbar), damit nichts springt, wenn ein Wort erscheint.
+  var eintraege = seiten.map(function (s) {
+    var seite = document.createElement("div");
+    seite.className = "seite";
+    var zeile = document.createElement("div");
+    zeile.className = "zeile";
+    zeile.style.fontSize = px + "px";
+    var wEls = (s.woerter || []).map(function (w) {
+      var el = document.createElement("span");
+      el.className = "w" + (w.betont ? " betont" : "");
+      el.textContent = String(w.t);
+      zeile.appendChild(el);
+      zeile.appendChild(document.createTextNode(" "));
+      return el;
+    });
+    seite.appendChild(zeile);
+    var linie = null;
+    if ((s.woerter || []).some(function (w) { return w.betont; })) {
+      linie = document.createElement("div");
+      linie.className = "linie";
+      linie.style.background = "linear-gradient(90deg, " + rgba(v.markeAkzent1, 0) + ", " + v.markeAkzent1 + " 25%, " + v.markeAkzent1 + " 75%, " + rgba(v.markeAkzent1, 0) + ")";
+      seite.appendChild(linie);
+    }
+    buehne.appendChild(seite);
+    return { s: s, seite: seite, zeile: zeile, wEls: wEls, linie: linie };
+  });
+
+  // Breite der Linien nach dem Laden der Schrift messen (offsetWidth, nie getBoundingClientRect: das rechnet Transformationen mit)
+  // Lange Wörter («Badminton-Verein») sollen nie vier Zeilen füllen: Die Schrift schrumpft je Seite, bis höchstens zwei Zeilen übrig sind (nicht unter 56 px).
+  function messen() {
+    eintraege.forEach(function (e) {
+      var gr = px;
+      e.zeile.style.fontSize = gr + "px";
+      while (gr > 56 && e.zeile.offsetHeight / (gr * 1.22) > 2.4) {
+        gr = Math.max(56, Math.floor(gr * 0.94));
+        e.zeile.style.fontSize = gr + "px";
+      }
+      if (e.linie) e.linie.style.width = Math.min(810, e.zeile.offsetWidth) + "px";
+    });
+  }
+  messen();
+  if (document.fonts) {
+    document.fonts.load('600 ' + px + 'px "' + v.markeFontTitel + '"', "0123456789").then(messen);
+    document.fonts.ready.then(messen);
+  }
+
+  // Die Timeline muss synchron registriert werden (sonst «zero duration» beim Render).
+  // Jede Seite steht von «von» bis «bis». Die Wörter blenden kurz vor dem Sprechen unscharf zu scharf auf.
+  var tl = gsap.timeline({ paused: true });
+  eintraege.forEach(function (e) {
+    var von = Number(e.s.von), bis = Number(e.s.bis);
+    tl.set(e.seite, { opacity: 1 }, von);
+    e.s.woerter.forEach(function (w, j) {
+      var el = e.wEls[j];
+      var t0 = Math.max(von, Number(w.von) - 0.05);
+      tl.fromTo(el, { opacity: 0, y: 12, filter: "blur(14px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.3 * k, ease: "power2.out" }, t0);
+      if (w.betont) {
+        tl.fromTo(el, { scale: 1 }, { scale: 1.08, duration: 0.16 * k, yoyo: true, repeat: 1, ease: "power2.out" }, t0 + 0.06);
+        if (e.linie) tl.fromTo(e.linie, { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.45 * k, ease: "power3.out" }, t0);
+      }
+    });
+    tl.to(e.seite, { opacity: 0, duration: 0.06, ease: "none" }, Math.max(von + 0.05, bis - 0.06));
+  });
+  tl.set({}, {}, d); // Die Timeline endet genau bei «dauer»
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["untertitel-pop"] = tl;
+})();
+</script>
+</body>
+</html>

@@ -69,7 +69,7 @@ describe("studio CLI", () => {
     expect(r.out).toContain("Idee m-001 angelegt");
     const idee = JSON.parse(studio("ideen", "zeigen", "m-001").out) as { quelle: { satz: string; projekt: string }; warumNichtsPasst: { geprueft: { stueck: string }[] } };
     expect(idee.quelle).toMatchObject({ projekt: "P-023", satz: "Die Läuferin fiel über fünf Scans von 97 auf 60." });
-    expect(idee.warumNichtsPasst.geprueft[0]?.stueck).toBe("zahl-zaehler");
+    expect(idee.warumNichtsPasst.geprueft.map((g) => g.stueck)).toContain("zahl-zaehler");
   });
 
   it("dieselbe Stelle wird beim zweiten Lauf nicht noch einmal zur Idee", () => {

@@ -296,8 +296,10 @@ export function loeseVariablen(stueck: Stueck, werte: Record<string, unknown>, o
       fehler.push(`Pflichtparameter «${p.id}» fehlt`);
       continue;
     }
-    const wert = gegeben !== undefined ? gegeben : p.default;
+    let wert = gegeben !== undefined ? gegeben : p.default;
     if (wert === undefined) continue;
+    // Ein Text-Parameter darf eine JSON-Liste oder ein JSON-Objekt tragen (zum Beispiel «seiten» von untertitel-pop). `--set` und das Storyboard liefern sie als Liste, das Stück liest den Text.
+    if (p.typ === "string" && wert !== null && typeof wert === "object") wert = JSON.stringify(wert);
     const f = pruefeWert(p, wert);
     if (f) {
       fehler.push(f);

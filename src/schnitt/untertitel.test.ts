@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gruppiere, MINDEST_ANZEIGE, schreibeSrt, seitenGroessen, woerterAufTimeline, type TimelineWort } from "./untertitel";
+import { gruppiere, gruppiereMitWoertern, MINDEST_ANZEIGE, schreibeSrt, seitenFuerOverlay, seitenGroessen, woerterAufTimeline, type TimelineWort } from "./untertitel";
 import { platziere } from "./plan";
 import { beispielPlan } from "./testdaten";
 
@@ -92,5 +92,27 @@ describe("schreibeSrt", () => {
   it("legt die Zeiten auf das Frame-Raster", () => {
     // 0,1 s × 25 = 2,5 Frames, gerundet 3 Frames = 0,12 s; 0,5 s = 12,5 Frames, gerundet 13 Frames = 0,52 s
     expect(schreibeSrt([{ von: 0.1, bis: 0.5, text: "x" }], 25)).toContain("00:00:00,120 --> 00:00:00,520");
+  });
+});
+
+describe("gruppiereMitWoertern und seitenFuerOverlay", () => {
+  it("gruppiert wie gruppiere, behält aber die Wörter jeder Seite", () => {
+    const ws = [w("Wir", 0, 0.3), w("haben", 0.3, 0.6), w("es", 0.6, 0.8), w("geschafft.", 0.8, 1.4), w("Danke", 2, 2.4)];
+    const seiten = gruppiereMitWoertern(ws, profil);
+    expect(seiten.map((s) => s.woerter.map((x) => x.text))).toEqual([["Wir", "haben"], ["es", "geschafft."], ["Danke"]]);
+    expect(gruppiere(ws, profil).map((s) => s.text)).toEqual(seiten.map((s) => s.woerter.map((x) => x.text).join(" ")));
+    expect(seiten.map((s) => [s.von, s.bis])).toEqual(gruppiere(ws, profil).map((s) => [s.von, s.bis]));
+  });
+
+  it("gibt Seiten in Timeline-Sekunden mit der Betonung aus dem Plan", () => {
+    const plan = beispielPlan();
+    const betont = { ...plan, woerter: plan.woerter.map((x) => (x.text === "Wartezimmer" ? { ...x, betont: true } : x)) };
+    const seiten = seitenFuerOverlay(betont, platziere(betont), profil);
+    const alle = seiten.flatMap((s) => s.woerter);
+    expect(alle.map((x) => x.t)).toEqual(woerterAufTimeline(betont, platziere(betont)).map((x) => x.text));
+    expect(alle.filter((x) => x.betont).map((x) => x.t)).toEqual(["Wartezimmer"]);
+    for (const s of seiten) expect(s.bis).toBeGreaterThan(s.von);
+    // Die erste Seite beginnt mit dem Wort «Wir» bei 0,12 s der Timeline, nicht bei der Quellzeit 2,1 s
+    expect(seiten[0]!.woerter[0]).toMatchObject({ t: "Wir", von: 0.12 });
   });
 });

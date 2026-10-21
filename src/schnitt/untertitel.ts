@@ -64,11 +64,19 @@ export function seitenGroessen(n: number, max: number): number[] {
 /** Kürzeste Anzeigedauer einer Seite in Sekunden, wenn das nächste Wort später kommt. */
 export const MINDEST_ANZEIGE = 0.3;
 
-export function gruppiere(woerter: TimelineWort[], profil: Pick<Schnittprofil, "woerterJeUntertitel">): Untertitel[] {
+/** Eine Seite mit den Wörtern, aus denen sie besteht. */
+export interface WortSeite<T extends TimelineWort = TimelineWort> {
+  von: number;
+  bis: number;
+  woerter: T[];
+}
+
+/** Gruppiert Wörter wie `gruppiere`, behält aber die Wörter jeder Seite (für das Overlay mit Wort-Pop). */
+export function gruppiereMitWoertern<T extends TimelineWort>(woerter: T[], profil: Pick<Schnittprofil, "woerterJeUntertitel">): WortSeite<T>[] {
   const { max } = profil.woerterJeUntertitel;
   // Sätze bilden
-  const saetze: TimelineWort[][] = [];
-  let aktuell: TimelineWort[] = [];
+  const saetze: T[][] = [];
+  let aktuell: T[] = [];
   for (const w of woerter) {
     aktuell.push(w);
     if (SATZENDE.test(w.text)) {
@@ -78,13 +86,13 @@ export function gruppiere(woerter: TimelineWort[], profil: Pick<Schnittprofil, "
   }
   if (aktuell.length) saetze.push(aktuell);
 
-  const seiten: Untertitel[] = [];
+  const seiten: WortSeite<T>[] = [];
   for (const satz of saetze) {
     let i = 0;
     for (const g of seitenGroessen(satz.length, max)) {
       const teil = satz.slice(i, i + g);
       i += g;
-      seiten.push({ von: teil[0]!.von, bis: teil[teil.length - 1]!.bis, text: teil.map((w) => w.text).join(" ") });
+      seiten.push({ von: teil[0]!.von, bis: teil[teil.length - 1]!.bis, woerter: teil });
     }
   }
   // Anzeigedauer: mindestens MINDEST_ANZEIGE, aber nie in die nächste Seite hinein
@@ -92,6 +100,27 @@ export function gruppiere(woerter: TimelineWort[], profil: Pick<Schnittprofil, "
     const naechster = seiten[i + 1]?.von ?? Number.POSITIVE_INFINITY;
     return { ...s, bis: Math.min(Math.max(s.bis, s.von + MINDEST_ANZEIGE), Math.max(naechster, s.bis)) };
   });
+}
+
+export function gruppiere(woerter: TimelineWort[], profil: Pick<Schnittprofil, "woerterJeUntertitel">): Untertitel[] {
+  return gruppiereMitWoertern(woerter, profil).map((s) => ({ von: s.von, bis: s.bis, text: s.woerter.map((w) => w.text).join(" ") }));
+}
+
+/** Eine Seite für das Overlay «untertitel-pop»: Zeiten in Sekunden der Timeline, je Wort betont oder nicht. */
+export interface OverlaySeite {
+  von: number;
+  bis: number;
+  woerter: { t: string; von: number; bis: number; betont: boolean }[];
+}
+
+/** Seiten für das Overlay über die ganze Timeline. Die Betonung stammt aus `plan.woerter[].betont` (Storyboard). */
+export function seitenFuerOverlay(plan: Schnittplan, zeit: Zeitleiste, profil: Pick<Schnittprofil, "woerterJeUntertitel">): OverlaySeite[] {
+  const woerter = woerterMitHerkunft(plan, zeit).map((w) => ({ ...w, betont: plan.woerter[w.index]?.betont === true }));
+  return gruppiereMitWoertern(woerter, profil).map((s) => ({
+    von: s.von,
+    bis: s.bis,
+    woerter: s.woerter.map((w) => ({ t: w.text, von: w.von, bis: w.bis, betont: w.betont })),
+  }));
 }
 
 function srtZeit(sek: number): string {

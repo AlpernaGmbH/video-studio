@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.4 bis 3). Die Timeline endet hier.","default":1.9,"role":"timing"},{"id":"hauptwort","type":"string","label":"Hauptwort","description":"Die Zahl oder das eine Wort, das gross in Gold steht, zum Beispiel «74&#39;300» oder «Drei». Höchstens 14 Zeichen. Vorschauwert für Check und Snapshot ist «74&#39;300».","role":"content","default":"74&#39;300"},{"id":"unterzeile","type":"string","label":"Unterzeile","description":"Sagt in einem oder zwei Wörtern, was das Hauptwort bedeutet, zum Beispiel «Aufrufe». Höchstens 30 Zeichen. Pflicht: nie eine Zahl ohne Kontext. Vorschauwert ist «Aufrufe».","role":"content","default":"Aufrufe"},{"id":"zeile","type":"string","label":"Zeile oben","description":"Kurze, gesperrte Zeile über dem Hauptwort im ruhigen Ton, zum Beispiel «Drei Monate». Leer lassen für keine.","role":"content","default":""},{"id":"staerke","type":"number","label":"Stärke der Abdunkelung","description":"Wie dunkel das Bild hinter dem Titel wird, von 0,4 (hell, der Sprecher bleibt sichtbar) bis 1 (fast ganz Marineblau). Standard 0,94.","role":"style","default":0.94},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeAkzent2","type":"color","label":"markeAkzent2","description":"Zweite Akzentfarbe der Marke","default":"#4B3FD6","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
+<head>
+<meta charset="utf-8">
+<title>Hook-Titelschlag</title>
+<link rel="stylesheet" href="assets/brand.css">
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { position: relative; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  /* Die Abdunkelung reicht bis an den Rand. Der Text liegt im Sicherheitsrand: x 54 bis 864, y 154 bis 1536. */
+  #dim { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; opacity: 0; }
+  #licht { position: absolute; top: -200px; left: -420px; width: 260px; height: 2400px; transform: rotate(14deg); opacity: 0;
+           background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.20), rgba(255,255,255,0)); }
+  #blk { position: absolute; left: 54px; width: 810px; top: 700px; text-align: center; }
+  #zeile { font-family: var(--markeFontText), sans-serif; font-weight: 500; font-size: 44px; letter-spacing: 0.42em; text-transform: uppercase;
+           color: var(--markeText); opacity: 0; margin-right: -0.42em; min-height: 52px; }
+  #zeile:empty { visibility: hidden; }
+  #haupt { display: inline-block; font-family: var(--markeFontTitel), sans-serif; font-weight: 700; font-size: 250px; line-height: 1.0;
+           color: var(--markeAkzent1); margin: 22px 0 8px; white-space: nowrap; opacity: 0; }
+  #lin { width: 220px; height: 3px; margin: 0 auto 30px; transform-origin: center; }
+  #unter { font-family: var(--markeFontTitel), sans-serif; font-weight: 600; font-size: 70px; line-height: 1.15; letter-spacing: 0.04em; color: var(--markeText); opacity: 0; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="hook-titelschlag" data-start="0" data-width="1080" data-height="1920">
+  <div id="dim"></div><div id="licht"></div>
+  <div id="blk"><div id="zeile"></div><div id="haupt"></div><div id="lin"></div><div id="unter"></div></div>
+</div>
+<script>
+(function () {
+  var v = window.__hyperframes.getVariables();
+  var root = document.getElementById("root");
+
+  // Marke in CSS-Variablen übernehmen
+  ["markeBg", "markeText", "markeAkzent1", "markeAkzent2", "markeFontTitel", "markeFontText", "markeRadius", "markeTempo"].forEach(function (k) {
+    if (v[k] !== undefined) root.style.setProperty("--" + k, String(v[k]));
+  });
+  function rgba(hex, a) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+
+  var d = Number(v.dauer);
+  var tempo = Math.min(2, Math.max(0.5, Number(v.markeTempo) || 1));
+  var k = 1 / tempo;
+  var st = Math.min(1, Math.max(0.4, Number(v.staerke) || 0.94));
+
+  var haupt = document.getElementById("haupt");
+  document.getElementById("zeile").textContent = v.zeile || "";
+  haupt.textContent = v.hauptwort || "";
+  document.getElementById("unter").textContent = v.unterzeile || "";
+  haupt.style.textShadow = "0 0 60px " + rgba(v.markeAkzent1, 0.35);
+  document.getElementById("lin").style.background = v.markeAkzent1;
+  // Verlauf von oben leicht bis unten dicht, Stärke über «staerke» (1 entspricht der gewählten Fassung)
+  document.getElementById("dim").style.background = "linear-gradient(180deg, " + rgba(v.markeBg, 0.30 * st / 0.94) + " 0%, " + rgba(v.markeBg, 0.78 * st / 0.94) + " 45%, " + rgba(v.markeBg, Math.min(1, 0.94 * st / 0.94)) + " 100%)";
+
+  // Das Hauptwort passt in die Breite (810 px), auch bei langen Fassungen. offsetWidth statt getBoundingClientRect: Letzteres rechnet Transformationen mit.
+  function anpassen() {
+    haupt.style.fontSize = "100px";
+    var b = haupt.offsetWidth || 1;
+    haupt.style.fontSize = Math.max(60, Math.min(250, Math.floor(100 * 780 / b))) + "px";
+  }
+  anpassen();
+  if (document.fonts) {
+    document.fonts.load('700 100px "' + v.markeFontTitel + '"', "0123456789'%").then(anpassen);
+    document.fonts.ready.then(anpassen);
+  }
+
+  // Die Timeline muss synchron registriert werden (sonst «zero duration» beim Render).
+  // Das letzte gerenderte Bild liegt eine Bildlänge (0,04 s) vor «dauer»: Das Ausblenden endet dort.
+  var tOut = Math.max(1.0, d - 0.3 * k - 0.04);
+  var tl = gsap.timeline({ paused: true });
+  tl.to("#dim", { opacity: 1, duration: 0.4 * k, ease: "power2.out" }, 0);
+  tl.fromTo("#licht", { x: 0, opacity: 0 }, { x: 1700, opacity: 1, duration: 1.1 * k, ease: "power1.inOut" }, 0.05 * k);
+  tl.fromTo("#zeile", { opacity: 0, y: 12 }, { opacity: 0.9, y: 0, duration: 0.4 * k, ease: "power2.out" }, 0.2 * k);
+  tl.fromTo("#haupt", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.55 * k, ease: "power3.out" }, 0.3 * k);
+  tl.fromTo("#lin", { scaleX: 0 }, { scaleX: 1, duration: 0.5 * k, ease: "power3.out" }, 0.55 * k);
+  tl.fromTo("#unter", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4 * k, ease: "power2.out" }, 0.62 * k);
+  tl.to("#blk", { opacity: 0, y: -40, duration: 0.3 * k, ease: "power2.in" }, tOut);
+  tl.to(["#dim", "#licht"], { opacity: 0, duration: 0.3 * k, ease: "power2.in" }, tOut);
+  tl.set({}, {}, d); // Die Timeline endet genau bei «dauer»
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["hook-titelschlag"] = tl;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "id": "untertitel-pop",
+  "name": "Untertitel Wort-Pop",
+  "version": "0.1.0",
+  "status": "geprueft",
+  "welle": "wachstum",
+  "herkunft": {
+    "idee": "m-004"
+  },
+  "zweck": "Zeigt die gesprochenen Wörter als Untertitel: zwei bis drei Wörter je Seite, jedes Wort blendet unscharf zu scharf auf, wenn es gesprochen wird, das betonte Wort in Gold mit Leuchten und einer Linie darunter.",
+  "ausloeser": {
+    "typen": [
+      "frei"
+    ],
+    "beschreibung": "Jedes Reel mit gesprochenem Text. Die Seiten liefert der Schnittplan (./studio schnitt seiten), die betonten Wörter stammen aus dem Storyboard (Feld «betonung»)."
+  },
+  "parameter": [
+    {
+      "id": "seiten",
+      "label": "Seiten",
+      "beschreibung": "JSON-Liste der Untertitel-Seiten in Sekunden ab Beginn des Overlays: [{\"von\",\"bis\",\"woerter\":[{\"t\",\"von\",\"bis\",\"betont\"}]}]. Kommt aus «./studio schnitt seiten --plan …». Vorschauwert für Check und Snapshot ist ein Beispielsatz.",
+      "pflicht": true,
+      "rolle": "inhalt",
+      "typ": "string",
+      "default": "[{\"von\":0.12,\"bis\":1.04,\"woerter\":[{\"t\":\"Innerhalb\",\"von\":0.12,\"bis\":0.5,\"betont\":false},{\"t\":\"von\",\"von\":0.5,\"bis\":0.62,\"betont\":false},{\"t\":\"drei\",\"von\":0.62,\"bis\":0.84,\"betont\":false}]},{\"von\":1.04,\"bis\":2.0,\"woerter\":[{\"t\":\"Monaten\",\"von\":1.04,\"bis\":1.4,\"betont\":false},{\"t\":\"haben\",\"von\":1.4,\"bis\":1.6,\"betont\":false},{\"t\":\"wir\",\"von\":1.6,\"bis\":1.8,\"betont\":false}]},{\"von\":2.0,\"bis\":3.3,\"woerter\":[{\"t\":\"74.000\",\"von\":2.0,\"bis\":2.6,\"betont\":true},{\"t\":\"Aufrufe\",\"von\":2.6,\"bis\":3.2,\"betont\":false}]}]",
+      "maxLaenge": 60000
+    },
+    {
+      "id": "position",
+      "label": "Position",
+      "beschreibung": "Wo die Untertitel stehen. «unten» steht im unteren Drittel über dem Sicherheitsrand, «mitte» in der Bildmitte für Szenen ohne Gesicht dort.",
+      "pflicht": false,
+      "rolle": "layout",
+      "typ": "enum",
+      "optionen": [
+        {
+          "wert": "unten",
+          "label": "Unten"
+        },
+        {
+          "wert": "mitte",
+          "label": "Mitte"
+        }
+      ],
+      "default": "unten"
+    },
+    {
+      "id": "groesse",
+      "label": "Schriftgrösse",
+      "beschreibung": "Schriftgrösse in Pixeln. 76 passt für zwei bis drei Wörter in einer oder zwei Zeilen. Grösser als 96 bricht lange Wörter um.",
+      "pflicht": false,
+      "rolle": "layout",
+      "typ": "number",
+      "default": 76,
+      "min": 48,
+      "max": 120
+    }
+  ],
+  "dauer": {
+    "standard": 3.4,
+    "min": 1.5,
+    "max": 120
+  },
+  "ausgabe": "overlay",
+  "markenvariablen": [
+    "markeBg",
+    "markeText",
+    "markeAkzent1",
+    "markeAkzent2",
+    "markeFontTitel",
+    "markeFontText",
+    "markeRadius",
+    "markeTempo"
+  ],
+  "passtZu": [
+    "talking-head",
+    "erklaervideo",
+    "projektvideo",
+    "trendformat"
+  ],
+  "braucht": [
+    "nichts"
+  ],
+  "aufwand": "mittel",
+  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Anfang und Ende leer. Jede Seite erscheint zwischen ihrem Beginn und Ende, das betonte Wort ist golden, kein Text ragt über den Sicherheitsrand (x 54 bis 864, y 154 bis 1536). Der Check von HyperFrames meldet keine Fehler.",
+  "sicherheitsrand": true,
+  "engines": [
+    "hyperframes"
+  ],
+  "einsatz": {
+    "wann": [
+      "Das Reel hat gesprochenen Text und soll mit Untertiteln laufen, die ins Auge fallen. Die Wörter kommen aus dem Schnittplan, die betonten aus dem Storyboard.",
+      "Ein Overlay über die ganze Timeline: Eine Datei statt einer Datei je Seite."
+    ],
+    "wannNicht": [
+      "Ein ruhiges Erklärstück, bei dem Untertitel nur lesbar sein sollen und nichts betont wird: dort reicht die SRT-Datei mit dem Caption-Preset «ruhig-unten».",
+      "Mehr als drei Wörter je Seite: Die Schrift wird zu klein, die Seiten kommen vom Schnittprofil (zwei bis drei Wörter)."
+    ],
+    "beispiele": [
+      {
+        "satz": "Innerhalb von drei Monaten haben wir dem Badminton-Verein über 74.000 Aufrufe in den sozialen Medien generiert.",
+        "variablen": {
+          "seiten": "[{\"von\":0.12,\"bis\":1.04,\"woerter\":[{\"t\":\"Innerhalb\",\"von\":0.12,\"bis\":0.5,\"betont\":false},{\"t\":\"von\",\"von\":0.5,\"bis\":0.62,\"betont\":false},{\"t\":\"drei\",\"von\":0.62,\"bis\":0.84,\"betont\":false}]},{\"von\":1.04,\"bis\":2.0,\"woerter\":[{\"t\":\"Monaten\",\"von\":1.04,\"bis\":1.4,\"betont\":false},{\"t\":\"haben\",\"von\":1.4,\"bis\":1.6,\"betont\":false},{\"t\":\"wir\",\"von\":1.6,\"bis\":1.8,\"betont\":false}]},{\"von\":2.0,\"bis\":3.3,\"woerter\":[{\"t\":\"74.000\",\"von\":2.0,\"bis\":2.6,\"betont\":true},{\"t\":\"Aufrufe\",\"von\":2.6,\"bis\":3.2,\"betont\":false}]}]",
+          "position": "unten",
+          "dauer": 3.5
+        }
+      }
+    ],
+    "kombinierbarMit": [],
+    "hinweise": [
+      "Look B «Kino» (Wahl am 21.10.2026 durch Andrej): gesperrte Grossbuchstaben in Poppins 600, weiches Leuchten statt Kontur, Gold nur für das betonte Wort und die Linie.",
+      "Die Schrift trägt Schatten, damit sie auch auf hellem Hintergrund lesbar bleibt (Probe: Rohmaterial mit weisser Wand, Log ohne Look).",
+      "Das Overlay geht über die ganze Timeline. Es liegt auf V3 und ersetzt die SRT nicht: Die SRT bleibt für Plattformen mit eigenen Untertiteln.",
+      "Betonte Wörter: höchstens fünf bis sechs je Reel, sonst verliert Gold seine Wirkung."
+    ]
+  }
+}

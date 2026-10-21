@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { MARKEN_VARIABLEN, Stueck, erzeugeDeklaration, loeseVariablen, markeZuVariablen, pruefeWert } from "./stueck";
 import { marke, stueckVerlauf, stueckZahl } from "../testing/fixtures";
@@ -136,5 +138,29 @@ describe("erzeugeDeklaration", () => {
 describe("markeZuVariablen", () => {
   it("deckt alle Marken-Variablen ab", () => {
     expect(Object.keys(markeZuVariablen(marke())).sort()).toEqual(Object.keys(MARKEN_VARIABLEN).sort());
+  });
+});
+
+describe("loeseVariablen: JSON für Text-Parameter", () => {
+  const stueck = Stueck.parse(JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../library/motion/untertitel-pop/piece.json"), "utf8")));
+  const seiten = [{ von: 0, bis: 1, woerter: [{ t: "Hallo", von: 0, bis: 0.5, betont: true }] }];
+
+  it("macht aus einer Liste für einen Text-Parameter JSON-Text", () => {
+    const r = loeseVariablen(stueck, { seiten }, { ohneMarke: true });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.variablen["seiten"]).toBe(JSON.stringify(seiten));
+  });
+
+  it("prüft die Länge des JSON-Textes gegen maxLaenge", () => {
+    const gross = Array.from({ length: 2000 }, () => seiten[0]);
+    const r = loeseVariablen(stueck, { seiten: gross }, { ohneMarke: true });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.fehler.join(" ")).toMatch(/«seiten» ist \d+ Zeichen lang, erlaubt sind 60000/);
+  });
+
+  it("lässt Zahlen für einen Text-Parameter weiter nicht gelten", () => {
+    const r = loeseVariablen(stueck, { seiten: 5 }, { ohneMarke: true });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.fehler.join(" ")).toMatch(/«seiten» erwartet Text/);
   });
 });
