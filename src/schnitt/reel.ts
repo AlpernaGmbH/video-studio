@@ -13,6 +13,7 @@ import { leseSchnittplan } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { leseTranskript } from "./transkript";
+import { ZOOM_MODI, type ZoomModus } from "./planbau";
 import { relativierePfad } from "./uebergabe";
 import { STANDARD_MODELL, transkribiere } from "./whisper";
 import { fuehreZuordnungAus } from "./zuordnen";
@@ -27,7 +28,7 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
   reel neu <ID> [--marke key] [--name "Titel"] [--zwischenablage | --skript datei] [--ueberschreiben] [--nicht-oeffnen]
                                       Legt <Studio>/inhalte/<ID>/ und <Medien>/rohmaterial/<ID>/ an, schreibt das Skript (aus der Zwischenablage oder einer Datei)
                                       nach inhalte/<ID>/skript.md und öffnet den Aufnahmen-Ordner. Danach die Videos dort hineinkopieren.
-  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--nicht-kopieren]
+  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--gesprochen 3,5] [--zoom profil|bei-schnitt|aus] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--nicht-kopieren]
                                       Sondiert die Videos, transkribiert mit Whisper (vorhandene Transkripte bleiben, --neu erzwingt), ordnet das Skript zu,
                                       baut den Schnittplan und den Auftrag fürs Storyboard (landet auf dem Mac in der Zwischenablage). Alles in inhalte/<ID>/ergebnis/.
   reel storyboard <ID> [--zwischenablage | --datei sb.json] [--entwurf] [--ohne-rendern] [--ohne-vorschau] [--nicht-oeffnen]
@@ -144,6 +145,7 @@ const ReelDatei = z.object({
   skript: z.string().optional(),
   aufnahmen: z.string().optional(),
   gesprochen: z.array(z.number().int().positive()).optional(),
+  zoom: z.enum(["profil", "bei-schnitt", "aus"]).optional(),
   modell: z.string().optional(),
   sprache: z.string().optional(),
 });
@@ -273,6 +275,8 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   }
 
   const gesprochen = str(a, "gesprochen") ? zahlenListe(str(a, "gesprochen")!) : (alt?.gesprochen ?? []);
+  const zoom = str(a, "zoom") ?? alt?.zoom;
+  if (zoom !== undefined && !ZOOM_MODI.includes(zoom as ZoomModus)) throw new Error(`--zoom «${zoom}» gibt es nicht. Erlaubt: ${ZOOM_MODI.join(", ")}`);
   const modell = str(a, "modell") ?? alt?.modell ?? STANDARD_MODELL;
   const sprache = str(a, "sprache") ?? alt?.sprache ?? "de";
   const name = str(a, "name") ?? alt?.name ?? skriptTitel(skriptText, id);
@@ -326,6 +330,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     name,
     inhalt: id,
     gesprochen,
+    ...(zoom ? { zoom: zoom as ZoomModus } : {}),
     home,
     ohnePegel: a.opt["ohne-pegel"] === true,
   });
@@ -341,6 +346,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     ...(alt?.skript ? { skript: alt.skript } : {}),
     ...(str(a, "aufnahmen") ? { aufnahmen: aufnahmenDir } : alt?.aufnahmen ? { aufnahmen: alt.aufnahmen } : {}),
     ...(gesprochen.length ? { gesprochen } : {}),
+    ...(zoom ? { zoom: zoom as ZoomModus } : {}),
     ...(str(a, "modell") ?? alt?.modell ? { modell } : {}),
     ...(str(a, "sprache") ?? alt?.sprache ? { sprache } : {}),
   });

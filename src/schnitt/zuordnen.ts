@@ -2,7 +2,7 @@ import fs from "node:fs";
 import type { Markenprofil } from "../core/schemas";
 import type { StudioHome } from "../setup";
 import { messePegel, ordneZuMitPegel } from "./energie";
-import { bauePlan, type Markierung } from "./planbau";
+import { bauePlan, type Markierung, type ZoomModus } from "./planbau";
 import type { Schnittplan, SchnittQuelle } from "./plan";
 import type { Segment } from "./transkript";
 import { loesePfad } from "./uebergabe";
@@ -24,6 +24,8 @@ export interface ZuordnenEingabe {
   inhalt?: string;
   /** Zeilen, deren Untertitel den gesprochenen statt den Skripttext nehmen. */
   gesprochen?: number[];
+  /** Zoom-Punch, siehe `PlanbauOptionen.zoom`. */
+  zoom?: ZoomModus;
   home?: StudioHome;
   ohnePegel?: boolean;
 }
@@ -58,6 +60,7 @@ export async function fuehreZuordnungAus(e: ZuordnenEingabe): Promise<ZuordnenEr
     quellen: e.quellen,
     ...(e.marke.schnittprofil ? { profil: e.marke.schnittprofil } : {}),
     gesprochen: e.gesprochen ?? [],
+    ...(e.zoom ? { zoom: e.zoom } : {}),
   });
   return { plan, zuordnung, markierungen, pegelNotiz };
 }

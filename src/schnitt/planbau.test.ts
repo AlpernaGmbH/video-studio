@@ -161,6 +161,61 @@ describe("bauePlan: Bildwechsel und Zoom", () => {
   });
 });
 
+describe("bauePlan: Zoom-Modus", () => {
+  const lang = "Wir haben diese Woche in Gossau eine Küche mit viel Stauraum komplett für eine Familie umgebaut.";
+
+  it("«bei-schnitt» teilt einen durchgehenden Take nicht und zoomt nur an echten Schnitten", () => {
+    const { plan } = bau([lang, Z2], mat(satz(10, lang), satz(30, Z2)), { zoom: "bei-schnitt" });
+    expect(plan.clips).toHaveLength(2);
+    expect(plan.clips.map((c) => c.zoom)).toEqual([1, ZOOM_STUFE.mittel]);
+    expect(plan.clips.map((c) => c.notiz ?? "").join(" ")).not.toMatch(/geteilt/);
+  });
+
+  it("«bei-schnitt» zoomt abwechselnd, wenn eine Pause herausgeschnitten wurde", () => {
+    const { plan } = bau([Z1], mat(satz(10, Z1, { 4: 0.9 })), { zoom: "bei-schnitt" });
+    expect(plan.clips).toHaveLength(2);
+    expect(plan.clips.map((c) => c.zoom)).toEqual([1, ZOOM_STUFE.mittel]);
+  });
+
+  it("«aus» zoomt nie und teilt nicht", () => {
+    const { plan } = bau([lang, Z2], mat(satz(10, lang), satz(30, Z2)), { zoom: "aus" });
+    expect(plan.clips).toHaveLength(2);
+    expect(plan.clips.every((c) => c.zoom === 1)).toBe(true);
+  });
+
+  it("«profil» ist der Standard: Ohne Angabe wird geteilt und gezoomt wie bisher", () => {
+    const ohne = bau([lang, Z2], mat(satz(10, lang), satz(30, Z2))).plan;
+    const mit = bau([lang, Z2], mat(satz(10, lang), satz(30, Z2)), { zoom: "profil" }).plan;
+    expect(ohne.clips.length).toBeGreaterThan(2);
+    expect(mit.clips).toEqual(ohne.clips);
+  });
+});
+
+describe("bauePlan: Zuruf zwischen den Skriptwörtern", () => {
+  const mitZuruf = (pausen: Record<number, number>) => satz(10, "Wir haben Erfindest du was diese Woche eine Küche komplett umgebaut.", pausen);
+
+  it("schneidet einen Lauf aus lauter fremden Wörtern heraus und sagt es", () => {
+    const s = mitZuruf({ 2: 1.0, 5: 1.0 });
+    const w = s.woerter!;
+    const { plan, markierungen } = bau([Z1], mat(s), { zoom: "aus" });
+    // kein Clip berührt die Wörter «Erfindest du was»
+    for (const c of plan.clips) expect(c.bis <= w[2]!.von || c.von >= w[4]!.bis, `Clip ${c.id} enthält den Zuruf`).toBe(true);
+    const m = markierungen.find((x) => /Zuruf/.test(x.text));
+    expect(m?.text).toMatch(/Erfindest du was/);
+    // Skriptwörter davor und danach bleiben
+    expect(plan.clips.some((c) => w[0]!.von >= c.von && w[1]!.bis <= c.bis)).toBe(true);
+    expect(plan.clips.some((c) => w[5]!.von >= c.von && w[9]!.bis <= c.bis)).toBe(true);
+  });
+
+  it("lässt fremde Wörter stehen, die ohne Pause an Skriptwörter anschliessen", () => {
+    const s = mitZuruf({});
+    const w = s.woerter!;
+    const { plan, markierungen } = bau([Z1], mat(s), { zoom: "aus" });
+    expect(markierungen.some((x) => /Zuruf/.test(x.text))).toBe(false);
+    expect(plan.clips.some((c) => w[2]!.von >= c.von && w[4]!.bis <= c.bis)).toBe(true);
+  });
+});
+
 describe("teileEinstellung", () => {
   /** Wörter von `dauer` Sekunden, 0,05 s Abstand; vor Wort `luecke` eine Pause von 0,24 s; Wort `komma` endet mit Komma. */
   const woerter = (n: number, o: { luecke?: number; komma?: number; dauer?: number } = {}): TWort[] => {

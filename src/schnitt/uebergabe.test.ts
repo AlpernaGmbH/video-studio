@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { Markenprofil } from "../core/schemas";
 import { findePreset, ladePresets } from "../presets/lader";
 import type { StudioHome } from "../setup";
-import { erzeugeUebergabe, freierOrdner, loesePfad, webmZuProRes } from "./uebergabe";
+import { erzeugeUebergabe, formatHinweis, freierOrdner, liesmich, loesePfad, webmZuProRes } from "./uebergabe";
 import { beispielPlan } from "./testdaten";
 
 const presets = ladePresets(path.resolve(__dirname, "../../presets"));
@@ -171,4 +171,23 @@ describe.skipIf(!hatFfmpeg)("Umwandlung mit echtem ffmpeg", () => {
     expect(alpha(10)).toBeGreaterThan(240);
     expect(alpha(150)).toBeLessThan(15);
   }, 60_000);
+});
+
+describe("formatHinweis", () => {
+  it("nennt Quellen mit anderem Seitenverhältnis als die Timeline und die Resolve-Einstellung dazu", () => {
+    const plan = beispielPlan();
+    // «empfang» ist 1920×1080 in einer 1080×1920-Timeline
+    const h = formatHinweis(plan);
+    expect(h).toMatch(/empfang \(1920×1080\)/);
+    expect(h).toMatch(/Scale full frame with crop/);
+    expect(h).not.toMatch(/sprache \(/);
+    const text = liesmich({ plan, dauer: 5, seiten: 0, befunde: [], export: exportPreset, audio, umgewandelt: [], dateien: ["plan.json"] });
+    expect(text).toContain("Format der Quelle passt nicht zur Timeline");
+  });
+
+  it("schweigt, wenn alle Quellen zur Timeline passen", () => {
+    const plan = beispielPlan();
+    const passend = { ...plan, quellen: plan.quellen.map((q) => (q.id === "empfang" ? { ...q, breite: 1080, hoehe: 1920 } : q)) };
+    expect(formatHinweis(passend)).toBe("");
+  });
 });

@@ -11,7 +11,7 @@ import { markeFuerExportFreigegeben } from "../core/schemas";
 import { z } from "zod";
 import { erzeugeBogen } from "./kontaktbogen";
 import { fehlendeDateien, erzeugeVorschau, kannUntertitel } from "./vorschau";
-import { STANDARD_SCHNITTPROFIL } from "./planbau";
+import { STANDARD_SCHNITTPROFIL, ZOOM_MODI, type ZoomModus } from "./planbau";
 import { gruppiere, schreibeSrt, woerterAufTimeline } from "./untertitel";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { zuordnungBericht } from "./bericht";
@@ -31,10 +31,11 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
                                       Whisper lokal aufrufen (openai-whisper, STUDIO_WHISPER_BIN ersetzt das Programm) und das JSON mit Wortzeiten ablegen,
                                       Standard <Datenordner>/transkripte/<Name>.json. Das Modell «large-v3» ist eine Annahme, Test T2 entscheidet.
   schnitt zuordnen --skript skript.md --transkript <quelle>=<whisper.json>[,…] --quellen quellen.json --marke key -o plan.json
-                                      [--name "Titel"] [--inhalt c-0007] [--gesprochen 3,5] [--ohne-pegel] [--bericht bericht.json]
+                                      [--name "Titel"] [--inhalt c-0007] [--gesprochen 3,5] [--zoom profil|bei-schnitt|aus] [--ohne-pegel] [--bericht bericht.json]
                                       Skript und Whisper-Transkript zu einem Schnittplan: pro Zeile der beste Take (Bauplan v2, Kap. 3.3), Pausen, Füllwörter und Bildwechsel
                                       nach dem Schnittprofil der Marke (Kap. 3.4). Die Quelle im Transkript ist die Kennung aus quellen.json (Ausgabe von «./studio schnitt sondiere»).
-                                      --gesprochen: Zeilen, deren Untertitel den gesprochenen statt den Skripttext nehmen. B-Roll, Grafiken und Musik kommen später ins Storyboard.
+                                      --gesprochen: Zeilen, deren Untertitel den gesprochenen statt den Skripttext nehmen. --zoom: «bei-schnitt» zoomt nur an echten Schnitten, «aus» nie.
+                                      B-Roll, Grafiken und Musik kommen später ins Storyboard.
   schnitt auftrag --plan plan.json [--katalog katalog.json] [--regeln regeln.json] [--marke key] [-o auftrag.md]
                                       Auftrag für das Storyboard (Bauplan v2, Kap. 3.5): Skript mit Zeiten der Timeline, aktive Stücke, B-Roll aus dem Katalog, aktive Regeln, Format der Antwort.
                                       Katalog: Liste von Katalog-Einträgen (JSON), Standard <Datenordner>/katalog.json
@@ -123,6 +124,8 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         return { quelle: id, segmente: leseTranskript(lesJson(datei)) };
       });
       const gesprochen = typeof a.opt["gesprochen"] === "string" ? (a.opt["gesprochen"] as string).split(",").map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x > 0) : [];
+      const zoom = typeof a.opt["zoom"] === "string" ? (a.opt["zoom"] as string) : undefined;
+      if (zoom !== undefined && !ZOOM_MODI.includes(zoom as ZoomModus)) throw new Error(`--zoom «${zoom}» gibt es nicht. Erlaubt: ${ZOOM_MODI.join(", ")}`);
       const name = typeof a.opt["name"] === "string" ? (a.opt["name"] as string) : path.basename(skriptDatei, path.extname(skriptDatei));
       const inhalt = typeof a.opt["inhalt"] === "string" ? (a.opt["inhalt"] as string) : undefined;
       const { plan, zuordnung, markierungen, pegelNotiz } = await fuehreZuordnungAus({
@@ -134,6 +137,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         name,
         ...(inhalt ? { inhalt } : {}),
         gesprochen,
+        ...(zoom ? { zoom: zoom as ZoomModus } : {}),
         ...(studioHome() ? { home: studioHome()! } : {}),
         ohnePegel: a.opt["ohne-pegel"] === true,
       });

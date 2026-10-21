@@ -163,6 +163,16 @@ ${w.map((x) => `- ${s1(x.von)} s: ${x.text}`).join("\n")}
 `;
 }
 
+/** Quellen, deren Seitenverhältnis nicht zur Timeline passt (zum Beispiel 6K quer in einer Hochkant-Timeline), brauchen in Resolve eine Skalierungseinstellung vor dem Import. */
+export function formatHinweis(plan: Schnittplan): string {
+  const tl = plan.projekt.breite / plan.projekt.hoehe;
+  const quer = plan.quellen.filter((q) => q.art === "video" && q.breite !== undefined && q.hoehe !== undefined && Math.abs(q.breite / q.hoehe - tl) / tl > 0.05);
+  if (!quer.length) return "";
+  const liste = quer.map((q) => `${q.id} (${q.breite}×${q.hoehe})`).join(", ");
+  return `
+3. **Format der Quelle passt nicht zur Timeline:** ${liste} hat ein anderes Seitenverhältnis als ${plan.projekt.breite}×${plan.projekt.hoehe}. Damit das Bild die Timeline füllt (so wie in der Vorschau, mittig ausgeschnitten), in den Projekteinstellungen unter «Bildskalierung» (Image Scaling) bei «Dateien mit abweichender Auflösung» (Mismatched resolution files) **«Gesamtes Bild skalieren, mit Beschnitt»** (Scale full frame with crop) wählen, **bevor** die Timeline importiert wird. Sonst zeigt Resolve einen schmalen Streifen mit schwarzen Balken. Der Zoom der Clips (1,1-fach) wirkt danach zusätzlich. **[Wahrscheinlich]** Der Ausschnitt ist mittig, weil der Plan keine Verschiebung kennt.`;
+}
+
 export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; dateien: string[] }): string {
   const { plan, export: e, audio } = a;
   const hinweise = a.befunde.filter((b) => b.stufe === "hinweis");
@@ -186,7 +196,7 @@ ${a.dateien
 ## Vor dem Import
 
 1. In Resolve ein neues Projekt anlegen. Unter Projekteinstellungen die Timeline-Auflösung auf ${plan.projekt.breite}×${plan.projekt.hoehe} und die Bildrate auf ${plan.projekt.fps} stellen, **bevor** die erste Timeline entsteht. **[Wahrscheinlich]** Die Bildrate lässt sich später nicht mehr ändern.
-2. Die Quelldateien müssen auf diesem Rechner liegen, nicht nur in OneDrive als Platzhalter («Immer auf diesem Gerät behalten»).
+2. Die Quelldateien müssen auf diesem Rechner liegen, nicht nur in OneDrive als Platzhalter («Immer auf diesem Gerät behalten»).${formatHinweis(plan)}
 
 ## Import
 

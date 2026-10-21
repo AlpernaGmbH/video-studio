@@ -1,7 +1,7 @@
 import type { Schnittprofil } from "../core/schemas";
 import { leseSchnittplan, PlanFehler, type Schnittplan, type SchnittQuelle, type SchnittWort } from "./plan";
-import type { TWort } from "./transkript";
-import type { Take, ZeilenErgebnis, Zuordnung } from "./zuordnung";
+import { normiere, rohWoerter, type TWort } from "./transkript";
+import { ausrichten, type Take, type ZeilenErgebnis, type Zuordnung } from "./zuordnung";
 
 /**
  * Vom Ergebnis der Skript-Zuordnung zum Schnittplan (Bauplan v2, Kap. 3.3 und 3.4). Pro Skriptzeile kommt der gewählte Take in die Spur V1, in der Reihenfolge des Skripts.
@@ -11,8 +11,10 @@ import type { Take, ZeilenErgebnis, Zuordnung } from "./zuordnung";
  *  - Bei einem gelben Take werden die Füllwörter herausgeschnitten, aber nur, wenn Whisper echte Wortzeiten geliefert hat. Bei geschätzten Zeiten würde der Schnitt Nachbarwörter treffen.
  *  - Ein Clip länger als `laengsteEinstellung` wird an einer Wortgrenze geteilt, ohne Zeit zu entfernen. Der Bildwechsel ist dann der Zoom-Wechsel.
  *  - Zoom-Punch: jeder zweite Clip bekommt den Zoom der Stufe `zoomTempo` (Plan: 1,1-fach bei jedem zweiten Schnitt).
+ *    Die Option `zoom` ändert das: «bei-schnitt» teilt keinen durchgehenden Take (Zoom nur an echten Schnitten), «aus» zoomt gar nicht.
  *
- * Zusätzliche Wörter, die Whisper hörte und die nicht im Skript stehen, werden nicht herausgeschnitten: Ob eine Abweichung sinnvoll ist, entscheidet ein Mensch (Plan Kap. 3.3, Punkt 6).
+ * Zusätzliche Wörter, die Whisper hörte und die nicht im Skript stehen, werden nicht herausgeschnitten, solange sie an Skriptwörter anschliessen: Ob eine Abweichung sinnvoll ist, entscheidet ein Mensch (Plan Kap. 3.3, Punkt 6).
+ * Ein Lauf aus lauter Wörtern, die nicht im Skript stehen und durch eine Pause von den Skriptwörtern getrennt sind (Zuruf der Regie, Nebengespräch), gehört nicht zum Take und wird herausgeschnitten, mit Markierung.
  * B-Roll, Grafiken und Musik kommen nicht von hier, sondern aus dem Storyboard.
  */
 
@@ -42,7 +44,15 @@ export interface PlanbauOptionen {
   nachlauf?: number;
   /** Zeilen, deren Untertitel den gesprochenen Text nehmen statt des Skripttexts (nach der Entscheidung über eine Abweichung). */
   gesprochen?: number[];
+  /**
+   * Zoom-Punch: «profil» (Standard) teilt lange Einstellungen und zoomt abwechselnd, «bei-schnitt» zoomt abwechselnd nur an echten Schnitten (kein Teilen eines durchgehenden Takes),
+   * «aus» zoomt nie.
+   */
+  zoom?: ZoomModus;
 }
+
+export type ZoomModus = "profil" | "bei-schnitt" | "aus";
+export const ZOOM_MODI: readonly ZoomModus[] = ["profil", "bei-schnitt", "aus"];
 
 export interface Markierung {
   zeile: number;
@@ -131,8 +141,19 @@ function planeZeile(e: ZeilenErgebnis, t: Take, cfg: { profil: Schnittprofil; vo
     else laeufe[laeufe.length - 1]!.push(woerter[i]!);
   }
 
+  // Läufe ganz ohne Skriptwort (Zuruf der Regie, Nebengespräch) gehören nicht zum Take. Gibt es gar keinen Lauf mit Skriptwort, bleibt alles, wie es ist.
+  const imSkript = new Set(
+    ausrichten(
+      rohWoerter(e.text).map(normiere).filter((x) => x.length > 0),
+      t.fensterWoerter.map((w) => normiere(w.text)),
+    ).map((p) => t.fensterWoerter[p.w]!),
+  );
+  const fremd = laeufe.some((l) => l.some((w) => imSkript.has(w))) ? new Set(laeufe.filter((l) => !l.some((w) => imSkript.has(w)))) : new Set<TWort[]>();
+  for (const l of fremd) mark.push({ zeile: e.zeile, art: "abweichung", text: `Zuruf oder Nebengespräch herausgeschnitten: «${l.map((w) => w.text).join(" ")}» bei ${s1(l[0]!.von)} s, bitte anhören` });
+
   const aus: Stueck[] = [];
   laeufe.forEach((lauf, i) => {
+    if (fremd.has(lauf)) return;
     const erstes = lauf[0]!;
     const letztes = lauf[lauf.length - 1]!;
     const davor = i === 0 ? t.vorWortBis : laeufe[i - 1]![laeufe[i - 1]!.length - 1]!.bis;
@@ -164,7 +185,8 @@ export function bauePlan(z: Zuordnung, opt: PlanbauOptionen): Planbau {
     vorlauf *= f;
     nachlauf *= f;
   }
-  const stufe = ZOOM_STUFE[profil.zoomTempo];
+  const zoomModus = opt.zoom ?? "profil";
+  const stufe = zoomModus === "aus" ? 1 : ZOOM_STUFE[profil.zoomTempo];
   const gesprochen = new Set(opt.gesprochen ?? []);
   const markierungen: Markierung[] = [];
 
@@ -184,7 +206,7 @@ export function bauePlan(z: Zuordnung, opt: PlanbauOptionen): Planbau {
       const teile = [e.abweichung.zusaetzlich.length ? `zusätzlich gesprochen: ${e.abweichung.zusaetzlich.join(" ")}` : "", e.abweichung.fehlend.length ? `im Skript, aber nicht gehört: ${e.abweichung.fehlend.join(" ")}` : ""].filter(Boolean);
       markierungen.push({ zeile: e.zeile, art: "abweichung", text: `${teile.join("; ")}. Entscheidung offen, Untertitel folgen ${gesprochen.has(e.zeile) ? "dem Gesprochenen" : "dem Skript"}` });
     }
-    stuecke.push(...planeZeile(e, t, { profil, vorlauf, nachlauf, dauer: q.dauer, teilen: stufe > 1 }, markierungen));
+    stuecke.push(...planeZeile(e, t, { profil, vorlauf, nachlauf, dauer: q.dauer, teilen: stufe > 1 && zoomModus === "profil" }, markierungen));
 
     if (gesprochen.has(e.zeile)) {
       markierungen.push({ zeile: e.zeile, art: "gesprochen", text: "Untertitel nehmen den gesprochenen Text von Whisper" });

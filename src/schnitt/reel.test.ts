@@ -280,6 +280,18 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toMatchObject({ name: "Eigener Titel", gesprochen: [1, 3] });
   }, 120_000);
 
+  it("vorbereiten: --zoom wird geprüft, kommt in den Plan (kein Zoom) und bleibt in reel.json für den nächsten Lauf", async () => {
+    await vorbereitet();
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--nicht-kopieren", "--zoom", "wild")).rejects.toThrow(/--zoom «wild» gibt es nicht.*profil, bei-schnitt, aus/s);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--nicht-kopieren", "--zoom", "aus");
+    const planPfad = studio("inhalte", "c-0007", "ergebnis", "plan.json");
+    expect(leseSchnittplan(JSON.parse(fs.readFileSync(planPfad, "utf8"))).clips.every((c) => c.zoom === 1)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toMatchObject({ zoom: "aus" });
+    // ohne Schalter bleibt «aus» gültig
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--nicht-kopieren");
+    expect(leseSchnittplan(JSON.parse(fs.readFileSync(planPfad, "utf8"))).clips.every((c) => c.zoom === 1)).toBe(true);
+  }, 120_000);
+
   it("vorbereiten: klare Fehler für fehlendes Skript, leeren Aufnahmenordner und Dateien ausserhalb von Studio und Medien", async () => {
     await expect(lauf("reel", "vorbereiten", "c-0007", "--marke", "alperna")).rejects.toThrow(/Skript fehlt.*reel neu c-0007 --zwischenablage/s);
     zwischenablage = SKRIPT;
