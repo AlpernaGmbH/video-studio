@@ -24,9 +24,12 @@ export interface Lauf {
 /** Führt ein Programm aus und zeigt dessen Ausgabe (Fortschritt von pip und vom Modell-Download). Ersetzbar für Tests. */
 export type Fuehre = (programm: string, args: string[]) => Promise<Lauf>;
 
+/** Die Hilfe von Whisper (mehrere Bildschirme) dient nur als Lebenszeichen und bleibt stumm; alles andere zeigt seinen Fortschritt. */
+export const stdioFuer = (args: string[]): "ignore" | "inherit" => (args.length === 1 && args[0] === "--help" ? "ignore" : "inherit");
+
 export const echteFuehre: Fuehre = (programm, args) =>
   new Promise((resolve) => {
-    const c = spawn(programm, args, { stdio: "inherit" });
+    const c = spawn(programm, args, { stdio: stdioFuer(args) });
     c.on("error", (e: NodeJS.ErrnoException) => resolve({ code: null, fehlt: e.code === "ENOENT" }));
     c.on("close", (code) => resolve({ code }));
   });
@@ -77,6 +80,7 @@ export async function richteWhisperEin(o: EinrichtenOptionen = {}): Promise<{ pr
   melde("3/4 Prüfen, ob Whisper startet");
   r = await fuehre(programm, ["--help"]);
   if (r.code !== 0) throw new Error(`${programm} startet nicht, obwohl die Installation durchlief`);
+  melde("    Whisper startet");
 
   if (o.modell === false) melde("4/4 Modell wird nicht geladen (--ohne-modell): Es wird beim ersten «./studio schnitt transkribiere» geladen");
   else {

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { pythonVersion, richteWhisperEin, type Fuehre } from "./whisper-setup";
+import { pythonVersion, richteWhisperEin, stdioFuer, type Fuehre } from "./whisper-setup";
 import { whisperProgramm, whisperUmgebung } from "./whisper";
 
 let home: string;
@@ -84,5 +84,20 @@ describe("richteWhisperEin", () => {
     await expect(richteWhisperEin(opt({ fuehre: ersatz({ scheitere: "install openai-whisper" }).fuehre }))).rejects.toThrow(/Netz oder ffmpeg/);
     await expect(richteWhisperEin(opt({ fuehre: ersatz({ scheitere: "--help" }).fuehre }))).rejects.toThrow(/startet nicht/);
     await expect(richteWhisperEin(opt({ fuehre: ersatz({ scheitere: "load_model" }).fuehre }))).rejects.toThrow(/--modell small/);
+  });
+});
+
+describe("stdioFuer", () => {
+  it("hält nur die Hilfe von Whisper stumm, alles andere zeigt seinen Fortschritt", () => {
+    expect(stdioFuer(["--help"])).toBe("ignore");
+    expect(stdioFuer(["install", "openai-whisper"])).toBe("inherit");
+    expect(stdioFuer(["-c", "import whisper"])).toBe("inherit");
+    expect(stdioFuer(["--help", "--model", "x"])).toBe("inherit");
+  });
+  it("meldet, dass Whisper startet, statt dessen Hilfe zu zeigen", async () => {
+    const meldungen: string[] = [];
+    const { fuehre } = ersatz();
+    await richteWhisperEin(opt({ fuehre, melde: (t: string) => void meldungen.push(t) }));
+    expect(meldungen.join("\n")).toContain("Whisper startet");
   });
 });
