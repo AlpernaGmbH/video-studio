@@ -135,6 +135,8 @@ export interface AnwendenKontext {
   imLetztenVideoDerMarke?: string[];
   /** Ordner unter `renders/`, Standard: Inhalt-ID oder Projektname. */
   renderOrdner?: string;
+  /** Sondierte Musikdatei des Storyboards (Feld «musik»). Ohne sie bleibt die Musik draussen und das Ergebnis sagt es. */
+  musikQuelle?: SchnittQuelle;
 }
 
 export interface RenderAuftrag {
@@ -170,7 +172,7 @@ export function wendeStoryboardAn(plan: Schnittplan, roh: unknown, ctx: Anwenden
   const warnungen = [...geprueft.warnungen];
 
   // Frühere Ergebnisse eines Storyboards fallen weg: das Storyboard ist massgebend, nicht die Summe aller Läufe
-  const quellen = plan.quellen.filter((q) => !q.id.startsWith("broll-"));
+  const quellen = plan.quellen.filter((q) => !q.id.startsWith("broll-") && !q.id.startsWith("musik-"));
   const broll: Schnittplan["broll"] = [];
   const overlays: Schnittplan["overlays"] = [];
   const renderListe: RenderAuftrag[] = [];
@@ -222,7 +224,19 @@ export function wendeStoryboardAn(plan: Schnittplan, roh: unknown, ctx: Anwenden
     return betontIdx.has(i) ? { ...rest, betont: true } : rest;
   });
 
-  const neu = leseSchnittplan({ ...plan, quellen, broll, overlays, woerter: neueWoerter });
+  // Musik und Look kommen aus dem Storyboard (ein früherer Stand im Plan fällt weg)
+  const sbMusik = geprueft.plan.musik;
+  let musik: Schnittplan["musik"];
+  if (sbMusik) {
+    if (ctx.musikQuelle && ctx.musikQuelle.art === "audio") {
+      quellen.push(ctx.musikQuelle);
+      musik = { quelle: ctx.musikQuelle.id, t: sbMusik.t, von: sbMusik.von, pegelDb: sbMusik.pegelDb };
+    } else if (ctx.musikQuelle) warnungen.push(`Musik: «${sbMusik.datei}» ist keine Audiodatei und bleibt draussen`);
+    else warnungen.push(`Musik: «${sbMusik.datei}» wurde nicht sondiert (liegt die Datei auf diesem Rechner?) und bleibt draussen`);
+  }
+  const look = geprueft.plan.look ? { lut: geprueft.plan.look.lut, ...(geprueft.plan.look.name ? { name: geprueft.plan.look.name } : {}) } : undefined;
+
+  const neu = leseSchnittplan({ ...plan, quellen, broll, overlays, woerter: neueWoerter, musik, look });
   return { plan: neu, storyboard: geprueft.plan, verworfen, warnungen, renderListe, betont };
 }
 

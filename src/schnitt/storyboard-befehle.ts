@@ -84,18 +84,28 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
     brollQuellen.set(key, SchnittQuelle.parse({ id: `broll-${key}`, pfad: k.pfad, ...(await sondiere(abs)) }));
   }
 
-  const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive });
+  // Musik: nur eine Datei, die auf diesem Rechner liegt, wird sondiert
+  let musikQuelle: SchnittQuelle | undefined;
+  const sbMusik = (roh as { musik?: { datei?: unknown } }).musik;
+  if (sbMusik && typeof sbMusik.datei === "string" && home) {
+    const abs = loesePfad(home, sbMusik.datei);
+    if (fs.existsSync(abs)) musikQuelle = SchnittQuelle.parse({ id: "musik-1", pfad: sbMusik.datei, ...(await sondiere(abs)) });
+    else nichtDa.push(sbMusik.datei);
+  }
+
+  const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive, musikQuelle });
   fs.writeFileSync(ausDatei, `${JSON.stringify(r.plan, null, 2)}\n`);
 
   console.log(`Hook: ${r.storyboard.hook}`);
-  console.log(`Übernommen: ${r.plan.overlays.length} Grafiken, ${r.plan.broll.length} B-Roll, ${r.betont.length} betonte Wörter`);
+  console.log(`Übernommen: ${r.plan.overlays.length} Grafiken, ${r.plan.broll.length} B-Roll, ${r.betont.length} betonte Wörter${r.plan.musik ? ", Musik" : ""}${r.plan.look ? `, Look «${r.plan.look.name ?? r.plan.look.lut}»` : ""}`);
   if (r.verworfen.length) {
     console.log("\nVerworfen:");
     for (const v of r.verworfen) console.log(`  Eintrag ${v.index + 1}: ${v.grund}`);
   }
   for (const w of r.warnungen) console.log(`Hinweis: ${w}`);
   if (notiz) console.log(`Hinweis: ${notiz}`);
-  if (nichtDa.length) console.log(`Hinweis: B-Roll-Dateien nicht auf diesem Rechner: ${nichtDa.join(", ")}`);
+  if (nichtDa.length) console.log(`Hinweis: Dateien nicht auf diesem Rechner (B-Roll, Musik): ${nichtDa.join(", ")}`);
+  if (r.plan.look && home && !fs.existsSync(loesePfad(home, r.plan.look.lut))) console.log(`Hinweis: Die LUT ${r.plan.look.lut} fehlt auf diesem Rechner, die Vorschau läuft ohne Look`);
 
   let code = 0;
   if (r.renderListe.length) {

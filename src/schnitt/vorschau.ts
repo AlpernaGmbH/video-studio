@@ -9,6 +9,13 @@ import { platziere, quelleNach, sekunden, type Schnittplan } from "./plan";
  * die Federbewegung des Zoom-Punch fehlt, die Tonmischung ist roh. Als fertiges Video taugt sie nicht (540p, hohe Kompression).
  */
 
+/** Was die Vorschau nicht zeigt, abhängig vom Plan: Mit Look und Musik im Plan stimmen «kein Look» und «roher Ton» nicht mehr. */
+export function vorschauHinweis(plan: Pick<Schnittplan, "look" | "musik">): string {
+  const look = plan.look ? `Look «${plan.look.name ?? "LUT"}» als Näherung` : "kein Look";
+  const ton = plan.musik ? "Tonmischung grob (Limiter, kein Export-Pegel)" : "roher Ton";
+  return `Eine Näherung zum Ansehen: ${look}, keine Übergänge, ${ton}, 540p. Als Video taugt erst der Export aus Resolve.`;
+}
+
 export const VORSCHAU_BREITE = 540;
 export const VORSCHAU_HOEHE = 960;
 
@@ -48,7 +55,9 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
   };
   const filter: string[] = [];
   /** Das Bild füllt den Ausschnitt ganz (Zuschnitt statt Ränder), dann optional der Zoom. */
-  const deckend = (i: number, extra = ""): string => `[${i}:v]fps=${fpsText},scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}${extra},setsar=1`;
+  const deckend = (i: number, extra = "", look = ""): string => `[${i}:v]fps=${fpsText},scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}${look}${extra},setsar=1`;
+  // Look: 3D-LUT auf die Kamera-Clips der Sprache (nicht auf B-Roll und Grafiken), vor dem Zoom
+  const lut = plan.look && fs.existsSync(o.loese(plan.look.lut, "quelle")) ? `,lut3d=file='${filterPfad(o.loese(plan.look.lut, "quelle"))}'` : "";
 
   // V1/A1: die Sprache
   const teile: string[] = [];
@@ -57,7 +66,7 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     const q = p.quelle;
     const i = eingang(["-ss", zahl(alsZahl(p.quellStart)), "-t", zahl(dauer + 2 / fps), "-i", o.loese(q.pfad, "quelle")]);
     const zoom = p.clip.zoom !== 1 ? `,scale=${gerade(W * p.clip.zoom)}:${gerade(H * p.clip.zoom)},crop=${W}:${H}` : "";
-    filter.push(`${deckend(i, zoom)},setpts=PTS-STARTPTS,trim=end_frame=${p.frames},setpts=PTS-STARTPTS[v${k}]`);
+    filter.push(`${deckend(i, zoom, lut)},setpts=PTS-STARTPTS,trim=end_frame=${p.frames},setpts=PTS-STARTPTS[v${k}]`);
     if (q.hatAudio) filter.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=duration=${zahl(dauer)},asetpts=PTS-STARTPTS[a${k}]`);
     else filter.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${zahl(dauer)},asetpts=PTS-STARTPTS[a${k}]`);
     teile.push(`[v${k}][a${k}]`);
@@ -128,6 +137,7 @@ export function fehlendeDateien(plan: Schnittplan, loese: VorschauOptionen["loes
   const benutzt = new Set<string>([...plan.clips.map((c) => c.quelle), ...plan.broll.map((b) => b.quelle), ...(plan.musik ? [plan.musik.quelle] : [])]);
   const pfade = [...benutzt].map((id) => quellen.get(id)).filter((q): q is NonNullable<typeof q> => !!q).map((q) => loese(q.pfad, "quelle"));
   pfade.push(...plan.overlays.map((o) => loese(o.datei, "overlay")));
+  if (plan.look) pfade.push(loese(plan.look.lut, "quelle"));
   return [...new Set(pfade)].filter((p) => !fs.existsSync(p));
 }
 

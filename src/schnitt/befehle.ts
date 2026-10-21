@@ -10,7 +10,7 @@ import { GROSSE_UNTERORDNER, medienOrdner, studioHome } from "../setup";
 import { markeFuerExportFreigegeben } from "../core/schemas";
 import { z } from "zod";
 import { erzeugeBogen } from "./kontaktbogen";
-import { fehlendeDateien, erzeugeVorschau, kannUntertitel } from "./vorschau";
+import { fehlendeDateien, erzeugeVorschau, kannUntertitel, vorschauHinweis } from "./vorschau";
 import { STANDARD_SCHNITTPROFIL, ZOOM_MODI, type ZoomModus } from "./planbau";
 import { gruppiere, schreibeSrt, seitenFuerOverlay, woerterAufTimeline } from "./untertitel";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
@@ -21,6 +21,8 @@ import { erzeugeUebergabe, loesePfad, relativierePfad } from "./uebergabe";
 import { leseTranskript } from "./transkript";
 import { STANDARD_MODELL, transkribiere } from "./whisper";
 import { fuehreZuordnungAus } from "./zuordnen";
+import { ALPERNA_KINO, lookFunktion, schreibeCube } from "./look";
+import { bettBefehl } from "./bett-befehle";
 
 /** Befehle `studio schnitt …`: Schnittplan prüfen, an Resolve übergeben, Quellen sondieren, fertigen Export prüfen. */
 
@@ -49,6 +51,11 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
   schnitt vorschau --plan plan.json [-o vorschau.mp4] [--ohne-untertitel]
                                       Vorschau-Video (540x960, 25p) mit Clips, Zoom, B-Roll, Grafiken, Musik und eingebrannten Untertiteln. Eine Näherung zum Ansehen, kein Export.
                                       Standard: <Studio>/inhalte/<Inhalt-ID>/ergebnis/vorschau.mp4, eine vorhandene Datei wird nie überschrieben (vorschau-v2.mp4).
+  schnitt look [-o datei.cube]        Die 3D-LUT der Marke Alperna («Alperna Kino»): Panasonic V-Log nach Rec.709, dazu der Look (kühl, kontraststark, leicht entsättigt).
+                                      Standard: <Medien>/renders/look/alperna-kino.cube. Ins Storyboard: "look": {"lut": "renders/look/alperna-kino.cube", "name": "Alperna Kino"}.
+  schnitt bett --plan plan.json [--storyboard sb.json] [-o ordner] [--musik-lufs -25]
+                                      Musik und Soundeffekte für den Schnitt, selbst synthetisiert (keine Lizenz): ein leiser Whoosh an jedem Schnitt, je Grafik passende Geräusche, die Musik
+                                      unter der Sprache abgesenkt. Schreibt bett.wav (Musik und SFX), musik.wav und sfx.wav nach <Medien>/renders/<ID>/ton/. Ins Storyboard: "musik": {"datei": "renders/<ID>/ton/bett.wav"}.
   schnitt seiten --plan plan.json [--marke key] [-o seiten.json]
                                       Untertitel-Seiten mit Wortzeiten und Betonung (Sekunden der Timeline) als JSON für den Parameter «seiten» des Stücks «untertitel-pop».
   schnitt pruefe --plan plan.json [--marke key] [--entwurf]
@@ -193,7 +200,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       } finally {
         if (srt) fs.rmSync(srt, { force: true });
       }
-      console.log("Eine Näherung zum Ansehen: kein Look, keine Übergänge, roher Ton, 540p. Als Video taugt erst der Export aus Resolve.");
+      console.log(vorschauHinweis(plan));
       return 0;
     }
     case "kontaktbogen": {
@@ -208,6 +215,17 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       if (r.nichtGerendert.length) console.log(`Nicht gerendert: Eintrag ${r.nichtGerendert.join(", ")} (zuerst «./studio schnitt storyboard … --rendern»)`);
       if (r.ohneBild.length) console.log(`Ohne Standbild: Eintrag ${r.ohneBild.join(", ")}`);
       return r.ohneBild.length || r.nichtGerendert.length ? 1 : 0;
+    }
+    case "bett":
+      return bettBefehl(a);
+    case "look": {
+      const home = studioHome();
+      const ziel = typeof a.opt["o"] === "string" ? path.resolve(a.opt["o"] as string) : home ? loesePfad(home, "renders/look/alperna-kino.cube") : undefined;
+      if (!ziel) throw new Error("Zieldatei fehlt: -o <datei.cube> angeben oder den Studio-Ordner einrichten");
+      fs.mkdirSync(path.dirname(ziel), { recursive: true });
+      fs.writeFileSync(ziel, schreibeCube(lookFunktion(ALPERNA_KINO), ALPERNA_KINO.name));
+      console.log(`LUT «${ALPERNA_KINO.name}» (33 Punkte je Achse) → ${ziel}\nAnnahme: Das Material ist Panasonic V-Log. Hauttöne und Weiss prüft ein Mensch am Bild.`);
+      return 0;
     }
     case "seiten": {
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));

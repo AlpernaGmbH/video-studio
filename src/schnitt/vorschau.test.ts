@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { leseSchnittplan, type Schnittplan } from "./plan";
-import { erzeugeVorschau, fehlendeDateien, kannUntertitel, vorschauArgs, VORSCHAU_BREITE, VORSCHAU_HOEHE } from "./vorschau";
+import { erzeugeVorschau, fehlendeDateien, kannUntertitel, vorschauArgs, vorschauHinweis, VORSCHAU_BREITE, VORSCHAU_HOEHE } from "./vorschau";
 
 const hatFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 const loese = (rel: string, art: string) => `/m/${art}/${rel}`;
@@ -35,6 +35,24 @@ describe("vorschauArgs", () => {
     expect(a.join(" ")).toContain("-ss 2 -t 1.08 -i /m/quelle/rohmaterial/farben.mp4");
     expect(graph(a)).toContain("[v0][a0][v1][a1]concat=n=2:v=1:a=1[vbasis][abasis]");
     expect(graph(a)).toContain("trim=end_frame=25");
+  });
+
+  it("wendet den Look als 3D-LUT auf die Sprach-Clips an (vor dem Zoom), nicht auf B-Roll, und lässt ihn weg, wenn die Datei fehlt", () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "vorschau-lut-"));
+    try {
+      const lut = path.join(d, "look.cube");
+      fs.writeFileSync(lut, "LUT_3D_SIZE 2\n");
+      const mitLook = plan({ look: { lut: "renders/look/alperna-kino.cube" }, broll: [{ quelle: "broll-k-0001", katalog: "k-0001", t: 0.2, dauer: 0.4, von: 0, begruendung: "Zeigt die Aussage" }] });
+      const g = graph(vorschauArgs({ plan: mitLook, loese: (rel, art) => (rel.endsWith(".cube") ? lut : `/m/${art}/${rel}`), ausgabe: "/tmp/v.mp4" }));
+      expect(g).toContain(`crop=540:960,lut3d=file='${lut}',setsar=1`);
+      expect(g).toContain(`crop=540:960,lut3d=file='${lut}',scale=594:1056,crop=540:960,setsar=1`);
+      expect(g.match(/lut3d/g)).toHaveLength(2);
+      // ohne Datei kein lut3d, aber die Datei steht bei den fehlenden
+      expect(graph(args(mitLook))).not.toContain("lut3d");
+      expect(fehlendeDateien(mitLook, loese)).toContain("/m/quelle/renders/look/alperna-kino.cube");
+    } finally {
+      fs.rmSync(d, { recursive: true, force: true });
+    }
   });
 
   it("füllt 540 mal 960 und zoomt nur Clips mit Zoom", () => {
@@ -87,6 +105,21 @@ describe("vorschauArgs", () => {
   it("rechnet NTSC-Bildraten als Bruch", () => {
     const p = plan({ projekt: { name: "T", marke: "alperna", fps: 29.97 } });
     expect(args(p).join(" ")).toContain("-r 30000/1001");
+  });
+});
+
+describe("vorschauHinweis", () => {
+  it("nennt ohne Look und Musik «kein Look» und «roher Ton»", () => {
+    const t = vorschauHinweis({});
+    expect(t).toContain("kein Look");
+    expect(t).toContain("roher Ton");
+  });
+  it("nennt mit Look und Musik den Look und die grobe Tonmischung, nicht mehr «kein Look»", () => {
+    const t = vorschauHinweis({ look: { lut: "renders/look/x.cube", name: "Alperna Kino" }, musik: { quelle: "musik-1", t: 0, von: 0, pegelDb: 0 } });
+    expect(t).toContain("Look «Alperna Kino»");
+    expect(t).toContain("Tonmischung grob");
+    expect(t).not.toContain("kein Look");
+    expect(t).not.toContain("roher Ton");
   });
 });
 
@@ -144,6 +177,26 @@ describe.skipIf(!hatFfmpeg)("Vorschau mit echtem ffmpeg", () => {
     ff("-f", "lavfi", "-i", "color=c=white@0.7:s=1080x1920:r=25:d=1,format=yuva420p", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", path.join(dir, "grafik.webm"));
   };
   const lo = (rel: string) => path.join(dir, path.basename(rel));
+
+  it("der Look verändert das Bild: eine LUT, die Rot und Blau tauscht, macht aus dem roten Clip einen blauen", async () => {
+    material();
+    // 3D-LUT mit 2 Punkten je Achse: Ausgabe = (B, G, R)
+    const eintraege: string[] = [];
+    for (let b = 0; b < 2; b++) for (let g = 0; g < 2; g++) for (let r = 0; r < 2; r++) eintraege.push(`${b} ${g} ${r}`);
+    fs.writeFileSync(path.join(dir, "tausch.cube"), `LUT_3D_SIZE 2\n${eintraege.join("\n")}\n`);
+    const ohne = path.join(dir, "ohne.mp4");
+    const mit = path.join(dir, "mit.mp4");
+    const loLut = (rel: string) => (rel.endsWith(".cube") ? path.join(dir, "tausch.cube") : lo(rel));
+    await erzeugeVorschau({ plan: plan(), loese: loLut, ausgabe: ohne });
+    await erzeugeVorschau({ plan: plan({ look: { lut: "renders/look/tausch.cube" } }), loese: loLut, ausgabe: mit });
+    // der erste Clip (0 bis 1 s) ist rot
+    const rot = bildBei(ohne, 0.5);
+    const blau = bildBei(mit, 0.5);
+    expect(rot[0]).toBeGreaterThan(200);
+    expect(rot[2]).toBeLessThan(60);
+    expect(blau[2]).toBeGreaterThan(200);
+    expect(blau[0]).toBeLessThan(60);
+  }, 60_000);
 
   it("setzt Clips in der Reihenfolge des Plans, mit B-Roll und Grafik an der richtigen Zeit, und liefert Länge, Grösse und Ton", async () => {
     material();

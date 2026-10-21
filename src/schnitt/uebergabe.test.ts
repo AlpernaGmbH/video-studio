@@ -48,6 +48,30 @@ describe("loesePfad", () => {
   });
 });
 
+describe("erzeugeUebergabe mit Look", () => {
+  it("legt die LUT in den Ordner look/, nennt sie in der Anleitung und meldet eine fehlende LUT", () => {
+    const w = werkstatt();
+    const lutRel = "renders/c-0007/look/alperna-kino.cube";
+    const mit = { ...w, plan: { ...w.plan, look: { lut: lutRel, name: "Alperna Kino" } } };
+    const abs = loesePfad(w.home, lutRel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, "LUT_3D_SIZE 2\n");
+    const r = lauf(mit);
+    expect(r.dateien).toContain("look/alperna-kino.cube");
+    expect(fs.readFileSync(path.join(r.ordner, "look", "alperna-kino.cube"), "utf8")).toBe("LUT_3D_SIZE 2\n");
+    const anleitung = fs.readFileSync(path.join(r.ordner, "LIESMICH.md"), "utf8");
+    expect(anleitung).toContain("`look/alperna-kino.cube` ist die 3D-LUT «Alperna Kino»");
+    expect(anleitung).toContain("V-Log");
+    expect(anleitung).not.toContain("Eine LUT liegt noch nicht vor");
+    // ohne LUT-Datei: Fehler wie bei jeder fehlenden Quelle
+    fs.rmSync(abs);
+    expect(() => lauf(mit, { aus: path.join(w.root, "aus2") })).toThrow(/renders\/c-0007\/look\/alperna-kino.cube/);
+    // ohne Look bleibt der alte Satz
+    const ohne = lauf(w, { aus: path.join(w.root, "aus3") });
+    expect(fs.readFileSync(path.join(ohne.ordner, "LIESMICH.md"), "utf8")).toContain("Eine LUT liegt noch nicht vor");
+  });
+});
+
 describe("erzeugeUebergabe", () => {
   it("schreibt Timeline, OTIO, Untertitel, Plan und Anleitung", () => {
     const w = werkstatt();
@@ -140,12 +164,45 @@ describe("erzeugeUebergabe", () => {
   });
 });
 
+describe("liesmich zum Ton", () => {
+  const mitMusik = (pfad: string) => {
+    const plan = beispielPlan();
+    return {
+      ...plan,
+      quellen: [...plan.quellen.filter((q) => q.id !== "musik-1"), { id: "musik-1", pfad, art: "audio" as const, dauer: 36, start: 0, audioRate: 48000, audioKanaele: 2, hatAudio: true }],
+      musik: { quelle: "musik-1", t: 0, von: 0, pegelDb: 0 },
+    };
+  };
+  const text = (plan: ReturnType<typeof beispielPlan>) => liesmich({ plan, dauer: 5, seiten: 0, befunde: [], export: exportPreset, audio: { ...audio, musikPegelDb: -20 }, umgewandelt: [], dateien: ["plan.json"] });
+
+  it("mit dem fertigen Bett aus schnitt bett steht nicht der Musikpegel des Presets, sondern was im Bett steckt", () => {
+    const t = text(mitMusik("renders/c-9001/ton/bett.wav"));
+    expect(t).toContain("fertiges Bett auf A2");
+    expect(t).toContain("renders/c-9001/ton/bett.wav");
+    expect(t).toContain("musik.wav");
+    expect(t).not.toContain("Die Musik liegt auf -20 dB");
+  });
+  it("mit eigener Musik gilt weiter der Pegel aus dem Audio-Preset", () => {
+    const t = text(mitMusik("musik/lied.wav"));
+    expect(t).toContain("Die Musik liegt auf -20 dB");
+    expect(t).not.toContain("fertiges Bett");
+  });
+});
+
 describe("webmZuProRes", () => {
   it("benutzt den VP9-Decoder von libvpx (sonst geht der Alphakanal verloren) und ProRes 4444 mit Alpha", () => {
     const a = webmZuProRes("e.webm", "a.mov");
     expect(a.indexOf("libvpx-vp9")).toBeLessThan(a.indexOf("-i"));
     expect(a).toContain("yuva444p10le");
     expect(a).toContain("prores_ks");
+  });
+  it("schreibt den Alphakanal mit 8 Bit, wie die Quelle", () => {
+    const a = webmZuProRes("e.webm", "a.mov");
+    expect(a[a.indexOf("-alpha_bits") + 1]).toBe("8");
+  });
+  it("legt die Quantisierung fest, statt das hohe Standard-Bitbudget von prores_ks zu nehmen", () => {
+    const a = webmZuProRes("e.webm", "a.mov");
+    expect(a[a.indexOf("-qscale:v") + 1]).toBe("6");
   });
 });
 
@@ -170,6 +227,29 @@ describe.skipIf(!hatFfmpeg)("Umwandlung mit echtem ffmpeg", () => {
     };
     expect(alpha(10)).toBeGreaterThan(240);
     expect(alpha(150)).toBeLessThan(15);
+  }, 60_000);
+
+  it("ein Overlay mit weichem Verlauf über das ganze Bild wird mit 8-Bit-Alpha kleiner als mit 16 Bit und behält den Verlauf", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "alpha-"));
+    const webm = path.join(dir, "v.webm");
+    const mov8 = path.join(dir, "v8.mov");
+    const mov16 = path.join(dir, "v16.mov");
+    // Verlauf von durchsichtig (links) bis deckend (rechts) über das ganze Bild, 20 Bilder
+    const q = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=0x26324A:s=432x768:r=25:d=0.8,format=yuva420p,geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='255*X/W'", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0", webm], { encoding: "utf8" });
+    expect(q.status, q.stderr).toBe(0);
+    expect(spawnSync("ffmpeg", webmZuProRes(webm, mov8), { encoding: "utf8" }).status).toBe(0);
+    const ohne = webmZuProRes(webm, mov16).filter((x, i, l) => x !== "-alpha_bits" && l[i - 1] !== "-alpha_bits");
+    expect(spawnSync("ffmpeg", ohne, { encoding: "utf8" }).status).toBe(0);
+    expect(fs.statSync(mov8).size).toBeLessThan(fs.statSync(mov16).size);
+    const alpha = (x0: number): number => {
+      const r = spawnSync("ffmpeg", ["-loglevel", "error", "-i", mov8, "-vf", `alphaextract,crop=20:20:${x0}:300,format=gray`, "-frames:v", "1", "-f", "rawvideo", "-"], { maxBuffer: 1 << 20 });
+      expect(r.status).toBe(0);
+      return r.stdout.reduce((a, v) => a + v, 0) / r.stdout.length;
+    };
+    expect(alpha(10)).toBeLessThan(25);
+    expect(alpha(210)).toBeGreaterThan(100);
+    expect(alpha(210)).toBeLessThan(155);
+    expect(alpha(400)).toBeGreaterThan(230);
   }, 60_000);
 });
 

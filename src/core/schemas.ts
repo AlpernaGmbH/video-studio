@@ -234,5 +234,9 @@ export const Storyboard = z.object({
   /** Wortindizes, die betont werden */
   betonung: z.array(z.number().int().min(0)).default([]),
   notiz: z.string().default(""),
+  /** Musik für das Video: Datei im Medien-Ordner (zum Beispiel aus `schnitt bett`). `pegelDb` ist der Pegel der Datei, 0 heisst unverändert. */
+  musik: z.object({ datei: RelPathSchema, pegelDb: z.number().max(0).default(0), t: z.number().min(0).default(0), von: z.number().min(0).default(0) }).optional(),
+  /** Look der Kamera-Clips: 3D-LUT (.cube) im Medien- oder Studio-Ordner (zum Beispiel aus `schnitt look`). */
+  look: z.object({ lut: RelPathSchema, name: z.string().optional() }).optional(),
 });
 export type Storyboard = z.infer<typeof Storyboard>;

@@ -44,9 +44,14 @@ export function freierOrdner(basis: string): string {
   throw new Error(`Zu viele Fassungen unter ${basis}`);
 }
 
-/** ffmpeg-Argumente: WebM (VP9 mit Alpha) nach ProRes 4444 mit Alpha. Der VP9-Decoder von libvpx muss es sein, der eingebaute verwirft den Alphakanal. */
+/**
+ * ffmpeg-Argumente: WebM (VP9 mit Alpha) nach ProRes 4444 mit Alpha. Der VP9-Decoder von libvpx muss es sein, der eingebaute verwirft den Alphakanal.
+ * Der Alphakanal wird mit 8 Bit geschrieben: Die Quelle hat nur 8 Bit, 16 Bit (Standard von prores_ks) bringen nichts und machen Overlays, die das ganze Bild bedecken
+ * (Vignette), rund ein Drittel grösser. Ohne feste Quantisierung (`-qscale:v`) rechnet prores_ks mit seinem hohen Standard-Bitbudget: gemessen am 36-s-Overlay
+ * «kino-finish» 1,5 GB statt rund 0,7 GB mit Stufe 6, bei Grafiken mit flachen Farben ohne sichtbaren Unterschied.
+ */
 export function webmZuProRes(ein: string, aus: string): string[] {
-  return ["-y", "-loglevel", "error", "-c:v", "libvpx-vp9", "-i", ein, "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le", "-vendor", "apl0", "-an", aus];
+  return ["-y", "-loglevel", "error", "-c:v", "libvpx-vp9", "-i", ein, "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le", "-alpha_bits", "8", "-qscale:v", "6", "-vendor", "apl0", "-an", aus];
 }
 
 export interface UebergabeOptionen {
@@ -96,6 +101,7 @@ export function erzeugeUebergabe(o: UebergabeOptionen): UebergabeErgebnis {
   const fehlend: string[] = [];
   for (const q of plan.quellen) if (!fs.existsSync(loesePfad(home, q.pfad))) fehlend.push(q.pfad);
   for (const ov of plan.overlays) if (!fs.existsSync(loesePfad(home, ov.datei))) fehlend.push(ov.datei);
+  if (plan.look && !fs.existsSync(loesePfad(home, plan.look.lut))) fehlend.push(plan.look.lut);
   if (fehlend.length && o.strikt !== false) {
     throw new Error(`Diese Dateien fehlen auf diesem Rechner (nicht synchronisiert, Laufwerk nicht angeschlossen?):\n${fehlend.map((f) => `  ${f}`).join("\n")}`);
   }
@@ -139,10 +145,19 @@ export function erzeugeUebergabe(o: UebergabeOptionen): UebergabeErgebnis {
     seiten = gruppen.length;
     if (gruppen.length) schreibe("untertitel.srt", schreibeSrt(gruppen, plan.projekt.fps));
   }
+  // Look: Die LUT liegt im Ordner, damit das Projekt zusammenbleibt
+  let look: { datei: string; name: string } | undefined;
+  if (plan.look && !fehlend.includes(plan.look.lut)) {
+    const name = path.basename(plan.look.lut);
+    fs.mkdirSync(path.join(ordner, "look"), { recursive: true });
+    fs.copyFileSync(loesePfad(home, plan.look.lut), path.join(ordner, "look", name));
+    dateien.push(`look/${name}`);
+    look = { datei: `look/${name}`, name: plan.look.name ?? name.replace(/\.cube$/i, "") };
+  }
   schreibe("plan.json", JSON.stringify(plan, null, 2) + "\n");
 
   const dauer = sekunden(zeit.gesamtFrames, plan.projekt.fps);
-  schreibe("LIESMICH.md", liesmich({ plan, dauer, seiten, befunde, export: o.export, audio: o.audio, umgewandelt, dateien: [...dateien, "LIESMICH.md"] }));
+  schreibe("LIESMICH.md", liesmich({ plan, dauer, seiten, befunde, export: o.export, audio: o.audio, umgewandelt, dateien: [...dateien, "LIESMICH.md"], look }));
   return { ordner, dateien, befunde, fehlendeDateien: fehlend, umgewandelt, dauer, untertitel: seiten };
 }
 
@@ -173,10 +188,13 @@ export function formatHinweis(plan: Schnittplan): string {
 3. **Format der Quelle passt nicht zur Timeline:** ${liste} hat ein anderes Seitenverhältnis als ${plan.projekt.breite}×${plan.projekt.hoehe}. Damit das Bild die Timeline füllt (so wie in der Vorschau, mittig ausgeschnitten), in den Projekteinstellungen unter «Bildskalierung» (Image Scaling) bei «Dateien mit abweichender Auflösung» (Mismatched resolution files) **«Gesamtes Bild skalieren, mit Beschnitt»** (Scale full frame with crop) wählen, **bevor** die Timeline importiert wird. Sonst zeigt Resolve einen schmalen Streifen mit schwarzen Balken. Der Zoom der Clips (1,1-fach) wirkt danach zusätzlich. **[Wahrscheinlich]** Der Ausschnitt ist mittig, weil der Plan keine Verschiebung kennt.`;
 }
 
-export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; dateien: string[] }): string {
+export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; dateien: string[]; look?: { datei: string; name: string } }): string {
   const { plan, export: e, audio } = a;
   const hinweise = a.befunde.filter((b) => b.stufe === "hinweis");
   const mbit = (e.bitrateMbit.min + e.bitrateMbit.max) / 2;
+  // Das Bett aus `schnitt bett` (Musik, abgesenkt, plus Soundeffekte) ist schon gemischt: Der Pegel aus dem Audio-Preset gilt dafür nicht
+  const musikPfad = plan.musik ? plan.quellen.find((q) => q.id === plan.musik!.quelle)?.pfad : undefined;
+  const tonBett = musikPfad && /(^|\/)bett\.wav$/.test(musikPfad) ? musikPfad : undefined;
   return `# ${plan.projekt.name} in DaVinci Resolve
 
 Marke ${plan.projekt.marke}${plan.projekt.inhalt ? `, Inhalt ${plan.projekt.inhalt}` : ""}. Länge ${s1(a.dauer)} s, ${plan.clips.length} Clips, ${plan.broll.length} B-Roll, ${plan.overlays.length} Grafiken${a.seiten ? `, ${a.seiten} Untertitel-Seiten` : ""}.
@@ -206,8 +224,8 @@ ${a.dateien
 
 ## Danach von Hand
 
-- Look: Der Look der Marke ${plan.projekt.marke} sitzt auf den Kamera-Clips, nicht auf den Grafiken. Eine LUT liegt noch nicht vor (Markenprofil, Feld «look»).
-- Ton: Ziel ${audio.zielLufs} LUFS (±${audio.toleranzLu} LU) bei höchstens ${audio.spitzeDbtp} dBTP, Preset «${audio.id}».${audio.musikPegelDb !== undefined ? ` Die Musik liegt auf ${audio.musikPegelDb} dB.` : ""}
+${a.look ? `- Look: \`${a.look.datei}\` ist die 3D-LUT «${a.look.name}». Sie rechnet Panasonic V-Log nach Rec.709 und legt den Look der Marke ${plan.projekt.marke} darauf (kühl, kontraststark, leicht entsättigt). Sie gehört auf die Kamera-Clips, nicht auf Grafiken und Untertitel. In Resolve: Datei in den LUT-Ordner kopieren (Projekteinstellungen, Color Management, Lookup Tables, «Open LUT Folder»), dann «Update Lists», auf der Color-Seite die Clips der Spur V1 wählen, Rechtsklick, 3D LUT, «${a.look.name}». **[Annahme]** Das Material ist V-Log (die weisse Wand liegt bei Code 0,59, wie V-Log es für 90 % Weiss vorsieht): Ist es ein anderes Profil, stimmt die Umrechnung nicht. Die Hauttöne kalibriert ein Mensch am Vectorscope.` : `- Look: Der Look der Marke ${plan.projekt.marke} sitzt auf den Kamera-Clips, nicht auf den Grafiken. Eine LUT liegt noch nicht vor (Markenprofil, Feld «look»).`}
+- Ton: Ziel ${audio.zielLufs} LUFS (±${audio.toleranzLu} LU) bei höchstens ${audio.spitzeDbtp} dBTP, Preset «${audio.id}».${tonBett ? ` Musik und Soundeffekte liegen als fertiges Bett auf A2 (\`${tonBett}\`): die Musik unter der Sprache abgesenkt, ein leiser Whoosh an jedem Schnitt, Einschläge und Ticks zu den Grafiken. Die Einzelspuren \`musik.wav\` und \`sfx.wav\` liegen im selben Ordner, falls du sie getrennt mischen willst. Die Pegel sind gerechnet, nicht gehört: Musik und Lautstärke beurteilt ein Mensch.` : audio.musikPegelDb !== undefined ? ` Die Musik liegt auf ${audio.musikPegelDb} dB.` : ""}
 - Grafiken ansehen: Auf V3 muss der Hintergrund transparent bleiben. Wenn er schwarz ist, die Grafik als PNG-Folge neu rendern lassen.
 
 ## Export (Deliver)

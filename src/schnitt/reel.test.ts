@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseArgs } from "../args";
 import { rendereStueck, umgebung, type Umgebung } from "../motion/werkstatt";
 import { leseSchnittplan } from "./plan";
-import { listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, type ReelGeraete, type ReelZustand } from "./reel";
+import { listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, wendeTonAn, type ReelGeraete, type ReelZustand } from "./reel";
 import { testSatz } from "./testdaten";
 import type { Segment } from "./transkript";
 
@@ -291,6 +291,40 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--nicht-kopieren");
     expect(leseSchnittplan(JSON.parse(fs.readFileSync(planPfad, "utf8"))).clips.every((c) => c.zoom === 1)).toBe(true);
   }, 120_000);
+
+  it("ton: verbessert die Sprache auf das Ziel des Presets, lässt das Bild unberührt und der Plan nimmt danach die Datei in ton/", async () => {
+    // Aufnahme mit leisem Ton, damit die Verstärkung messbar ist
+    const { video } = await vorbereitet();
+    const leise = path.join(tmp, "leise.mp4");
+    ff("-i", video, "-map", "0:v", "-c:v", "copy", "-map", "0:a", "-af", "volume=-26dB", "-c:a", "aac", leise);
+    fs.copyFileSync(leise, video);
+    // der Plan liegt schon; die Quelle ist neu, der Plan bleibt gültig (gleiche Länge)
+    ausgabe.length = 0;
+    const code = await lauf("reel", "ton", "c-0007");
+    expect(code, text()).toBe(0);
+    expect(text()).toMatch(/vorher -\d+,\d LUFS.*Verstärkung \d+,\d dB, nachher -1[345],\d LUFS/);
+    const aus = medien("rohmaterial", "c-0007", "ton", path.basename(video));
+    expect(fs.existsSync(aus)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toMatchObject({ ton: true });
+    // der Ordner ton/ zählt nicht als Aufnahme
+    expect(listeAufnahmen(medien("rohmaterial", "c-0007"))).toEqual([path.basename(video)]);
+
+    const planDatei = studio("inhalte", "c-0007", "ergebnis", "plan.json");
+    const ersetzt = await wendeTonAn(planDatei, { pfad: studio(), quelle: "STUDIO_HOME", medien: medien() });
+    expect(ersetzt).toEqual(["sprache-01"]);
+    const plan = leseSchnittplan(JSON.parse(fs.readFileSync(planDatei, "utf8")));
+    expect(plan.quellen[0]!.pfad).toBe(`rohmaterial/c-0007/ton/${path.basename(video)}`);
+    // ein zweites Mal ändert nichts mehr (die Quelle zeigt schon auf ton/, dort gibt es keine zweite Fassung)
+    expect(await wendeTonAn(planDatei, { pfad: studio(), quelle: "STUDIO_HOME", medien: medien() })).toEqual([]);
+    expect(leseSchnittplan(JSON.parse(fs.readFileSync(planDatei, "utf8"))).quellen[0]!.pfad).toBe(`rohmaterial/c-0007/ton/${path.basename(video)}`);
+    // vorbereiten behält «ton» in reel.json
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--nicht-kopieren");
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toMatchObject({ ton: true });
+  }, 240_000);
+
+  it("ton: ohne Plan gibt es einen klaren Fehler", async () => {
+    await expect(lauf("reel", "ton", "c-0007", "--marke", "alperna")).rejects.toThrow(/noch keinen Plan/);
+  });
 
   it("vorbereiten: klare Fehler für fehlendes Skript, leeren Aufnahmenordner und Dateien ausserhalb von Studio und Medien", async () => {
     await expect(lauf("reel", "vorbereiten", "c-0007", "--marke", "alperna")).rejects.toThrow(/Skript fehlt.*reel neu c-0007 --zwischenablage/s);

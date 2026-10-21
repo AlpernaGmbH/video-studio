@@ -230,6 +230,36 @@ describe("wendeStoryboardAn", () => {
     expect(fehler).toEqual([]);
   });
 
+  describe("Musik und Look", () => {
+    const musik = SchnittQuelle.parse({ id: "musik-1", pfad: "renders/c-0007/bett.wav", art: "audio", dauer: 36, hatAudio: true, audioKanaele: 2, audioRate: 48000 });
+    const sb = { ...kopf, overlays: [], musik: { datei: "renders/c-0007/bett.wav", pegelDb: -3 }, look: { lut: "renders/c-0007/look/alperna-kino.cube", name: "Alperna Kino" } };
+
+    it("übernimmt die Musik als Quelle und Eintrag im Plan, den Look mit Name", () => {
+      const r = wendeStoryboardAn(basis(), sb, ctx({ musikQuelle: musik }));
+      expect(r.plan.quellen.map((q) => q.id)).toEqual(["a", "musik-1"]);
+      expect(r.plan.musik).toEqual({ quelle: "musik-1", t: 0, von: 0, pegelDb: -3 });
+      expect(r.plan.look).toEqual({ lut: "renders/c-0007/look/alperna-kino.cube", name: "Alperna Kino" });
+      expect(pruefeSchnittplan(r.plan, { katalog, stuecke: [stueckZahl()] }).filter((b) => b.stufe === "fehler")).toEqual([]);
+    });
+
+    it("lässt die Musik draussen und sagt es, wenn die Datei nicht sondiert ist oder kein Audio hat", () => {
+      const ohne = wendeStoryboardAn(basis(), sb, ctx());
+      expect(ohne.plan.musik).toBeUndefined();
+      expect(ohne.plan.quellen.map((q) => q.id)).toEqual(["a"]);
+      expect(ohne.warnungen.join(" ")).toMatch(/wurde nicht sondiert/);
+      const video = SchnittQuelle.parse({ ...musik, art: "video", fps: 25, breite: 100, hoehe: 100 });
+      expect(wendeStoryboardAn(basis(), sb, ctx({ musikQuelle: video })).warnungen.join(" ")).toMatch(/keine Audiodatei/);
+    });
+
+    it("ein neues Storyboard ohne Musik und Look nimmt beides wieder weg", () => {
+      const mit = wendeStoryboardAn(basis(), sb, ctx({ musikQuelle: musik }));
+      const ohne = wendeStoryboardAn(mit.plan, { ...kopf, overlays: [] }, ctx());
+      expect(ohne.plan.musik).toBeUndefined();
+      expect(ohne.plan.look).toBeUndefined();
+      expect(ohne.plan.quellen.map((q) => q.id)).toEqual(["a"]);
+    });
+  });
+
   it("wirft bei einem Storyboard ohne Liste «overlays»", () => {
     expect(() => wendeStoryboardAn(basis(), { hook: "x" }, ctx())).toThrow(/overlays/);
   });

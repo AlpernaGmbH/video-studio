@@ -93,6 +93,13 @@ export const SchnittMusik = z.object({
 });
 export type SchnittMusik = z.infer<typeof SchnittMusik>;
 
+/** Look der Kamera-Clips als 3D-LUT (.cube). Die Vorschau wendet ihn an, die Übergabe legt die Datei bei, Resolve wendet sie von Hand an. */
+export const SchnittLook = z.object({
+  lut: RelPathSchema,
+  name: z.string().optional(),
+});
+export type SchnittLook = z.infer<typeof SchnittLook>;
+
 /** Ein gesprochenes Wort in Quellzeit. Der Text stammt aus dem Skript, nur das Timing aus Whisper (Bauplan v2, Entscheidungsprotokoll). */
 export const SchnittWort = z
   .object({
@@ -123,6 +130,7 @@ export const Schnittplan = z.object({
   broll: z.array(SchnittBroll).default([]),
   overlays: z.array(SchnittOverlay).default([]),
   musik: SchnittMusik.optional(),
+  look: SchnittLook.optional(),
   woerter: z.array(SchnittWort).default([]),
 });
 export type Schnittplan = z.infer<typeof Schnittplan>;

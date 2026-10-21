@@ -6,6 +6,7 @@ import { parseArgs, type Args } from "../args";
 import { extrahiereJson, ladeMarke, type Umgebung } from "../motion/werkstatt";
 import { sondiere } from "../presets/messen";
 import { medienOrdner, studioHome, type StudioHome } from "../setup";
+import { findePreset, ladePresets } from "../presets/lader";
 import { zuordnungBericht } from "./bericht";
 import { schnittBefehl } from "./befehle";
 import { SchnittQuelle, platziere } from "./plan";
@@ -14,9 +15,10 @@ import { pruefeSchnittplan } from "./pruefung";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { leseTranskript } from "./transkript";
 import { ZOOM_MODI, type ZoomModus } from "./planbau";
-import { relativierePfad } from "./uebergabe";
+import { loesePfad, relativierePfad } from "./uebergabe";
 import { STANDARD_MODELL, transkribiere } from "./whisper";
 import { fuehreZuordnungAus } from "./zuordnen";
+import { imRahmen, verbessereTon } from "./ton";
 
 /**
  * Der Reel-Ablauf mit festen Ordnern: vom Rohmaterial zum Ordner für DaVinci Resolve in vier Befehlen.
@@ -33,6 +35,9 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
                                       baut den Schnittplan und den Auftrag fürs Storyboard (landet auf dem Mac in der Zwischenablage). Alles in inhalte/<ID>/ergebnis/.
   reel storyboard <ID> [--zwischenablage | --datei sb.json] [--entwurf] [--ohne-rendern] [--ohne-vorschau] [--nicht-oeffnen]
                                       Antwort von Claude (Storyboard als JSON) prüfen und in den Plan übernehmen, Grafiken rendern, Kontaktbogen und Vorschau-Video erzeugen.
+  reel ton <ID> [--preset standard]
+                                      Ton der Sprache verbessern (Rauschen, Klang, Lautheit auf das Ziel des Audio-Presets), Bild unberührt: schreibt <Medien>/rohmaterial/<ID>/ton/<Datei>.
+                                      Danach nutzen Vorschau und Resolve-Übergabe diese Dateien. Braucht den Plan (vorbereiten).
   reel uebergabe <ID> [--entwurf] [--nicht-strikt]
                                       Ordner für DaVinci Resolve schreiben (Timeline, Untertitel, Grafiken) nach inhalte/<ID>/ergebnis/resolve.
   reel status [<ID>]                  Zeigt, was für einen Inhalt schon da ist und was der nächste Schritt wäre (ohne ID: alle Inhalte).
@@ -146,6 +151,8 @@ const ReelDatei = z.object({
   aufnahmen: z.string().optional(),
   gesprochen: z.array(z.number().int().positive()).optional(),
   zoom: z.enum(["profil", "bei-schnitt", "aus"]).optional(),
+  /** Der Ton der Aufnahmen wurde verbessert (`reel ton`): Vorschau und Übergabe nehmen die Dateien in `ton/`. */
+  ton: z.boolean().optional(),
   modell: z.string().optional(),
   sprache: z.string().optional(),
 });
@@ -347,6 +354,8 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     ...(str(a, "aufnahmen") ? { aufnahmen: aufnahmenDir } : alt?.aufnahmen ? { aufnahmen: alt.aufnahmen } : {}),
     ...(gesprochen.length ? { gesprochen } : {}),
     ...(zoom ? { zoom: zoom as ZoomModus } : {}),
+    ...(alt?.ton ? { ton: true } : {}),
+    ...(alt?.ton ? { ton: true } : {}),
     ...(str(a, "modell") ?? alt?.modell ? { modell } : {}),
     ...(str(a, "sprache") ?? alt?.sprache ? { sprache } : {}),
   });
@@ -432,6 +441,10 @@ async function storyboard(a: Args, env: Umgebung, g: ReturnType<typeof standardG
   const gemeinsam = ["--plan", p.plan, ...(marke ? ["--marke", marke] : []), ...(a.opt["entwurf"] === true ? ["--entwurf"] : []), ...(str(a, "katalog") ? ["--katalog", str(a, "katalog")!] : [])];
   let code = await storyboardBefehl(parseArgs(["schnitt", "storyboard", ...gemeinsam, "--storyboard", p.storyboard, "-o", p.planStoryboard, ...(a.opt["ohne-rendern"] === true ? [] : ["--rendern"])]), env);
 
+  if (alt?.ton && fs.existsSync(p.planStoryboard)) {
+    const ersetzt = await wendeTonAn(p.planStoryboard, home);
+    if (ersetzt.length) console.log(`Ton: ${ersetzt.join(", ")} mit der verbesserten Fassung aus ton/`);
+  }
   const plan2 = ["--plan", p.planStoryboard];
   code = Math.max(code, await schritt("Kontaktbogen", () => schnittBefehl("kontaktbogen", parseArgs(["schnitt", "kontaktbogen", ...plan2, "-o", p.bogen]), env)));
   if (a.opt["ohne-vorschau"] !== true) code = Math.max(code, await schritt("Vorschau", () => schnittBefehl("vorschau", parseArgs(["schnitt", "vorschau", ...plan2]), env)));
@@ -444,6 +457,60 @@ async function storyboard(a: Args, env: Umgebung, g: ReturnType<typeof standardG
   console.log(
     `\nNächster Schritt: Kontaktbogen und Vorschau ansehen.\n  Passt es:    ./studio reel uebergabe ${id}${a.opt["entwurf"] === true ? " --entwurf" : ""}\n  Sonst:       Änderungswunsch an Claude schreiben, neue Antwort kopieren, dann ./studio reel storyboard ${id} --zwischenablage${a.opt["entwurf"] === true ? " --entwurf" : ""}`,
   );
+  return code;
+}
+
+/* ---------- reel ton ---------- */
+
+/** Wo die Fassung mit verbessertem Ton einer Aufnahme liegt: im Unterordner «ton» neben der Datei (der Ordner zählt nicht als Aufnahmenordner, er ist nicht rekursiv). */
+export const tonPfad = (aufnahme: string): string => path.join(path.dirname(aufnahme), "ton", path.basename(aufnahme));
+
+/**
+ * Ersetzt in einer Plan-Datei die Quellen durch ihre Fassung mit verbessertem Ton, wo es sie gibt. Bild, Länge und Zeitcode sind gleich (`-c copy`), die Eckdaten
+ * werden trotzdem neu gelesen. Gibt die Kennungen der ersetzten Quellen zurück.
+ */
+export async function wendeTonAn(planDatei: string, home: StudioHome): Promise<string[]> {
+  const plan = leseSchnittplan(JSON.parse(fs.readFileSync(planDatei, "utf8")));
+  const ersetzt: string[] = [];
+  const quellen: SchnittQuelle[] = [];
+  for (const q of plan.quellen) {
+    const t = q.art === "video" && q.hatAudio ? tonPfad(loesePfad(home, q.pfad)) : undefined;
+    const rel = t && fs.existsSync(t) ? relativierePfad(home, t) : undefined;
+    if (!t || !rel) {
+      quellen.push(q);
+      continue;
+    }
+    quellen.push(SchnittQuelle.parse({ id: q.id, pfad: rel, ...(await sondiere(t)) }));
+    ersetzt.push(q.id);
+  }
+  if (ersetzt.length) fs.writeFileSync(planDatei, `${JSON.stringify(leseSchnittplan({ ...plan, quellen }), null, 2)}\n`);
+  return ersetzt;
+}
+
+async function ton(a: Args, env: Umgebung): Promise<number> {
+  const home = braucheHome();
+  const id = pruefeInhaltId(a.pos[2]);
+  const p = reelPfade(home, id);
+  const alt = leseReel(p);
+  if (!fs.existsSync(p.plan)) throw new Error(`Es gibt noch keinen Plan: zuerst «./studio reel vorbereiten ${id}»`);
+  const plan = leseSchnittplan(JSON.parse(fs.readFileSync(p.plan, "utf8")));
+  const preset = findePreset(ladePresets(path.join(env.studioRoot, "presets")), "audio", str(a, "preset") ?? "standard");
+  let code = 0;
+  const quellen = plan.quellen.filter((q) => q.art === "video" && q.hatAudio);
+  if (!quellen.length) throw new Error("Keine der Quellen hat eine Tonspur");
+  for (const q of quellen) {
+    const abs = loesePfad(home, q.pfad);
+    console.log(`Ton verbessern: ${path.basename(abs)} (Ziel ${preset.zielLufs} LUFS, höchstens ${preset.spitzeDbtp} dBTP)`);
+    const b = await verbessereTon({ eingang: abs, ausgabe: tonPfad(abs), plan, quelleId: q.id, preset });
+    const ok = imRahmen(b.nachher, preset);
+    console.log(`  vorher ${f1(b.vorher.lufs)} LUFS (Spitze ${f1(b.vorher.truePeak)} dBFS), Verstärkung ${f1(b.gainDb)} dB, nachher ${f1(b.nachher.lufs)} LUFS (Spitze ${f1(b.nachher.truePeak)} dBFS)`);
+    if (!ok.lautheit) console.log(`  Hinweis: Die Lautheit liegt ausserhalb von ${preset.zielLufs} ± ${preset.toleranzLu} LUFS`);
+    if (!ok.spitze) console.log(`  Hinweis: Der True Peak liegt über ${preset.spitzeDbtp} dBTP`);
+    if (!ok.lautheit || !ok.spitze) code = 1;
+    console.log(`  → ${b.ausgabe}`);
+  }
+  schreibeReel(p, { ...(alt ?? { schema: 1 as const, id }), ton: true });
+  console.log(`\nNächster Schritt: ./studio reel storyboard ${id} …  (Vorschau und Übergabe nehmen jetzt die Dateien in ton/). Ob die Stimme gut klingt, hört nur ein Mensch.`);
   return code;
 }
 
@@ -529,6 +596,8 @@ export async function reelBefehl(sub: string, a: Args, env: Umgebung, geraete: R
       return vorbereiten(a, env, g);
     case "storyboard":
       return storyboard(a, env, g);
+    case "ton":
+      return ton(a, env);
     case "uebergabe":
       return uebergabe(a, env);
     case "status":
