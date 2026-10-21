@@ -9,7 +9,7 @@ import { leseSchnittplan } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
 import { schnittBefehl } from "./befehle";
 import { findeStille } from "./stille";
-import { listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, transkriptMarkdown, type ReelGeraete, type ReelZustand } from "./reel";
+import { juengsterExport, listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, transkriptMarkdown, type ReelGeraete, type ReelZustand } from "./reel";
 import { testSatz } from "./testdaten";
 import type { Segment } from "./transkript";
 
@@ -821,4 +821,76 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten mit Farbe", () => {
     expect(await schnittBefehl("vorschau", parseArgs(["schnitt", "vorschau", "--plan", plan, "--ohne-untertitel", "--ohne-look", "-o", path.join(tmp, "w.mp4")]), env)).toBe(0);
     expect(text()).toContain("ohne Look");
   }, 300_000);
+});
+
+describe("juengsterExport", () => {
+  let dir: string;
+  beforeEach(() => void (dir = fs.mkdtempSync(path.join(os.tmpdir(), "studio-export-"))));
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+  it("nimmt die Videodatei mit der jüngsten Änderungszeit und überspringt Versteckte, Ordner und Fremdes", () => {
+    const lege = (n: string, vor: number) => {
+      fs.writeFileSync(path.join(dir, n), "x");
+      const t = new Date(Date.now() - vor * 1000);
+      fs.utimesSync(path.join(dir, n), t, t);
+    };
+    lege("alt.mp4", 100);
+    lege("neu.MOV", 10);
+    lege(".versteckt.mp4", 1);
+    lege("notiz.txt", 0);
+    fs.mkdirSync(path.join(dir, "ordner.mp4"));
+    expect(juengsterExport(dir)).toBe(path.join(dir, "neu.MOV"));
+  });
+  it("ohne Ordner oder ohne Video gibt es nichts", () => {
+    expect(juengsterExport(path.join(dir, "gibt-es-nicht"))).toBeUndefined();
+    expect(juengsterExport(dir)).toBeUndefined();
+  });
+});
+
+describe.skipIf(!hatFfmpeg)("reel messe", () => {
+  const start = async (): Promise<void> => {
+    zwischenablage = SKRIPT;
+    await lauf("reel", "neu", "c-0007", "--marke", "alperna", "--zwischenablage", "--nicht-oeffnen");
+  };
+  /** Ein «Export» von 6 s mit zwei harten Bildwechseln und Ton ab 1 s. */
+  const exportDatei = (ziel: string): string => {
+    fs.mkdirSync(path.dirname(ziel), { recursive: true });
+    ff("-f", "lavfi", "-i", "testsrc=size=216x384:rate=25:duration=2", "-f", "lavfi", "-i", "color=c=red:size=216x384:rate=25:duration=2", "-f", "lavfi", "-i", "testsrc=size=216x384:rate=25:duration=2", "-f", "lavfi", "-i", "aevalsrc=if(gt(t\\,1)\\,0.3*sin(2*PI*300*t)\\,0):s=48000:d=6", "-filter_complex", "[0:v]format=yuv420p[a];[1:v]format=yuv420p[b];[2:v]format=yuv420p[c];[a][b][c]concat=n=3:v=1[v]", "-map", "[v]", "-map", "3:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", ziel);
+    return ziel;
+  };
+
+  it("ohne Video gibt es einen klaren Fehler mit dem Ablageort", async () => {
+    await start();
+    await expect(lauf("reel", "messe", "c-0007")).rejects.toThrow(/Export aus Resolve in .*ergebnis\/export.*--video/);
+    await expect(lauf("reel", "messe", "c-0007", "--video", path.join(tmp, "fehlt.mp4"))).rejects.toThrow(/Video fehlt/);
+  });
+
+  it("misst die jüngste Datei in ergebnis/export, schreibt qualitaet.json mit Abweichungen und Hinweisen und endet mit 1, wenn es Abweichungen gibt", async () => {
+    await start();
+    exportDatei(studio("inhalte", "c-0007", "ergebnis", "export", "v1.mp4"));
+    expect(await lauf("reel", "messe", "c-0007")).toBe(1);
+    const q = JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "qualitaet.json"), "utf8"));
+    expect(q.datei).toBe(studio("inhalte", "c-0007", "ergebnis", "export", "v1.mp4"));
+    expect(q.dauer).toBeCloseTo(6, 0);
+    expect(q.schnitte).toMatchObject({ anzahl: 2, quelle: "bild" });
+    expect(q.ersteAussage.quelle).toBe("ton");
+    expect(q.abweichungen.map((a: { code: string }) => a.code)).toEqual(expect.arrayContaining(["groesse", "bitrate"]));
+    expect(text()).toContain("Schnitte: 2");
+    expect(text()).toContain("Abweichungen vom Export- und Audio-Preset");
+    expect(text()).toContain("(ohne Plan)");
+  }, 120_000);
+
+  it("mit --video gilt diese Datei, und ein Plan, der nicht zur Länge passt, wird nicht benutzt und genannt", async () => {
+    await start();
+    ersatzWhisper(whisperJson(testSatz(1, Z1), testSatz(10, Z2), testSatz(20, Z3)));
+    legeVideoAn();
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--ohne-farbe");
+    ausgabe.length = 0;
+    const datei = exportDatei(path.join(tmp, "irgendwo", "mein-export.mp4"));
+    await lauf("reel", "messe", "c-0007", "--video", datei);
+    expect(text()).toContain("Plan plan.json");
+    expect(text()).toContain("passt nicht zum Video");
+    const q = JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "qualitaet.json"), "utf8"));
+    expect(q.planHinweis).toContain("passt nicht zum Video");
+    expect(q.schnitte.quelle).toBe("bild");
+  }, 180_000);
 });

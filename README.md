@@ -53,6 +53,7 @@ Feste Ordner: Skript und Ergebnisse unter `Studio/inhalte/<ID>/`, die Videos unt
 ./studio reel gegenlesen c-0007                             # Claude hat gegenlesen.md gelesen (Regie, Abbrüche, Verhörer); schreibt den Auftrag fürs Storyboard
 ./studio reel storyboard c-0007 --zwischenablage            # Grafiken, B-Roll, Betonung, Zooms; rendert, macht Kontaktbogen und Vorschau-Video
 ./studio reel uebergabe c-0007                              # Ordner für DaVinci Resolve
+./studio reel messe c-0007                                 # misst den Export aus Resolve (ergebnis/export/): Schnitte, Zooms, Bild, Ton, erste Aussage; qualitaet.json
 ./studio reel status                                        # wo steht welcher Inhalt, was ist der nächste Schritt
 ```
 

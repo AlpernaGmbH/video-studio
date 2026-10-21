@@ -8,6 +8,8 @@ import { sondiere } from "../presets/messen";
 import { medienOrdner, studioHome, type StudioHome } from "../setup";
 import { zuordnungBericht } from "./bericht";
 import { baueGegenlesen, GegenlesenAntwort, gegenlesenMarkdown, planHash, wendeGegenlesenAn } from "./gegenlesen";
+import { findePreset, ladePresets } from "../presets/lader";
+import { bewerteQualitaet, messeQualitaet, qualitaetZeilen } from "./qualitaet";
 import { findeStille, type Stille } from "./stille";
 import { schnittBefehl } from "./befehle";
 import { SchnittQuelle, platziere } from "./plan";
@@ -49,6 +51,10 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
                                       Kontaktbogen und Vorschau-Video erzeugen.
   reel uebergabe <ID> [--entwurf] [--nicht-strikt]
                                       Ordner für DaVinci Resolve schreiben (Timeline, Untertitel, Grafiken) nach inhalte/<ID>/ergebnis/resolve.
+  reel messe <ID> [--video export.mp4] [--plan plan.json]
+                                      Misst das fertige Video (aus Resolve exportiert, Standard: die jüngste Datei in ergebnis/export/): Dauer, Bitrate, Schnitte je Minute, Zooms, Sättigung und
+                                      Helligkeitsspanne, Lautheit, Spitze, Stille, Zeit bis zur ersten Aussage. Prüft gegen Export- und Audio-Preset und das Schnittprofil der Marke und
+                                      schreibt ergebnis/qualitaet.json. Die Messung zeigt, wo ein Mensch hinschauen soll; «hochwertig» sagt sie nicht.
   reel status [<ID>]                  Zeigt, was für einen Inhalt schon da ist und was der nächste Schritt wäre (ohne ID: alle Inhalte).
 `;
 
@@ -86,6 +92,9 @@ export interface ReelPfade {
   planStoryboard: string;
   bogen: string;
   resolve: string;
+  /** Hier liegt der Export aus Resolve, den `reel messe` misst. */
+  export: string;
+  qualitaet: string;
 }
 
 export function reelPfade(home: StudioHome, id: string): ReelPfade {
@@ -112,6 +121,8 @@ export function reelPfade(home: StudioHome, id: string): ReelPfade {
     planStoryboard: path.join(ergebnis, "plan-storyboard.json"),
     bogen: path.join(ergebnis, "kontaktbogen.html"),
     resolve: path.join(ergebnis, "resolve"),
+    export: path.join(ergebnis, "export"),
+    qualitaet: path.join(ergebnis, "qualitaet.json"),
   };
 }
 
@@ -717,6 +728,56 @@ async function uebergabe(a: Args, env: Umgebung): Promise<number> {
   return schnittBefehl("resolve", parseArgs(["schnitt", "resolve", "--plan", plan, "--aus", p.resolve, ...(a.opt["entwurf"] === true ? ["--entwurf"] : []), ...(a.opt["nicht-strikt"] === true ? ["--nicht-strikt"] : [])]), env);
 }
 
+/* ---------- reel messe ---------- */
+
+const EXPORT_ENDUNGEN = [".mp4", ".mov", ".m4v"];
+
+/** Die jüngste Videodatei eines Ordners (nach Änderungszeit), oder undefined. */
+export function juengsterExport(dir: string): string | undefined {
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return undefined;
+  const dateien = fs
+    .readdirSync(dir)
+    .filter((n) => !n.startsWith(".") && EXPORT_ENDUNGEN.includes(path.extname(n).toLowerCase()) && fs.statSync(path.join(dir, n)).isFile())
+    .map((n) => ({ pfad: path.join(dir, n), zeit: fs.statSync(path.join(dir, n)).mtimeMs }))
+    .sort((x, y) => y.zeit - x.zeit);
+  return dateien[0]?.pfad;
+}
+
+async function messe(a: Args, env: Umgebung): Promise<number> {
+  const home = braucheHome();
+  const id = pruefeInhaltId(a.pos[2]);
+  const p = reelPfade(home, id);
+  const alt = leseReel(p);
+  const datei = str(a, "video") ? path.resolve(str(a, "video")!) : juengsterExport(p.export);
+  if (!datei) throw new Error(`Es gibt kein Video zum Messen. Den Export aus Resolve in ${p.export} ablegen oder «--video <datei>» angeben`);
+  if (!fs.existsSync(datei)) throw new Error(`Das Video fehlt: ${datei}`);
+  const planDatei = str(a, "plan") ? path.resolve(str(a, "plan")!) : [p.planStoryboard, p.plan].find((x) => fs.existsSync(x));
+  const plan = planDatei ? leseSchnittplan(JSON.parse(fs.readFileSync(planDatei, "utf8"))) : undefined;
+  const markeKey = alt?.marke ?? plan?.projekt.marke ?? einzigeMarke(env);
+  const marke = ladeMarke(env, markeKey);
+  const presets = ladePresets(path.join(env.studioRoot, "presets"));
+
+  console.log(`Messe ${datei}${plan ? ` (Plan ${path.basename(planDatei!)})` : " (ohne Plan)"}`);
+  const q = await messeQualitaet({ datei, ...(plan ? { plan } : {}) });
+  const b = bewerteQualitaet(q, marke.schnittprofil, findePreset(presets, "export", "reel"), findePreset(presets, "audio", "standard"));
+  fs.mkdirSync(p.ergebnis, { recursive: true });
+  fs.writeFileSync(p.qualitaet, `${JSON.stringify({ ...q, abweichungen: b.abweichungen, hinweise: b.hinweise }, null, 2)}\n`);
+
+  console.log("");
+  for (const z of qualitaetZeilen(q)) console.log(z);
+  if (b.abweichungen.length) {
+    console.log("\nAbweichungen vom Export- und Audio-Preset:");
+    for (const x of b.abweichungen) console.log(`  ${x.code}: ${x.text}`);
+  }
+  if (b.hinweise.length) {
+    console.log("\nHinweise:");
+    for (const x of b.hinweise) console.log(`  ${x.code}: ${x.text}`);
+  }
+  if (!b.abweichungen.length && !b.hinweise.length) console.log("\nKeine Abweichung und kein Hinweis. Ob es hochwertig aussieht, entscheidet ein Mensch beim Ansehen.");
+  console.log(`\nGespeichert: ${p.qualitaet}`);
+  return b.abweichungen.length ? 1 : 0;
+}
+
 /* ---------- reel status ---------- */
 
 /** Das Gegenlesen ist angewendet und gehört zu genau diesem plan.json. */
@@ -802,6 +863,8 @@ export async function reelBefehl(sub: string, a: Args, env: Umgebung, geraete: R
       return storyboard(a, env, g);
     case "uebergabe":
       return uebergabe(a, env);
+    case "messe":
+      return messe(a, env);
     case "status":
       return status(a);
     default:
