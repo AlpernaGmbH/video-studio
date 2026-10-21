@@ -42,6 +42,23 @@ Alle Befehle laufen über den Starter **`./studio`** im Ordner des Repos (nicht 
 ./studio schnitt transkribiere <aufnahme.mov>
 ```
 
+## Ein Reel bauen, vier Befehle
+
+Feste Ordner: Skript und Ergebnisse unter `Studio/inhalte/<ID>/`, die Videos unter `rohmaterial/<ID>/` (Medien-Ordner). `<ID>` ist die Kennung des Inhalts, zum Beispiel `c-0007`.
+
+```sh
+./studio reel neu c-0007 --marke alperna --zwischenablage   # Skript vorher kopieren; legt die Ordner an und öffnet den für die Videos
+# Videos in den geöffneten Ordner kopieren, dann:
+./studio reel vorbereiten c-0007                            # Whisper, Zuordnung, Schnittplan, Auftrag (landet in der Zwischenablage)
+# Auftrag im Chat an Claude geben, die Antwort kopieren, dann:
+./studio reel storyboard c-0007 --zwischenablage            # prüft, rendert Grafiken, macht Kontaktbogen und Vorschau-Video und öffnet beide
+./studio reel uebergabe c-0007                              # Ordner für DaVinci Resolve
+./studio reel status                                        # wo steht welcher Inhalt, was ist der nächste Schritt
+```
+
+`vorbereiten` lässt vorhandene Transkripte stehen (neuere Videos oder `--neu` transkribieren erneut) und merkt sich Marke und Titel in `reel.json`. Ein neues Storyboard ersetzt das alte, das vorige bleibt als `storyboard-vorher.json`.
+Solange kein Stück «aktiv» ist, gibt es keine Grafiken ohne `--entwurf` (Regel 3). Die Einzelschritte bleiben als `./studio schnitt …` erreichbar.
+
 ## Wo was liegt
 
 Texte und Entscheide in **Notion** (Seite «Video-Studio»), Medien in **OneDrive** (`Studio/`), Code und Stücke in diesem Repo. Freigeben, Looks wählen und

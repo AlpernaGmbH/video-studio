@@ -18,7 +18,7 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 - `marken/<key>.json` – Markenprofile. Status `platzhalter` sperrt den finalen Export (Gate 0)
 - `assets/fonts/` – Schriften, die Markenprofile ansprechen dürfen (`fonts.json`)
 - `src/inhalte/` – Inhalte (Plan v3): Zeile ↔ Inhalt, Übergangsregeln mit Tor I und Tor P, Abgleich mit dem Stand, Textprüfung, Marken mit Gate 0 (auch Übernahme ins Profil), Material an Inhalten (`material.ts`), Befehle `./studio inhalte …` und `./studio marken gate0`
-- `src/schnitt/` – Schnittplan und Übergabe an DaVinci Resolve: Skript-Zuordnung und Take-Auswahl aus Whisper-Transkripten, Storyboard im Plan (B-Roll, Grafiken, Betonung), Frame-Raster, Prüfung gegen das Schnittprofil, Untertitel (SRT), FCPXML 1.8 und OTIO, Befehle `./studio schnitt …`. Plan: `docs/plan/editing-blueprint.md`
+- `src/schnitt/` – Schnittplan und Übergabe an DaVinci Resolve: Skript-Zuordnung und Take-Auswahl aus Whisper-Transkripten, Storyboard im Plan (B-Roll, Grafiken, Betonung), Frame-Raster, Prüfung gegen das Schnittprofil, Untertitel (SRT), FCPXML 1.8 und OTIO, Befehle `./studio schnitt …`, der Ablauf mit festen Ordnern `./studio reel …` (`reel.ts`). Plan: `docs/plan/editing-blueprint.md`
 - `src/katalog/` – Katalog der Fotos, B-Roll und Sounds (Plan v2 Kap. 3.7): Scan, Vorschaubilder, Beschreibung durch Claude, Suche, Befehle `./studio katalog …`. Anleitung: `docs/katalog.md`
 - `presets/`, `src/presets/` – Presets für Export, Ton, Untertitel und Grafik (je Datei eine ID, mit Herkunft), Messung fertiger Videos, Befehle `./studio presets …`
 - `src/notion/` – Abbild Idee ↔ Notion-Zeile, `src/setup.ts` – `init` und `doctor`, `src/pruefplatz.ts` – Daten für das Artifact

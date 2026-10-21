@@ -10,7 +10,17 @@ Vom Rohmaterial zum Resolve-Ordner (`docs/plan/editing-blueprint.md`, Bauplan v2
 **Du hörst nicht.** Du bewertest Transkript und Messwerte. Ob ein Take überzeugt, ob eine Abweichung vom Skript besser ist, ob das Storyboard stimmt, entscheidet ein Mensch. Du zeigst deshalb immer den besten und den zweitbesten Take und sagst, was du nicht beurteilen konntest.
 **Du gibst nichts frei.** Das Storyboard ist ein Entwurf, bis ein Mensch es bestätigt. Du setzt keine Freigabe, keinen Tor-Entscheid und nichts in Notion-Entscheidfeldern (Regel 1).
 
-## Ablauf
+## Kurzweg (Standard)
+
+Auf dem Mac gibt es den Ablauf mit festen Ordnern, benutze ihn, statt die Einzelschritte unten von Hand zu verketten (`./studio reel` zeigt alles):
+
+1. `./studio reel neu <ID> --marke <key> --zwischenablage` (Skript vorher kopieren), Videos nach `rohmaterial/<ID>/`.
+2. `./studio reel vorbereiten <ID>`: Whisper, Zuordnung, Plan, `ergebnis/auftrag.md`. Lies die Ausgabe vollständig und gib FEHLT, GELB, Abweichungen und die Zuordnungsquote weiter (Regeln in Schritt 4 unten).
+3. Aus `auftrag.md` das Storyboard schreiben (Schritt 6 unten), als **einen** JSON-Codeblock, den der Mensch kopiert; dann `./studio reel storyboard <ID> --zwischenablage` (Stücke, die nicht aktiv sind, nur mit `--entwurf`).
+4. Kontaktbogen und Vorschau zeigen lassen, Änderungen per Satz einarbeiten (neue Antwort, derselbe Befehl), erst nach dem Ja des Menschen `./studio reel uebergabe <ID>`.
+`./studio reel status` sagt je Inhalt, was der nächste Schritt ist. Läuft die Sitzung nicht auf dem Mac, gib dem Menschen genau diese Befehle, ohne Teilarbeit zu verlangen.
+
+## Ablauf (Einzelschritte)
 
 1. **Voraussetzungen.** `./studio update`, dann `./studio doctor`. Whisper fehlt: `./studio whisper einrichten` (einmalig, eigene Python-Umgebung, lädt das Modell; läuft lokal, kostet nichts ausser Zeit). Skript als Textdatei (ein Satz pro Zeile oder Fliesstext), Aufnahme in `rohmaterial/` des Medien-Ordners, Marke mit Schnittprofil (`marken/<key>.json`). Hat die Marke noch kein freigegebenes Gate 0, ist alles ein Entwurf, kein Export zum Veröffentlichen.
 2. **Quellen.** `./studio schnitt sondiere <aufnahme> > quellen.json`. Exit-Code 1 heisst: Die Datei liegt ausserhalb von Studio- und Medien-Ordner, der Pfad im Plan wäre nicht brauchbar. Datei verschieben, nicht den Pfad von Hand ändern.

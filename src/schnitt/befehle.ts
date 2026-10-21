@@ -15,14 +15,12 @@ import { STANDARD_SCHNITTPROFIL } from "./planbau";
 import { gruppiere, schreibeSrt, woerterAufTimeline } from "./untertitel";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { zuordnungBericht } from "./bericht";
-import { messePegel, ordneZuMitPegel } from "./energie";
-import { bauePlan } from "./planbau";
 import { leseSchnittplan, platziere, SchnittQuelle } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
 import { erzeugeUebergabe, loesePfad, relativierePfad } from "./uebergabe";
 import { leseTranskript } from "./transkript";
 import { STANDARD_MODELL, transkribiere } from "./whisper";
-import { ordneZu, skriptZeilen } from "./zuordnung";
+import { fuehreZuordnungAus } from "./zuordnen";
 
 /** Befehle `studio schnitt …`: Schnittplan prüfen, an Resolve übergeben, Quellen sondieren, fertigen Export prüfen. */
 
@@ -122,27 +120,21 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         if (!quellen.some((q) => q.id === id && q.art === "video")) throw new Error(`--transkript: «${id}» ist keine Videoquelle aus ${a.opt["quellen"]}`);
         return { quelle: id, segmente: leseTranskript(lesJson(datei)) };
       });
-      const zeilen = skriptZeilen(fs.readFileSync(skriptDatei, "utf8"));
-      if (!zeilen.length) throw new Error(`Das Skript ${skriptDatei} enthält keinen Satz`);
-
-      // Energie: nur messen, wenn das Material auf diesem Rechner liegt
-      const home = studioHome();
-      let messe: ((q: string, von: number, bis: number) => Promise<number | undefined>) | null = null;
-      let pegelNotiz = "";
-      if (a.opt["ohne-pegel"] === true) pegelNotiz = "Energie nicht gemessen (--ohne-pegel)";
-      else if (!home) pegelNotiz = "Energie nicht gemessen: Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet";
-      else {
-        const dateien = new Map(videos.map((q) => [q.id, loesePfad(home, q.pfad)]));
-        const fehlt = transkripte.map((t) => dateien.get(t.quelle)!).filter((d) => !fs.existsSync(d));
-        if (fehlt.length) pegelNotiz = `Energie nicht gemessen: Datei fehlt auf diesem Rechner (${fehlt[0]})`;
-        else messe = (q, von, bis) => messePegel(dateien.get(q)!, von, bis);
-      }
-      const zuordnung = messe ? await ordneZuMitPegel(zeilen, transkripte, messe) : ordneZu(zeilen, transkripte);
-
       const gesprochen = typeof a.opt["gesprochen"] === "string" ? (a.opt["gesprochen"] as string).split(",").map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x > 0) : [];
       const name = typeof a.opt["name"] === "string" ? (a.opt["name"] as string) : path.basename(skriptDatei, path.extname(skriptDatei));
       const inhalt = typeof a.opt["inhalt"] === "string" ? (a.opt["inhalt"] as string) : undefined;
-      const { plan, markierungen } = bauePlan(zuordnung, { projekt: { name, ...(inhalt ? { inhalt } : {}), marke: marke.schluessel }, quellen, ...(marke.schnittprofil ? { profil: marke.schnittprofil } : {}), gesprochen });
+      const { plan, zuordnung, markierungen, pegelNotiz } = await fuehreZuordnungAus({
+        marke,
+        skriptText: fs.readFileSync(skriptDatei, "utf8"),
+        skriptQuelle: skriptDatei,
+        quellen,
+        transkripte,
+        name,
+        ...(inhalt ? { inhalt } : {}),
+        gesprochen,
+        ...(studioHome() ? { home: studioHome()! } : {}),
+        ohnePegel: a.opt["ohne-pegel"] === true,
+      });
 
       fs.writeFileSync(ausDatei, `${JSON.stringify(plan, null, 2)}\n`);
       if (typeof a.opt["bericht"] === "string") fs.writeFileSync(a.opt["bericht"] as string, `${JSON.stringify({ zuordnung, markierungen }, null, 2)}\n`);
