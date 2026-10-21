@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "id": "kino-finish",
+  "name": "Kino-Finish",
+  "version": "0.1.0",
+  "status": "geprueft",
+  "welle": "wachstum",
+  "herkunft": {
+    "idee": "m-007"
+  },
+  "zweck": "Legt einen Kino-Rahmen über das ganze Video: dunkle, weiche Ränder (Vignette), ein langsam wandernder warmer Lichtschleier in einer Ecke und ein kaum sichtbares Flackern, die Bildmitte bleibt frei.",
+  "ausloeser": {
+    "typen": [
+      "frei"
+    ],
+    "beschreibung": "Ein Video, das mit dem Look der Marke (LUT) läuft und vor einer hellen, ruhigen Fläche (Wand) spielt. Das Stück braucht keinen Satz und keine Zeiten, es liegt unter allen anderen Grafiken über dem ganzen Video."
+  },
+  "parameter": [
+    {
+      "id": "vignette",
+      "label": "Vignette",
+      "beschreibung": "Wie dunkel die Ränder werden, von 0 (keine) bis 1 (kräftig). Standard 0,6 entspricht dem gewählten Look.",
+      "pflicht": false,
+      "rolle": "stil",
+      "typ": "number",
+      "default": 0.6,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "id": "schleier",
+      "label": "Lichtschleier",
+      "beschreibung": "Wie stark der warme Schleier in der oberen Ecke leuchtet, von 0 (keiner) bis 1 (deutlich). Standard 0,6.",
+      "pflicht": false,
+      "rolle": "stil",
+      "typ": "number",
+      "default": 0.6,
+      "min": 0,
+      "max": 1
+    }
+  ],
+  "dauer": {
+    "standard": 6,
+    "min": 1.5,
+    "max": 120
+  },
+  "ausgabe": "overlay",
+  "markenvariablen": [
+    "markeBg",
+    "markeText",
+    "markeAkzent1",
+    "markeAkzent2",
+    "markeFontTitel",
+    "markeFontText",
+    "markeRadius",
+    "markeTempo"
+  ],
+  "passtZu": [
+    "talking-head",
+    "erklaervideo",
+    "projektvideo",
+    "trendformat"
+  ],
+  "braucht": [
+    "nichts"
+  ],
+  "aufwand": "klein",
+  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Erstes und letztes Bild leer (Vignette blendet ein und aus). Die Bildmitte (x 25 bis 75 %, y 25 bis 70 %) bleibt ohne Abdeckung über 3 Prozent Alpha. Der Check von HyperFrames meldet keine Fehler.",
+  "sicherheitsrand": false,
+  "engines": [
+    "hyperframes"
+  ],
+  "einsatz": {
+    "wann": [
+      "Ein Talking-Head vor einer hellen Wand, dessen Look (LUT) gesetzt ist und dem noch ein Bildrahmen fehlt.",
+      "Der Blick soll zur Bildmitte (Gesicht und Untertitel) geführt werden."
+    ],
+    "wannNicht": [
+      "Das Bild hat schon eine starke Vignette oder einen dunklen Hintergrund: dann wird es zu dunkel.",
+      "Das Video zeigt Kundenmaterial mit Logos oder Text am Rand (Bildschirmaufnahmen): die Ränder werden abgedunkelt."
+    ],
+    "beispiele": [
+      {
+        "satz": "Innerhalb von drei Monaten haben wir dem Badminton-Verein über 74.000 Aufrufe in den sozialen Medien generiert.",
+        "variablen": {
+          "vignette": 0.6,
+          "schleier": 0.6,
+          "dauer": 36
+        }
+      },
+      {
+        "satz": "Drei Sachen bringen deine Beiträge um.",
+        "variablen": {
+          "vignette": 0.45,
+          "schleier": 0.4,
+          "dauer": 20
+        }
+      }
+    ],
+    "kombinierbarMit": [
+      "untertitel-pop",
+      "schnitt-blitz",
+      "hook-titelschlag",
+      "zahl-zaehler",
+      "aufruf-karte"
+    ],
+    "hinweise": [
+      "Look B «Kino» (Wahl am 21.10.2026, Claude im Auftrag von Andrej): weiche Vignette in Marineblau, warmer goldener Schleier in der oberen rechten Ecke.",
+      "Es gibt bewusst keine Körnung: Sie würde die Datei auf über 1 GB aufblähen. Körnung setzt man in Resolve (Film Grain) auf das fertige Video.",
+      "Das Stück liegt in der Reihenfolge unter den anderen Grafiken, damit Untertitel und Karten nicht abgedunkelt werden."
+    ]
+  }
+}

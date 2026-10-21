@@ -5,7 +5,7 @@ import path from "node:path";
 import { z } from "zod";
 import type { Befund } from "./bibliothek";
 import { PROJEKT, SICHERHEITSRAND } from "./render";
-import type { Stueck } from "./stueck";
+import type { Stueck, Variablen } from "./stueck";
 
 /**
  * Selbstprüfung eines Renders (Bauplan 3.10, übertragen auf Motion-Stücke).
@@ -145,6 +145,34 @@ export function probenZeiten(dauer: number, n = 9, fps: number = PROJEKT.fps): n
   const letzte = Math.max(0, dauer - 1 / fps);
   if (n <= 1) return [0];
   return Array.from({ length: n }, (_, i) => Number(((i / (n - 1)) * letzte).toFixed(3)));
+}
+
+/**
+ * Zeitpunkte, an denen in einem Stück etwas passiert: die Werte seiner Parameter vom Typ «zahlenreihe» mit der Rolle «timing» (zum Beispiel die Schnittzeiten des
+ * Schnitt-Blitzes). Ein Stück, das zwischen kurzen Ereignissen leer ist, würde sonst von den gleichmässig verteilten Stichproben verfehlt und als leer gemeldet.
+ */
+export function hoehepunkte(stueck: Stueck, variablen: Variablen): number[] {
+  const aus: number[] = [];
+  for (const p of stueck.parameter) {
+    if (p.typ !== "zahlenreihe" || p.rolle !== "timing") continue;
+    let w: unknown = variablen[p.id];
+    if (typeof w === "string") {
+      try {
+        w = JSON.parse(w);
+      } catch {
+        continue;
+      }
+    }
+    if (Array.isArray(w)) for (const x of w) if (typeof x === "number" && Number.isFinite(x)) aus.push(x);
+  }
+  return aus;
+}
+
+/** Zeitpunkte der Prüfbilder: die gleichmässigen Stichproben plus die Höhepunkte (höchstens `max`), geordnet, ohne Doppelte, innerhalb des Einsatzes. */
+export function pruefZeiten(dauer: number, n = 9, extra: number[] = [], max = 24, fps: number = PROJEKT.fps): number[] {
+  const letzte = Math.max(0, dauer - 1 / fps);
+  const zusatz = [...new Set(extra.filter((t) => t >= 0 && t <= letzte).map((t) => Number(t.toFixed(3))))].slice(0, max);
+  return [...new Set([...probenZeiten(dauer, n, fps), ...zusatz])].sort((a, b) => a - b);
 }
 
 /* ---------- Prüfung ---------- */
@@ -314,9 +342,9 @@ export async function frameAufHintergrund(datei: string, t: number, ziel: string
   }
 }
 
-export async function messeRender(datei: string, dauer: number, n = 9): Promise<{ probe: ProbeInfo; frames: FrameStat[] }> {
+export async function messeRender(datei: string, dauer: number, n = 9, extra: number[] = []): Promise<{ probe: ProbeInfo; frames: FrameStat[] }> {
   const probe = await ffprobeDatei(datei);
   const frames: FrameStat[] = [];
-  for (const t of probenZeiten(dauer, n)) frames.push(await alphaFrame(datei, t));
+  for (const t of pruefZeiten(dauer, n, extra)) frames.push(await alphaFrame(datei, t));
   return { probe, frames };
 }

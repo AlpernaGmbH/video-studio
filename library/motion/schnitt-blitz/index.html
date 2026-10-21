@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.5 bis 120). Die Timeline endet hier.","default":6,"role":"timing"},{"id":"zeiten","type":"string","label":"Zeiten der Schnitte","description":"Zeitpunkte der Schnitte in Sekunden ab Videoanfang, wie sie im Schnittplan stehen (Beginn jedes Clips ausser dem ersten), zum Beispiel «3,8, 7,8, 12,5». Der Höhepunkt des Blitzes liegt genau auf der Zeit. Eine Zeit, bei der der Blitz nicht mehr in die Dauer passt, wird übersprungen. Als JSON-Liste, 1 bis 60 Zahlen.","role":"timing","default":"[1.2]"},{"id":"staerke","type":"number","label":"Stärke","description":"Wie hell der Streifen und das Aufleuchten sind, von 0,3 (kaum sichtbar) bis 1 (deutlich). Standard 0,7.","role":"style","default":0.7},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeAkzent2","type":"color","label":"markeAkzent2","description":"Zweite Akzentfarbe der Marke","default":"#4B3FD6","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
+<head>
+<meta charset="utf-8">
+<title>Schnitt-Blitz</title>
+<link rel="stylesheet" href="assets/brand.css">
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { position: relative; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  /* Der Blitz reicht bis an den Bildrand, er trägt keinen Text. */
+  .wash { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; opacity: 0; }
+  .strahl { position: absolute; top: -200px; left: -520px; width: 420px; height: 2400px; transform: rotate(14deg); opacity: 0; filter: blur(6px); }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="schnitt-blitz" data-start="0" data-width="1080" data-height="1920"></div>
+<script>
+(function () {
+  var v = window.__hyperframes.getVariables();
+  var root = document.getElementById("root");
+
+  // Marke in CSS-Variablen übernehmen
+  ["markeBg", "markeText", "markeAkzent1", "markeAkzent2", "markeFontTitel", "markeFontText", "markeRadius", "markeTempo"].forEach(function (k) {
+    if (v[k] !== undefined) root.style.setProperty("--" + k, String(v[k]));
+  });
+  function rgba(hex, a) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+
+  var d = Number(v.dauer);
+  var st = Math.min(1, Math.max(0.3, Number(v.staerke) || 0.7));
+  var tempo = Math.min(2, Math.max(0.5, Number(v.markeTempo) || 1));
+  var k = 1 / tempo;
+  var zeiten = v.zeiten;
+  if (typeof zeiten === "string") { try { zeiten = JSON.parse(zeiten); } catch (e) { zeiten = []; } }
+  zeiten = (Array.isArray(zeiten) ? zeiten : []).map(Number).filter(function (t) { return isFinite(t); }).sort(function (a, b) { return a - b; });
+
+  // Zeiten in Sekunden der Timeline. Der Streifen läuft 0,42 s und hat seinen Höhepunkt in der Mitte, das Aufleuchten steigt 0,2 s und fällt 0,26 s.
+  var vor = 0.2 * k;          // Beginn vor dem Schnitt
+  var nach = 0.46 * k;        // Ende nach dem Schnitt (Aufleuchten ist dann ausgeblendet)
+  var letztes = d - 0.04;     // das letzte gerenderte Bild liegt eine Bildlänge vor «dauer»
+
+  // Hellgold für die Mitte des Streifens, die Farbe folgt dem Akzent der Marke
+  var kern = rgba(v.markeAkzent1, 0.55 * st);
+  var spitze = "rgba(255,255,255," + (0.85 * st).toFixed(3) + ")";
+  var rand = rgba(v.markeAkzent1, 0.30 * st);
+  var streifenFarbe = "linear-gradient(90deg, rgba(255,255,255,0), " + rand + " 30%, " + kern + " 46%, " + spitze + " 50%, " + kern + " 54%, " + rand + " 70%, rgba(255,255,255,0))";
+  var washFarbe = "radial-gradient(ellipse at 50% 45%, " + rgba("#FFECBE", 0.34 * st) + " 0%, " + rgba(v.markeAkzent1, 0.10 * st) + " 55%, " + rgba(v.markeAkzent1, 0) + " 80%)";
+
+  // Die Timeline muss synchron registriert werden (sonst «zero duration» beim Render). Jeder Blitz hat eigene Elemente, damit sich nahe Schnitte nicht stören.
+  var tl = gsap.timeline({ paused: true });
+  zeiten.forEach(function (t) {
+    var t0 = t - vor;
+    if (t0 < 0 || t + nach > letztes) return; // passt nicht in die Dauer: überspringen
+    var w = document.createElement("div"); w.className = "wash"; w.style.background = washFarbe; root.appendChild(w);
+    var s = document.createElement("div"); s.className = "strahl"; s.style.background = streifenFarbe; root.appendChild(s);
+    tl.fromTo(s, { x: 0, opacity: 0 }, { x: 1900, opacity: 1, duration: 0.42 * k, ease: "power1.inOut" }, t0);
+    tl.to(s, { opacity: 0, duration: 0.1 * k, ease: "none" }, t0 + 0.36 * k);
+    tl.fromTo(w, { opacity: 0 }, { opacity: 1, duration: 0.2 * k, ease: "power2.out" }, t0);
+    tl.to(w, { opacity: 0, duration: 0.26 * k, ease: "power2.in" }, t0 + 0.2 * k);
+  });
+  tl.set({}, {}, d); // Die Timeline endet genau bei «dauer»
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["schnitt-blitz"] = tl;
+})();
+</script>
+</body>
+</html>

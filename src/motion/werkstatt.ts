@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { markeFuerExportFreigegeben, Markenprofil } from "../core/schemas";
 import { ladeBibliothek, type GeladenesStueck } from "./bibliothek";
-import { messeRender, parseHfCheck, pruefeRender, type Pruefung } from "./render-pruefung";
+import { hoehepunkte, messeRender, parseHfCheck, pruefeRender, type Pruefung } from "./render-pruefung";
 import { batchVorbereiten, type BatchZeile } from "./batch";
 import { batchArgs, checkArgs, compareArgs, fuehreHfAus, renderArgs, snapshotArgs, variablenJson } from "./render";
 import { stageStueck } from "./staging";
@@ -144,7 +144,7 @@ export async function rendereStueck(
   const lauf = await fuehreHfAus(renderArgs({ dir: st.dir, ausgabe: path.resolve(opt.ausgabe), variablenDatei: varDatei }), { timeoutMs: 280_000 });
   if (lauf.code !== 0) throw new Error(`Render fehlgeschlagen (Exit ${lauf.code}):\n${(lauf.stderr + lauf.stdout).slice(-800)}`);
 
-  const gemessen = await messeRender(opt.ausgabe, aufl.dauer);
+  const gemessen = await messeRender(opt.ausgabe, aufl.dauer, 9, hoehepunkte(g.stueck, aufl.variablen));
   const pruefung = pruefeRender({ stueck: g.stueck, dauer: aufl.dauer, probe: gemessen.probe, frames: gemessen.frames });
   return { datei: opt.ausgabe, dauer: aufl.dauer, variablen: aufl.variablen, pruefung, renderMs: lauf.dauerMs, warnungen };
 }
@@ -216,7 +216,7 @@ export async function rendereBatch(env: Umgebung, id: string, zeilen: BatchZeile
       out.push({ name: z.name, datei, dauer, pruefung: { bestanden: false, befunde: [{ stufe: "fehler", stueck: id, code: "datei_fehlt", text: `${datei} wurde nicht erzeugt` }] } });
       continue;
     }
-    const gemessen = await messeRender(datei, dauer);
+    const gemessen = await messeRender(datei, dauer, 9, hoehepunkte(g.stueck, z));
     out.push({ name: z.name, datei, dauer, pruefung: pruefeRender({ stueck: g.stueck, dauer, probe: gemessen.probe, frames: gemessen.frames }) });
   }
   return { zeilen: out, renderMs: lauf.dauerMs };

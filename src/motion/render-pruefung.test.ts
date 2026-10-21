@@ -4,9 +4,11 @@ import {
   BildUrteile,
   bildUrteileZuBefunden,
   parseFfprobe,
+  hoehepunkte,
   parseHfCheck,
   probenZeiten,
   pruefeRender,
+  pruefZeiten,
   statAusAlpha,
   type FrameStat,
   type ProbeInfo,
@@ -166,5 +168,40 @@ describe("Bildprüfung durch Claude", () => {
   });
   it("lauter «ok» ergibt keine Befunde", () => {
     expect(bildUrteileZuBefunden("x", BildUrteile.parse({ urteile: [{ t: 0, ok: true }], gesamt: "Alles in Ordnung" }))).toEqual([]);
+  });
+});
+
+describe("hoehepunkte und pruefZeiten", () => {
+  const blitz = () =>
+    stueckZahl({
+      id: "schnitt-blitz",
+      parameter: [
+        { id: "zeiten", typ: "zahlenreihe", label: "Zeiten", beschreibung: "Zeitpunkte der Schnitte in Sekunden.", pflicht: true, rolle: "timing", minAnzahl: 1, maxAnzahl: 60, min: 0, max: 120, default: [1] },
+        { id: "staerke", typ: "number", label: "Stärke", beschreibung: "Wie hell der Blitz ist.", min: 0.3, max: 1, default: 0.7 },
+      ],
+    });
+  it("nimmt die Werte der Zahlenreihen mit Rolle timing, auch als JSON-Text, und sonst nichts", () => {
+    expect(hoehepunkte(blitz(), { zeiten: "[5.88,7.36]", staerke: 0.7 })).toEqual([5.88, 7.36]);
+    expect(hoehepunkte(blitz(), { zeiten: "kein json" })).toEqual([]);
+    expect(hoehepunkte(stueckZahl(), { wert: 7 })).toEqual([]);
+  });
+  it("eine Zahlenreihe ohne Rolle timing zählt nicht", () => {
+    const s = stueckZahl({
+      parameter: [{ id: "werte", typ: "zahlenreihe", label: "Werte", beschreibung: "Messwerte.", pflicht: true, rolle: "inhalt", minAnzahl: 1, maxAnzahl: 5, default: [1] }],
+    });
+    expect(hoehepunkte(s, { werte: "[3,4]" })).toEqual([]);
+  });
+  it("die Prüfzeiten enthalten die Stichproben und die Höhepunkte, geordnet und ohne Doppelte", () => {
+    const z = pruefZeiten(10, 3, [5.88, 5, 0]);
+    expect(z).toEqual([0, 4.98, 5, 5.88, 9.96]);
+  });
+  it("Höhepunkte ausserhalb des Einsatzes und mehr als das Maximum werden abgeschnitten", () => {
+    expect(pruefZeiten(10, 2, [-1, 12, 3])).toEqual([0, 3, 9.96]);
+    expect(pruefZeiten(10, 2, [1, 2, 3, 4], 2)).toEqual([0, 1, 2, 9.96]);
+  });
+  it("ein kurzes Ereignis, das die gleichmässigen Stichproben verfehlen, wird so gefunden", () => {
+    // Ohne Höhepunkte liegen die Stichproben bei 0, 1,245 … 9,96 s: ein Blitz bei 5,88 s ist nicht dabei
+    expect(pruefZeiten(10, 9)).not.toContain(5.88);
+    expect(pruefZeiten(10, 9, [5.88])).toContain(5.88);
   });
 });

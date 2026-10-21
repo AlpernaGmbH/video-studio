@@ -69,7 +69,11 @@ describe("studio CLI", () => {
     expect(r.out).toContain("Idee m-001 angelegt");
     const idee = JSON.parse(studio("ideen", "zeigen", "m-001").out) as { quelle: { satz: string; projekt: string }; warumNichtsPasst: { geprueft: { stueck: string }[] } };
     expect(idee.quelle).toMatchObject({ projekt: "P-023", satz: "Die Läuferin fiel über fünf Scans von 97 auf 60." });
-    expect(idee.warumNichtsPasst.geprueft.map((g) => g.stueck)).toContain("zahl-zaehler");
+    // Welche Stücke geprüft werden, hängt von der Bibliothek ab (sie wächst): Es müssen mindestens drei sein, und jedes gibt es wirklich
+    const bibliothek = fs.readdirSync(path.resolve(__dirname, "../library/motion"));
+    const geprueft = idee.warumNichtsPasst.geprueft.map((g) => g.stueck);
+    expect(geprueft.length).toBeGreaterThanOrEqual(3);
+    expect(geprueft.every((id) => bibliothek.includes(id))).toBe(true);
   });
 
   it("dieselbe Stelle wird beim zweiten Lauf nicht noch einmal zur Idee", () => {

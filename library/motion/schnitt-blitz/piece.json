@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "id": "schnitt-blitz",
+  "name": "Schnitt-Blitz",
+  "version": "0.1.0",
+  "status": "geprueft",
+  "welle": "wachstum",
+  "herkunft": {
+    "idee": "m-006"
+  },
+  "zweck": "Lässt an jedem angegebenen Schnitt einen weichen, schrägen Lichtstreifen durchs Bild fahren und das Bild kurz warm aufleuchten: Aus einem harten Sprung im Talking-Head wird ein gewollter Kino-Schnitt.",
+  "ausloeser": {
+    "typen": [
+      "frei"
+    ],
+    "beschreibung": "Der Schnittplan hat Sprünge im selben Bildausschnitt (harte Schnitte im Talking-Head). Die Zeiten der Schnitte stehen im Plan; das Stück läuft als ein durchgehendes Overlay über das ganze Video und ist zwischen den Schnitten leer."
+  },
+  "parameter": [
+    {
+      "id": "zeiten",
+      "label": "Zeiten der Schnitte",
+      "beschreibung": "Zeitpunkte der Schnitte in Sekunden ab Videoanfang, wie sie im Schnittplan stehen (Beginn jedes Clips ausser dem ersten), zum Beispiel «3,8, 7,8, 12,5». Der Höhepunkt des Blitzes liegt genau auf der Zeit. Eine Zeit, bei der der Blitz nicht mehr in die Dauer passt, wird übersprungen.",
+      "pflicht": true,
+      "rolle": "timing",
+      "typ": "zahlenreihe",
+      "minAnzahl": 1,
+      "maxAnzahl": 60,
+      "min": 0.3,
+      "max": 120,
+      "default": [
+        1.2
+      ]
+    },
+    {
+      "id": "staerke",
+      "label": "Stärke",
+      "beschreibung": "Wie hell der Streifen und das Aufleuchten sind, von 0,3 (kaum sichtbar) bis 1 (deutlich). Standard 0,7.",
+      "pflicht": false,
+      "rolle": "stil",
+      "typ": "number",
+      "default": 0.7,
+      "min": 0.3,
+      "max": 1
+    }
+  ],
+  "dauer": {
+    "standard": 6,
+    "min": 1.5,
+    "max": 120
+  },
+  "ausgabe": "overlay",
+  "markenvariablen": [
+    "markeBg",
+    "markeText",
+    "markeAkzent1",
+    "markeAkzent2",
+    "markeFontTitel",
+    "markeFontText",
+    "markeRadius",
+    "markeTempo"
+  ],
+  "passtZu": [
+    "talking-head",
+    "erklaervideo",
+    "projektvideo"
+  ],
+  "braucht": [
+    "nichts"
+  ],
+  "aufwand": "klein",
+  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Zwischen den Blitzen vollständig leer (Alpha 0), erstes und letztes Bild leer. Jeder Blitz dauert höchstens 0,5 s und hat seinen Höhepunkt auf der angegebenen Zeit (bis auf ein Bild genau). Der Check von HyperFrames meldet keine Fehler.",
+  "sicherheitsrand": false,
+  "engines": [
+    "hyperframes"
+  ],
+  "einsatz": {
+    "wann": [
+      "Der Schnittplan hat harte Schnitte im selben Bildausschnitt, die ohne Übergang wie Fehler wirken.",
+      "Im Ton liegt an den Schnitten ein Whoosh (schnitt bett): Der Blitz gibt ihm ein Bild."
+    ],
+    "wannNicht": [
+      "Die Schnitte wechseln das Bild ohnehin (B-Roll, Zoom-Wechsel): ein Blitz dazu wäre doppelt.",
+      "Mehr als etwa zwei Schnitte pro Sekunde: dann überlappen die Blitze und es flackert."
+    ],
+    "beispiele": [
+      {
+        "satz": "Der BC Trogen-Speicher ist ein Hammerverein mit Trainings, Turnieren und auch Erfolg.",
+        "variablen": {
+          "zeiten": [
+            3.8,
+            7.8,
+            12.5,
+            17.2
+          ],
+          "staerke": 0.7,
+          "dauer": 20
+        }
+      },
+      {
+        "satz": "Und da passiert alles am Wochenende in der Turnhalle, obwohl es fast niemand sieht.",
+        "variablen": {
+          "zeiten": [
+            2.4,
+            5.1
+          ],
+          "staerke": 0.5,
+          "dauer": 8
+        }
+      }
+    ],
+    "kombinierbarMit": [
+      "untertitel-pop",
+      "kino-finish",
+      "hook-titelschlag"
+    ],
+    "hinweise": [
+      "Look B «Kino» (Wahl am 21.10.2026, Claude im Auftrag von Andrej): weicher, schräger Lichtstreifen in warmem Weiss und Gold mit Aufleuchten.",
+      "Die Zeiten kommen aus dem Schnittplan: Beginn jedes Clips ausser dem ersten, in Sekunden der Timeline.",
+      "Das Stück deckt das Gesicht nicht ab: höchstens ein Drittel Sekunde ein halbtransparenter Streifen."
+    ]
+  }
+}

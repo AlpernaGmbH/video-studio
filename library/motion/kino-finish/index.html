@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.5 bis 120). Die Timeline endet hier.","default":6,"role":"timing"},{"id":"vignette","type":"number","label":"Vignette","description":"Wie dunkel die Ränder werden, von 0 (keine) bis 1 (kräftig). Standard 0,6 entspricht dem gewählten Look.","role":"style","default":0.6},{"id":"schleier","type":"number","label":"Lichtschleier","description":"Wie stark der warme Schleier in der oberen Ecke leuchtet, von 0 (keiner) bis 1 (deutlich). Standard 0,6.","role":"style","default":0.6},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeAkzent2","type":"color","label":"markeAkzent2","description":"Zweite Akzentfarbe der Marke","default":"#4B3FD6","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
+<head>
+<meta charset="utf-8">
+<title>Kino-Finish</title>
+<link rel="stylesheet" href="assets/brand.css">
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { position: relative; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  /* Der Rahmen reicht bis an den Bildrand, er trägt keinen Text. Die Bildmitte bleibt frei. */
+  #vig { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; opacity: 0; }
+  #flimmer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; opacity: 0; }
+  #leak { position: absolute; left: 470px; top: -640px; width: 1100px; height: 1100px; border-radius: 50%; opacity: 0; filter: blur(20px); }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="kino-finish" data-start="0" data-width="1080" data-height="1920">
+  <div id="flimmer"></div><div id="vig"></div><div id="leak"></div>
+</div>
+<script>
+(function () {
+  var v = window.__hyperframes.getVariables();
+  var root = document.getElementById("root");
+
+  // Marke in CSS-Variablen übernehmen
+  ["markeBg", "markeText", "markeAkzent1", "markeAkzent2", "markeFontTitel", "markeFontText", "markeRadius", "markeTempo"].forEach(function (k) {
+    if (v[k] !== undefined) root.style.setProperty("--" + k, String(v[k]));
+  });
+  function rgba(hex, a) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+
+  var d = Number(v.dauer);
+  var tempo = Math.min(2, Math.max(0.5, Number(v.markeTempo) || 1));
+  var k = 1 / tempo;
+  var vg = Math.min(1, Math.max(0, v.vignette === undefined ? 0.6 : Number(v.vignette)));
+  var sl = Math.min(1, Math.max(0, v.schleier === undefined ? 0.6 : Number(v.schleier)));
+
+  // Vignette: in der Mitte offen, zum Rand hin in der Markenfarbe dicht (0,52 bei Stärke 0,6 entspricht der gewählten Fassung)
+  var rand = 0.52 * vg / 0.6;
+  document.getElementById("vig").style.background = "radial-gradient(ellipse at 50% 46%, " + rgba(v.markeBg, 0) + " 42%, " + rgba(v.markeBg, Math.min(0.9, rand)) + " 100%)";
+  // Schleier: warm, in der Akzentfarbe der Marke
+  var sa = 0.24 * sl / 0.6;
+  document.getElementById("leak").style.background = "radial-gradient(circle, " + rgba(v.markeAkzent1, Math.min(0.8, sa)) + " 0%, " + rgba(v.markeAkzent1, Math.min(0.5, sa * 0.45)) + " 45%, " + rgba(v.markeAkzent1, 0) + " 70%)";
+  document.getElementById("flimmer").style.background = rgba(v.markeAkzent1, 0.05 * sl);
+
+  // Die Timeline muss synchron registriert werden (sonst «zero duration» beim Render). Alles blendet bis eine Bildlänge (0,04 s) vor «dauer» aus.
+  var ein = 0.8 * k;
+  var aus = Math.min(0.6 * k, Math.max(0.2, d / 3));
+  var tOut = Math.max(ein, d - aus - 0.04);
+  var tl = gsap.timeline({ paused: true });
+  tl.fromTo("#vig", { opacity: 0 }, { opacity: 1, duration: ein, ease: "power2.out" }, 0);
+  tl.to("#vig", { opacity: 0, duration: aus, ease: "power2.in" }, tOut);
+
+  // Lichtschleier: wandert in einer Richtung langsam über die ganze Dauer (kein Wiederholen, deshalb fester Weg), blendet mit der Vignette ein und aus
+  tl.fromTo("#leak", { opacity: 0, x: 120, y: 60 }, { opacity: 1, x: -40, y: 140, duration: Math.min(2.0 * k, d / 2), ease: "sine.inOut" }, 0.2 * k);
+  if (d > 4) tl.to("#leak", { x: 60, y: 20, duration: d - 2.2 * k - aus - 0.04, ease: "sine.inOut" }, 2.2 * k);
+  tl.to("#leak", { opacity: 0, duration: aus, ease: "power2.in" }, tOut);
+
+  // Flackern: kaum sichtbare Helligkeitsschwankung wie Licht durch ein Fenster, mit festem Zufall (gleiche Folge bei jedem Render)
+  var z = 20261021;
+  function zufall() { z = (z * 1664525 + 1013904223) % 4294967296; return z / 4294967296; }
+  for (var t = 0.2; t < tOut; t += 0.16) tl.set("#flimmer", { opacity: 0.35 + 0.65 * zufall() }, t);
+  tl.to("#flimmer", { opacity: 0, duration: aus, ease: "none" }, tOut);
+
+  tl.set({}, {}, d); // Die Timeline endet genau bei «dauer»
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["kino-finish"] = tl;
+})();
+</script>
+</body>
+</html>
