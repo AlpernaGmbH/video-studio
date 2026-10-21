@@ -1,5 +1,5 @@
 import { splitSaetze } from "../motion/signale";
-import { gleichesWort, normiere, rohWoerter, transkriptWoerter, type Segment, type TWort } from "./transkript";
+import { abstand, gleichesWort, normiere, rohWoerter, transkriptWoerter, type Segment, type TWort } from "./transkript";
 
 /**
  * Skript-Zuordnung und Take-Auswahl (Bauplan v2, Kap. 3.3). Aus dem Wort-für-Wort-Skript und dem Transkript (Whisper) wird pro Skriptzeile der beste Take.
@@ -8,6 +8,8 @@ import { gleichesWort, normiere, rohWoerter, transkriptWoerter, type Segment, ty
  *  2. Jede Zeile wird mit dem Transkript verglichen: unscharf, auf normalisierten Wörtern, über Segmentgrenzen hinweg. Mehrere Treffer sind Wiederholungen, also Takes.
  *  3. Die Takes werden bewertet (Vollständig 30, Keine Füllwörter 25, Flüssig 20, Energie 15, Späterer Take 10 Prozent; die Gewichte sind eine Vermutung des Plans).
  *     Ein Take mit Füllwort, Neustart oder Abbruch scheidet aus. Bleibt nur ein solcher übrig, gilt er als «gelb»: Füllwörter werden herausgeschnitten.
+ *     Hört Whisper das erste oder letzte Wort einer Zeile falsch («Küche» als «Kirche»), reicht das Fenster trotzdem bis dorthin (`erweitereRaender`): Sonst fehlte dem Satz der Anfang oder das Ende.
+ *     Regieanweisungen im Take («Action», «ok») scheiden den Take aus und werden herausgeschnitten, wie Füllwörter.
  *  4. Segmente ohne Treffer (Gespräche, «nochmal», erfundene Sätze) werden verworfen, Skriptzeilen ohne Treffer stehen als «fehlt im Material».
  *  5. Weicht das Gesprochene vom Skript ab, steht der Unterschied im Bericht. Die Entscheidung, ob er sinnvoll ist, trifft ein Mensch oder Claude im Gespräch, nie dieser Code.
  *
@@ -26,6 +28,10 @@ export const STOCKEN = 0.35;
 
 const FUELLWOERTER = new Set(["äh", "ähm", "ähh", "ähhm", "öh", "öhm", "ehm", "em", "hm", "hmm", "also", "gäll", "gell", "gälled"]);
 const NEUSTART = new Set(["nochmal", "stopp", "stop", "moment", "sorry", "entschuldigung", "ups", "pardon", "vorne"]);
+/** Eindeutige Regieanweisungen. Gezählt werden nur Wörter, die nicht zum Skript gehören; zweideutige Wörter («gut», «super», «los») fehlen mit Absicht: Das Gegenlesen fängt sie. */
+const REGIE = new Set(["action", "kamera", "klappe", "ok", "okay", "cut"]);
+/** Längste Lücke (Sekunden) zwischen zwei Wörtern, über die ein Rand-Wort noch zum Satz gehört. */
+const RAND_LUECKE = 0.6;
 
 export interface QuelleTranskript {
   quelle: string;
@@ -48,6 +54,12 @@ export interface Take {
   recall: number;
   precision: number;
   fuellwoerter: { text: string; von: number; bis: number }[];
+  /** Regieanweisungen im Take («Action», «ok»), die nicht zum Skript gehören. */
+  regie: { text: string; von: number; bis: number }[];
+  /** Wörter im Take, die weder zum Skript noch zu den Füllwörtern oder Regieanweisungen gehören (Einschübe, Gerede). */
+  extras: number;
+  /** Wörter am Rand, die Whisper anders hörte als das Skript und die trotzdem zum Satz gezählt wurden. */
+  randDeutung: string[];
   neustart: boolean;
   langePausen: number;
   fluessigGemessen: boolean;
@@ -141,14 +153,14 @@ export function ausrichten(skript: string[], woerter: string[]): Paar[] {
   return paare.reverse();
 }
 
-interface Quelle {
+export interface Quelle {
   id: string;
   reihenfolge: number;
   woerter: TWort[];
   norm: string[];
 }
 
-interface Treffer {
+export interface Treffer {
   zeile: number;
   quelle: Quelle;
   erster: number;
@@ -157,6 +169,7 @@ interface Treffer {
   recall: number;
   precision: number;
   paare: Paar[];
+  deutung?: string[];
 }
 
 function ueberlappung(a: { erster: number; letzter: number }, b: { erster: number; letzter: number }): number {
@@ -206,6 +219,60 @@ function fenster(zeile: number, zNorm: string[], q: Quelle, minScore: number, mi
   return aus;
 }
 
+/* ---------- Ränder ---------- */
+
+/** Gleich genug für ein Wort am Rand der Zeile: gleich, oder ab drei Buchstaben höchstens die Hälfte der Buchstaben verschieden. Nur für die Ränder, wo die Stelle im Satz schon feststeht. */
+export function randGleich(a: string, b: string): boolean {
+  if (a === b) return a.length > 0;
+  if (Math.min(a.length, b.length) < 3) return false;
+  return abstand(a, b) <= Math.floor(Math.max(a.length, b.length) / 2);
+}
+
+/**
+ * Hört Whisper das erste oder letzte Wort einer Zeile falsch, ist es kein Treffer des unscharfen Vergleichs, und der Take beginnt oder endet zu früh: Der Satz ist abgeschnitten.
+ * Darum werden die Wörter direkt vor und nach dem Treffer, eins zu eins in der Reihenfolge, den noch unerklärten Skriptwörtern am Rand zugeordnet, wenn sie ähnlich genug sind,
+ * ohne grosse Lücke folgen, nicht zum Take einer anderen Zeile gehören und kein Füllwort, keine Regieanweisung und kein Neustart sind.
+ * Das Ergebnis ist eine Deutung: Sie steht im Bericht («Küche» gehört als «Kirche»), das Gegenlesen prüft sie.
+ */
+export function erweitereRaender(t: Treffer, zNorm: string[], andere: ReadonlySet<number>): void {
+  const q = t.quelle;
+  const n = zNorm.length;
+  if (t.paare.length === 0) return;
+  const sErst = Math.min(...t.paare.map((p) => p.s));
+  const sLetzt = Math.max(...t.paare.map((p) => p.s));
+  const stoerwort = (w: string): boolean => FUELLWOERTER.has(w) || REGIE.has(w) || NEUSTART.has(w);
+  const deutung: string[] = [];
+
+  const vorn: Paar[] = [];
+  for (let m = 0; sErst - 1 - m >= 0; m++) {
+    const hi = t.erster - 1 - m;
+    const si = sErst - 1 - m;
+    if (hi < 0 || andere.has(hi) || stoerwort(q.norm[hi]!) || !randGleich(zNorm[si]!, q.norm[hi]!)) break;
+    if (q.woerter[hi + 1]!.von - q.woerter[hi]!.bis > RAND_LUECKE) break;
+    vorn.push({ s: si, w: -1 - m });
+    if (zNorm[si] !== q.norm[hi]) deutung.push(`«${zNorm[si]}» gehört als «${q.woerter[hi]!.text}»`);
+  }
+  const hinten: Paar[] = [];
+  for (let m = 0; sLetzt + 1 + m < n; m++) {
+    const hi = t.letzter + 1 + m;
+    const si = sLetzt + 1 + m;
+    if (hi >= q.woerter.length || andere.has(hi) || stoerwort(q.norm[hi]!) || !randGleich(zNorm[si]!, q.norm[hi]!)) break;
+    if (q.woerter[hi]!.von - q.woerter[hi - 1]!.bis > RAND_LUECKE) break;
+    hinten.push({ s: si, w: t.letzter - t.erster + 1 + m });
+    if (zNorm[si] !== q.norm[hi]) deutung.push(`«${zNorm[si]}» gehört als «${q.woerter[hi]!.text}»`);
+  }
+  if (!vorn.length && !hinten.length) return;
+
+  const e = vorn.length;
+  t.paare = [...vorn.map((p) => ({ s: p.s, w: p.w + e })), ...t.paare.map((p) => ({ s: p.s, w: p.w + e })), ...hinten.map((p) => ({ s: p.s, w: p.w + e }))];
+  t.erster -= e;
+  t.letzter += hinten.length;
+  t.recall = t.paare.length / n;
+  t.precision = t.paare.length / (t.letzter - t.erster + 1);
+  t.score = 0.65 * t.recall + 0.35 * t.precision;
+  t.deutung = deutung;
+}
+
 /* ---------- Take bauen und bewerten ---------- */
 
 /** Wortindizes derselben Quelle, die zum Take einer anderen Skriptzeile gehören. */
@@ -224,6 +291,7 @@ function bauTake(t: Treffer, zNorm: string[], andere: ReadonlySet<number>): Take
   const wiedergefunden = new Set(t.paare.map((p) => p.w));
   // Ein Füllwort ist ein Füllwort, auch wenn das Skript dasselbe Wort an anderer Stelle hat («also also bauen wir …» ist ein Stottern).
   const fuell = w.filter((x, idx) => !wiedergefunden.has(idx) && FUELLWOERTER.has(norm[idx]!)).map((x) => ({ text: x.text, von: x.von, bis: x.bis }));
+  const regie = w.filter((x, idx) => !wiedergefunden.has(idx) && REGIE.has(norm[idx]!)).map((x) => ({ text: x.text, von: x.von, bis: x.bis }));
 
   // Neustart: ein Zeichen im Take oder in den zwei Wörtern danach (höchstens eine Sekunde später).
   // Wörter, die zum Take einer anderen Skriptzeile gehören, zählen nicht («Nochmal prüfen wir …» als nächster Satz ist kein Neustart).
@@ -245,6 +313,7 @@ function bauTake(t: Treffer, zNorm: string[], andere: ReadonlySet<number>): Take
 
   const ausgeschieden: string[] = [];
   if (fuell.length) ausgeschieden.push(`Füllwort «${fuell.map((f) => f.text).join("», «")}» bei ${fuell[0]!.von.toFixed(1).replace(".", ",")} s`);
+  if (regie.length) ausgeschieden.push(`Regieanweisung «${regie.map((f) => f.text).join("», «")}» bei ${regie[0]!.von.toFixed(1).replace(".", ",")} s`);
   if (neustart) ausgeschieden.push("Neustart im oder direkt nach dem Take («nochmal», «stopp» und ähnlich)");
   const n = zNorm.length;
   if (t.recall < MIN_VOLLSTAENDIG) ausgeschieden.push(`unvollständig: ${Math.round(t.recall * 100)} Prozent der Wörter wiedergefunden`);
@@ -266,6 +335,9 @@ function bauTake(t: Treffer, zNorm: string[], andere: ReadonlySet<number>): Take
     recall: round(t.recall),
     precision: round(t.precision),
     fuellwoerter: fuell,
+    regie,
+    extras: Math.max(0, w.length - wiedergefunden.size - fuell.length - regie.length),
+    randDeutung: t.deutung ?? [],
     neustart,
     langePausen: lange,
     fluessigGemessen: echt,
@@ -291,7 +363,8 @@ function bewerte(takes: Take[], reihenfolge: (quelle: string) => number, energie
   const hi = Math.max(...werte);
   takes.forEach((t, i) => {
     const vollstaendig = t.recall;
-    const fuell = 1 / (1 + t.fuellwoerter.length);
+    // Fremdwörter im Take kosten Punkte: Ein Take mit Regie oder eingestreutem Gerede ist schlechter als ein sauberer mit gleicher Vollständigkeit, auch wenn er später kam
+    const fuell = 1 / (1 + t.fuellwoerter.length + t.regie.length + 0.5 * t.extras);
     const fluessig = t.fluessigGemessen ? Math.max(0, 1 - 0.3 * t.langePausen) : 0.5;
     const e = gemessen[i];
     const energieWert = e !== undefined && werte.length >= 2 && hi > lo ? (e - lo) / (hi - lo) : 0.5;
@@ -370,6 +443,9 @@ export function ordneZu(zeilen: string[], transkripte: QuelleTranskript[], opt: 
     const kollidiert = angenommen.some((a) => a.quelle === t.quelle && ueberlappung(a, t) > 0.4);
     if (!kollidiert) angenommen.push(t);
   }
+
+  // 2b. Ränder: Ein falsch gehörtes erstes oder letztes Wort darf den Satz nicht abschneiden. Der Reihe nach, damit zwei Zeilen nicht dasselbe Wort beanspruchen.
+  for (const t of angenommen) erweitereRaender(t, zNormAlle[t.zeile - 1]!, belegteWoerter(angenommen, t));
 
   // 3. Takes bauen und bewerten
   const reihenfolge = (id: string): number => quellen.find((q) => q.id === id)?.reihenfolge ?? 0;

@@ -275,7 +275,8 @@ describe("schnitt auftrag und schnitt storyboard", () => {
     expect(text).toContain("# Storyboard-Auftrag: Küche Gossau");
     expect(text).toMatch(/\*\*Zeile 1, 0,0 bis/);
     expect(text).toContain("Keine aktiven Stücke");
-    expect(text).toContain("spätestens alle 1,5 s");
+    expect(text).toContain("spätestens alle 5,0 s");
+    expect(text).toContain("Zooms nur auf betonten Wörtern, höchstens 4 je Minute");
     expect(fehlerAusgabe.join("\n")).toContain("Kein Katalog gefunden");
   });
 

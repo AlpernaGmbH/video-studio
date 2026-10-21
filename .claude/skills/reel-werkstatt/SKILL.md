@@ -12,22 +12,23 @@ Vom Rohmaterial zum Resolve-Ordner (`docs/plan/editing-blueprint.md`, Bauplan v2
 
 ## Kurzweg (Standard)
 
-Auf dem Mac gibt es den Ablauf mit festen Ordnern, benutze ihn, statt die Einzelschritte unten von Hand zu verketten (`./studio reel` zeigt alles):
+Auf dem Mac gibt es den Ablauf mit festen Ordnern, benutze ihn, statt die Einzelschritte unten von Hand zu verketten (`./studio reel` zeigt alles). Der Inhalt hat eine Kennung aus «Inhalte» (`c-0007`).
 
-1. `./studio reel neu <ID> --marke <key> --zwischenablage` (Skript vorher kopieren), Videos nach `rohmaterial/<ID>/`.
-   - Das Skript kommt aus dem Notion-Inhalt (Entwurf). Fehlt es, frag nach: Ohne Skript gibt es keine Take-Auswahl, und du erfindest keines. Mit der Datei statt der Zwischenablage: `--skript <datei>`.
-   - Liegt das Rohmaterial woanders (ausserhalb von Studio- und Medien-Ordner), kopiere die Videos nach `rohmaterial/<ID>/` des Medien-Ordners (`cp -c` auf demselben Laufwerk braucht keinen zusätzlichen Platz), statt `--aufnahmen` mit einem fremden Ordner zu versuchen: Der Plan braucht Pfade relativ zum Medien-Ordner. Verschiebe und lösche nichts; frag vor dem Kopieren, wenn es mehr als etwa 20 GB sind.
-2. `./studio reel vorbereiten <ID>`: Whisper, Zuordnung, Plan, `ergebnis/auftrag.md`. Lies die Ausgabe vollständig und gib FEHLT, GELB, Abweichungen und die Zuordnungsquote weiter (Regeln in Schritt 4 unten).
-3. Aus `auftrag.md` das Storyboard schreiben (Schritt 6 unten), als **einen** JSON-Codeblock, den der Mensch kopiert; dann `./studio reel storyboard <ID> --zwischenablage` (Stücke, die nicht aktiv sind, nur mit `--entwurf`).
-4. Kontaktbogen und Vorschau zeigen lassen, Änderungen per Satz einarbeiten (neue Antwort, derselbe Befehl), erst nach dem Ja des Menschen `./studio reel uebergabe <ID>`.
+1. `./studio reel neu <ID> --marke <key> --skript <datei>` (auf dem Mac ohne Chat) oder mit `--zwischenablage`; die Videos gehören nach `rohmaterial/<ID>/`.
+   - Das Skript kommt aus dem Notion-Inhalt (Entwurf). **Das Skript stimmt nicht immer.** Gibt es keines oder weicht das Gesprochene stark ab: `./studio reel transkript <ID>` schreibt `ergebnis/transkript.md`; du wählst die Sätze und schreibst sie wörtlich in `skript.md`. Erfinde kein Skript.
+   - Liegt das Rohmaterial woanders (ausserhalb von Studio- und Medien-Ordner), kopiere die Videos nach `rohmaterial/<ID>/` des Medien-Ordners (`cp -c` auf demselben Laufwerk braucht keinen zusätzlichen Platz). Verschiebe und lösche nichts; frag vor dem Kopieren, wenn es mehr als etwa 20 GB sind.
+   - Getrennter Ton (externes Mikrofon) wird noch nicht synchronisiert: sag das dem Menschen, statt es zu überspielen.
+2. `./studio reel vorbereiten <ID>`: Whisper, Stille der Tonspur, Zuordnung, Plan, `ergebnis/gegenlesen.md`. Lies die Ausgabe vollständig und gib FEHLT, GELB, Abweichungen und die Zuordnungsquote weiter (Regeln in Schritt 4 unten). Die Untertitel zeigen das Gehörte.
+3. **Gegenlesen ist Pflicht.** Lies `gegenlesen.md` vollständig, Clip für Clip: Du hörst nichts, du liest, was Whisper in diesem Stück hörte. Melde Regieanweisungen («und Action», Anweisungen an die Kamera), Abbrüche, Neustarts und Verhörer («Kirche» statt «Küche»). Schreibe das Ergebnis nach `ergebnis/gegenlesen.json` (Format am Ende der Datei, `gelesen: true` nur, wenn du jeden Clip gelesen hast) und führe `./studio reel gegenlesen <ID>` aus. Es schneidet die Stellen heraus, korrigiert die Wörter und schreibt `auftrag.md`. Ohne gültiges Gegenlesen läuft `reel storyboard` nicht.
+4. Storyboard schreiben (Schritt 6 unten, Format im Auftrag) nach `ergebnis/storyboard.json`, dann `./studio reel storyboard <ID>` (Stücke, die nicht aktiv sind, nur mit `--entwurf`). **Zooms setzt du nur hier**, am Schluss: nur auf betonten Wörtern, höchstens so viele je Minute, wie der Auftrag nennt. Der Schnitt zoomt nicht von allein. Sorge für mehr Grafiken, Mockups und B-Roll als Zooms: Hektik ohne Gestaltung wirkt billig, die Marke will ruhig und hochwertig.
+5. Kontaktbogen und Vorschau zeigen lassen, Änderungen per Satz einarbeiten (neue Antwort, derselbe Befehl), erst nach dem Ja des Menschen `./studio reel uebergabe <ID>`.
 `./studio reel status` sagt je Inhalt, was der nächste Schritt ist.
 
 **Läuft die Sitzung auf dem Mac (Claude Code oder Cowork im Ordner `video-studio`), tippt der Mensch keinen Befehl und kopiert nichts.** Er sagt zum Beispiel «Editier mir das Video, das Rohmaterial liegt in …». Dann gilt:
-- Du führst die Befehle selbst aus. Das Skript legst du als Datei ab (Notion-Inhalt lesen, in eine Datei schreiben) und gibst `--skript <datei>` an, nie `--zwischenablage`.
-- `reel vorbereiten` immer mit `--nicht-kopieren` (sonst überschreibt es die Zwischenablage des Menschen).
-- Das Storyboard schreibst du selbst nach `inhalte/<ID>/ergebnis/storyboard.json` und rufst `./studio reel storyboard <ID>` ohne `--zwischenablage` auf (es nimmt die Datei). Der Mensch sieht Kontaktbogen und Vorschau, sagt Ja oder einen Änderungswunsch; erst dann `reel uebergabe`.
+- Du führst die Befehle selbst aus. Das Skript legst du als Datei ab (Notion-Inhalt lesen, in eine Datei schreiben) und gibst `--skript <datei>` an, nie `--zwischenablage`. Das Gegenlesen und das Storyboard schreibst du als Datei, die Befehle nehmen sie dort.
+- Das Gegenlesen kostet Zeit, spart aber ein Video, das nach Regie und Verhörern klingt: Mach es immer, auch wenn die Zuordnung 100 Prozent zeigt.
 - DaVinci Resolve bedienst du nicht und hast es nie geöffnet. Das Ergebnis ist ein Ordner mit Timeline-Dateien (`resolve/`), den der Mensch in Resolve importiert. Sag das beim Übergeben, damit niemand einen fertigen Schnitt erwartet.
-Läuft die Sitzung nicht auf dem Mac (Chat, Cloud), geht es nur über die Zwischenablage wie oben, und der Mensch muss im Terminal die Befehle ausführen, die du ihm gibst.
+Läuft die Sitzung nicht auf dem Mac (Chat, Cloud), geht es nur über die Zwischenablage (`--zwischenablage`), und der Mensch muss im Terminal die Befehle ausführen, die du ihm gibst.
 
 ## Ablauf (Einzelschritte)
 

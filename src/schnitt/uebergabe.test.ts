@@ -127,7 +127,7 @@ describe("erzeugeUebergabe", () => {
 
   it("die Anleitung nennt Bildrate, Export-Preset, Ton und die Stellen, die auffielen", () => {
     const w = werkstatt();
-    const lang = { ...w.plan, clips: [{ ...w.plan.clips[0]!, von: 0, bis: 4 }], broll: [], overlays: [], woerter: [] };
+    const lang = { ...w.plan, clips: [{ ...w.plan.clips[0]!, von: 0, bis: 7 }], broll: [], overlays: [], woerter: [] };
     const r = lauf(w, { plan: lang });
     const text = fs.readFileSync(path.join(r.ordner, "LIESMICH.md"), "utf8");
     expect(text).toContain("1080×1920");

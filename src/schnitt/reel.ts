@@ -7,6 +7,8 @@ import { extrahiereJson, ladeMarke, type Umgebung } from "../motion/werkstatt";
 import { sondiere } from "../presets/messen";
 import { medienOrdner, studioHome, type StudioHome } from "../setup";
 import { zuordnungBericht } from "./bericht";
+import { baueGegenlesen, GegenlesenAntwort, gegenlesenMarkdown, planHash, wendeGegenlesenAn } from "./gegenlesen";
+import { findeStille, type Stille } from "./stille";
 import { schnittBefehl } from "./befehle";
 import { SchnittQuelle, platziere } from "./plan";
 import { leseSchnittplan } from "./plan";
@@ -26,12 +28,19 @@ import { fuehreZuordnungAus } from "./zuordnen";
 export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Ordner, Skill reel-werkstatt)
   reel neu <ID> [--marke key] [--name "Titel"] [--zwischenablage | --skript datei] [--ueberschreiben] [--nicht-oeffnen]
                                       Legt <Studio>/inhalte/<ID>/ und <Medien>/rohmaterial/<ID>/ an, schreibt das Skript (aus der Zwischenablage oder einer Datei)
-                                      nach inhalte/<ID>/skript.md und öffnet den Aufnahmen-Ordner. Danach die Videos dort hineinkopieren.
-  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--nicht-kopieren]
-                                      Sondiert die Videos, transkribiert mit Whisper (vorhandene Transkripte bleiben, --neu erzwingt), ordnet das Skript zu,
-                                      baut den Schnittplan und den Auftrag fürs Storyboard (landet auf dem Mac in der Zwischenablage). Alles in inhalte/<ID>/ergebnis/.
-  reel storyboard <ID> [--zwischenablage | --datei sb.json] [--entwurf] [--ohne-rendern] [--ohne-vorschau] [--nicht-oeffnen]
-                                      Antwort von Claude (Storyboard als JSON) prüfen und in den Plan übernehmen, Grafiken rendern, Kontaktbogen und Vorschau-Video erzeugen.
+                                      nach inhalte/<ID>/skript.md und öffnet den Aufnahmen-Ordner. Danach die Videos dort hineinkopieren. <ID> ist die Kennung aus «Inhalte» (c-0007).
+  reel transkript <ID> [--marke key] [--aufnahmen ordner] [--modell large-v3] [--neu]
+                                      Ohne Skript, oder wenn es nicht stimmt: transkribiert die Videos und schreibt ergebnis/transkript.md (nummerierte Sätze mit Zeiten).
+                                      Claude wählt daraus die Sätze und schreibt sie wörtlich in skript.md.
+  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
+                                      Sondiert die Videos, transkribiert mit Whisper (vorhandene Transkripte bleiben, --neu erzwingt), misst die Stille der Tonspur, ordnet das Skript zu
+                                      und baut den Schnittplan. Schreibt ergebnis/gegenlesen.md. Die Untertitel nehmen das Gehörte.
+  reel gegenlesen <ID> [--zwischenablage | --datei antwort.json] [--nicht-kopieren] [--regeln regeln.json] [--katalog katalog.json]
+                                      Claude hat gegenlesen.md gelesen und ergebnis/gegenlesen.json geschrieben (Regie, Abbrüche, Verhörer). Der Befehl wendet es auf den Plan an
+                                      und schreibt ergebnis/auftrag.md fürs Storyboard (auf dem Mac auch in die Zwischenablage). Ohne gültiges Gegenlesen läuft «reel storyboard» nicht.
+  reel storyboard <ID> [--zwischenablage | --datei sb.json] [--entwurf] [--ohne-rendern] [--ohne-vorschau] [--nicht-oeffnen] [--ohne-gegenlesen]
+                                      Antwort von Claude (Storyboard als JSON, mit Grafiken, B-Roll, Betonung und Zooms) prüfen und in den Plan übernehmen, Grafiken rendern,
+                                      Kontaktbogen und Vorschau-Video erzeugen.
   reel uebergabe <ID> [--entwurf] [--nicht-strikt]
                                       Ordner für DaVinci Resolve schreiben (Timeline, Untertitel, Grafiken) nach inhalte/<ID>/ergebnis/resolve.
   reel status [<ID>]                  Zeigt, was für einen Inhalt schon da ist und was der nächste Schritt wäre (ohne ID: alle Inhalte).
@@ -39,11 +48,12 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
 
 /* ---------- reine Helfer ---------- */
 
-const ID_MUSTER = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+/** Die Kennung eines Inhalts, wie sie im Schnittplan steht (`projekt.inhalt`). */
+const ID_MUSTER = /^c-\d{4}$/;
 
 export function pruefeInhaltId(id: string | undefined): string {
   if (!id) throw new Error("Die Inhalt-ID fehlt, zum Beispiel: ./studio reel neu c-0007");
-  if (!ID_MUSTER.test(id)) throw new Error(`«${id}» ist keine gültige Inhalt-ID (erlaubt: Buchstaben, Ziffern, - und _, zum Beispiel c-0007)`);
+  if (!ID_MUSTER.test(id)) throw new Error(`«${id}» ist keine gültige Inhalt-ID (erwartet wird die Kennung aus «Inhalte», vier Ziffern: c-0007)`);
   return id;
 }
 
@@ -57,6 +67,12 @@ export interface ReelPfade {
   quellen: string;
   plan: string;
   bericht: string;
+  /** Der Plan, wie `reel vorbereiten` ihn baute, ohne das Gegenlesen. */
+  planRoh: string;
+  gegenlesen: string;
+  gegenlesenAntwort: string;
+  gegenlesenStand: string;
+  transkriptText: string;
   auftrag: string;
   storyboard: string;
   planStoryboard: string;
@@ -77,6 +93,11 @@ export function reelPfade(home: StudioHome, id: string): ReelPfade {
     quellen: path.join(ergebnis, "quellen.json"),
     plan: path.join(ergebnis, "plan.json"),
     bericht: path.join(ergebnis, "bericht.json"),
+    planRoh: path.join(ergebnis, "plan-vor-gegenlesen.json"),
+    gegenlesen: path.join(ergebnis, "gegenlesen.md"),
+    gegenlesenAntwort: path.join(ergebnis, "gegenlesen.json"),
+    gegenlesenStand: path.join(ergebnis, "gegenlesen-stand.json"),
+    transkriptText: path.join(ergebnis, "transkript.md"),
     auftrag: path.join(ergebnis, "auftrag.md"),
     storyboard: path.join(ergebnis, "storyboard.json"),
     planStoryboard: path.join(ergebnis, "plan-storyboard.json"),
@@ -117,6 +138,8 @@ export interface ReelZustand {
   skript: boolean;
   aufnahmen: number;
   plan: boolean;
+  /** Das Gegenlesen ist angewendet und gilt für den jetzigen Plan. */
+  gegenlesen: boolean;
   auftrag: boolean;
   storyboard: boolean;
   planStoryboard: boolean;
@@ -129,6 +152,7 @@ export function naechsterSchritt(id: string, z: ReelZustand): string {
   if (!z.skript) return `Skript ablegen: Skript kopieren, dann «./studio reel neu ${id} --zwischenablage»`;
   if (!z.aufnahmen) return `Videos in den Ordner rohmaterial/${id}/ kopieren, dann «./studio reel vorbereiten ${id}»`;
   if (!z.plan) return `«./studio reel vorbereiten ${id}»`;
+  if (!z.gegenlesen) return `ergebnis/gegenlesen.md vollständig lesen, ergebnis/gegenlesen.json schreiben (Regie, Abbrüche, Verhörer), dann «./studio reel gegenlesen ${id}»`;
   if (!z.storyboard) return `Den Auftrag (ergebnis/auftrag.md) an Claude geben, die Antwort kopieren, dann «./studio reel storyboard ${id} --zwischenablage»`;
   if (!z.planStoryboard) return `«./studio reel storyboard ${id}»`;
   if (!z.resolve) return `Kontaktbogen und Vorschau ansehen. Passt es: «./studio reel uebergabe ${id}». Sonst eine neue Antwort kopieren und «./studio reel storyboard ${id} --zwischenablage»`;
@@ -146,6 +170,7 @@ const ReelDatei = z.object({
   gesprochen: z.array(z.number().int().positive()).optional(),
   modell: z.string().optional(),
   sprache: z.string().optional(),
+  untertitel: z.enum(["gehoert", "skript"]).optional(),
 });
 type ReelDatei = z.infer<typeof ReelDatei>;
 
@@ -250,20 +275,22 @@ async function neu(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>
   return 0;
 }
 
-/* ---------- reel vorbereiten ---------- */
+/* ---------- Quellen und Transkripte (vorbereiten und transkript) ---------- */
 
-async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>): Promise<number> {
-  const home = braucheHome();
-  const id = pruefeInhaltId(a.pos[2]);
-  const p = reelPfade(home, id);
-  const alt = leseReel(p);
+interface Grundlage {
+  markeKey: string;
+  aufnahmenDir: string;
+  quellen: SchnittQuelle[];
+  pfade: Map<string, string>;
+  transkripte: { quelle: string; segmente: ReturnType<typeof leseTranskript> }[];
+  modell: string;
+  sprache: string;
+}
+
+/** Sondiert die Videos des Aufnahmenordners und transkribiert sie (vorhandene Transkripte bleiben, solange das Video nicht neuer ist). */
+async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>, home: StudioHome, p: ReelPfade, alt: ReelDatei | undefined): Promise<Grundlage> {
   const markeKey = str(a, "marke") ?? alt?.marke ?? einzigeMarke(env);
-  const marke = ladeMarke(env, markeKey);
-
-  const skriptDatei = path.resolve(alt?.skript ?? p.skript);
-  if (!fs.existsSync(skriptDatei)) throw new Error(`Das Skript fehlt: ${skriptDatei}\nSkript kopieren und «./studio reel neu ${id} --zwischenablage» ausführen`);
-  const skriptText = fs.readFileSync(skriptDatei, "utf8");
-
+  ladeMarke(env, markeKey);
   const aufnahmenDir = path.resolve(str(a, "aufnahmen") ?? alt?.aufnahmen ?? p.aufnahmen);
   let dateien: string[];
   try {
@@ -271,13 +298,9 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   } catch (e) {
     throw new Error(`${(e as Error).message}\nDie Videos gehören nach ${p.aufnahmen} (oder --aufnahmen <ordner>)`);
   }
-
-  const gesprochen = str(a, "gesprochen") ? zahlenListe(str(a, "gesprochen")!) : (alt?.gesprochen ?? []);
   const modell = str(a, "modell") ?? alt?.modell ?? STANDARD_MODELL;
   const sprache = str(a, "sprache") ?? alt?.sprache ?? "de";
-  const name = str(a, "name") ?? alt?.name ?? skriptTitel(skriptText, id);
 
-  // Quellen sondieren
   console.log(`${dateien.length} ${dateien.length === 1 ? "Video" : "Videos"} in ${aufnahmenDir}`);
   const vergeben = new Set<string>();
   const quellen: SchnittQuelle[] = [];
@@ -299,9 +322,8 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const videos = quellen.filter((q) => q.art === "video");
   if (!videos.length) throw new Error(`Keine der Dateien in ${aufnahmenDir} hat ein Bild`);
 
-  // Transkripte: vorhandene bleiben, solange das Video nicht neuer ist
   fs.mkdirSync(p.transkripte, { recursive: true });
-  const transkripte: { quelle: string; segmente: ReturnType<typeof leseTranskript> }[] = [];
+  const transkripte: Grundlage["transkripte"] = [];
   let nr = 0;
   for (const q of videos) {
     nr++;
@@ -315,6 +337,72 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     } else console.log(`Transkript vorhanden: ${q.id} (mit --neu neu erstellen)`);
     transkripte.push({ quelle: q.id, segmente: leseTranskript(JSON.parse(fs.readFileSync(ziel, "utf8"))) });
   }
+  return { markeKey, aufnahmenDir, quellen, pfade, transkripte, modell, sprache };
+}
+
+/* ---------- reel transkript (ohne Skript) ---------- */
+
+/** Das Transkript als nummerierte Sätze mit Zeiten: Grundlage, wenn es kein Skript gibt oder es nicht stimmt. Claude wählt die Sätze und schreibt `skript.md`. */
+export function transkriptMarkdown(name: string, t: { quelle: string; segmente: { von: number; bis: number; text: string }[] }[]): string {
+  const aus: string[] = [`# Transkript: ${name}`, "", "Was Whisper hörte, Satz für Satz mit Zeiten der Quelldatei. Wähle die Sätze fürs Video und schreibe sie in `skript.md`, **wörtlich und in der Reihenfolge des Videos**, einen Satz je Zeile. Wiederholungen derselben Aussage (Takes) schreibst du nur einmal; das System sucht den besten Take. Lass Regieanweisungen, Abbrüche und Gespräch weg.", ""];
+  let n = 0;
+  for (const q of t) {
+    aus.push(`## Quelle ${q.quelle}`, "");
+    for (const s of q.segmente) aus.push(`${++n}. [${s.von.toFixed(1).replace(".", ",")} bis ${s.bis.toFixed(1).replace(".", ",")} s] ${s.text}`);
+    aus.push("");
+  }
+  return aus.join("\n");
+}
+
+async function transkript(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>): Promise<number> {
+  const home = braucheHome();
+  const id = pruefeInhaltId(a.pos[2]);
+  const p = reelPfade(home, id);
+  const alt = leseReel(p);
+  const gr = await holeGrundlage(a, env, g, home, p, alt);
+  const name = str(a, "name") ?? alt?.name ?? id;
+  fs.mkdirSync(p.ergebnis, { recursive: true });
+  fs.writeFileSync(p.quellen, `${JSON.stringify(gr.quellen, null, 2)}\n`);
+  fs.writeFileSync(p.transkriptText, `${transkriptMarkdown(name, gr.transkripte)}\n`);
+  schreibeReel(p, { ...(alt ?? { schema: 1 as const, id }), id, marke: gr.markeKey, ...(str(a, "name") ? { name } : {}) });
+  console.log(`\nTranskript zum Lesen: ${p.transkriptText}\nNächster Schritt: Sätze wählen und in ${p.skript} schreiben (wörtlich, ein Satz je Zeile), dann «./studio reel vorbereiten ${id}»`);
+  return 0;
+}
+
+/* ---------- reel vorbereiten ---------- */
+
+async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>): Promise<number> {
+  const home = braucheHome();
+  const id = pruefeInhaltId(a.pos[2]);
+  const p = reelPfade(home, id);
+  const alt = leseReel(p);
+  const markeKey = str(a, "marke") ?? alt?.marke ?? einzigeMarke(env);
+  const marke = ladeMarke(env, markeKey);
+
+  const skriptDatei = path.resolve(alt?.skript ?? p.skript);
+  if (!fs.existsSync(skriptDatei)) throw new Error(`Das Skript fehlt: ${skriptDatei}\nSkript kopieren und «./studio reel neu ${id} --zwischenablage» ausführen, oder ohne Skript: «./studio reel transkript ${id}»`);
+  const skriptText = fs.readFileSync(skriptDatei, "utf8");
+
+  const gesprochen = str(a, "gesprochen") ? zahlenListe(str(a, "gesprochen")!) : (alt?.gesprochen ?? []);
+  const untertitel = (str(a, "untertitel") as "gehoert" | "skript" | undefined) ?? alt?.untertitel ?? "gehoert";
+  if (untertitel !== "gehoert" && untertitel !== "skript") throw new Error("--untertitel erwartet «gehoert» oder «skript»");
+  const name = str(a, "name") ?? alt?.name ?? skriptTitel(skriptText, id);
+  const gr = await holeGrundlage(a, env, g, home, p, alt);
+  const { quellen, transkripte } = gr;
+
+  // Stille der Tonspur: Anfang und Ende der Clips rasten dort ein, wo wirklich nichts gesprochen wird
+  const stille = new Map<string, Stille[]>();
+  let stilleNotiz = "";
+  if (a.opt["ohne-stille"] === true) stilleNotiz = "Stille nicht gemessen (--ohne-stille): Die Schnitte folgen den Wortzeiten von Whisper";
+  else {
+    for (const q of quellen.filter((x) => x.art === "video" && x.hatAudio)) {
+      try {
+        stille.set(q.id, await findeStille(gr.pfade.get(q.id)!, { dauer: q.dauer }));
+      } catch (e) {
+        stilleNotiz = `Stille nicht gemessen: ${(e as Error).message}`;
+      }
+    }
+  }
 
   // Zuordnung und Plan
   const ergebnis = await fuehreZuordnungAus({
@@ -326,28 +414,38 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     name,
     inhalt: id,
     gesprochen,
+    untertitel,
+    stille,
     home,
     ohnePegel: a.opt["ohne-pegel"] === true,
   });
   fs.mkdirSync(p.ergebnis, { recursive: true });
   fs.writeFileSync(p.quellen, `${JSON.stringify(quellen, null, 2)}\n`);
-  fs.writeFileSync(p.plan, `${JSON.stringify(ergebnis.plan, null, 2)}\n`);
+  const planText = `${JSON.stringify(ergebnis.plan, null, 2)}\n`;
+  fs.writeFileSync(p.planRoh, planText);
+  fs.writeFileSync(p.plan, planText);
+  fs.rmSync(p.gegenlesenStand, { force: true });
+  fs.rmSync(p.auftrag, { force: true });
   fs.writeFileSync(p.bericht, `${JSON.stringify({ zuordnung: ergebnis.zuordnung, markierungen: ergebnis.markierungen }, null, 2)}\n`);
+  const lesen = baueGegenlesen(ergebnis.plan, ergebnis.zuordnung, transkripte);
+  fs.writeFileSync(p.gegenlesen, gegenlesenMarkdown(name, lesen));
   schreibeReel(p, {
     schema: 1,
     id,
     marke: markeKey,
     name,
     ...(alt?.skript ? { skript: alt.skript } : {}),
-    ...(str(a, "aufnahmen") ? { aufnahmen: aufnahmenDir } : alt?.aufnahmen ? { aufnahmen: alt.aufnahmen } : {}),
+    ...(str(a, "aufnahmen") ? { aufnahmen: gr.aufnahmenDir } : alt?.aufnahmen ? { aufnahmen: alt.aufnahmen } : {}),
     ...(gesprochen.length ? { gesprochen } : {}),
-    ...(str(a, "modell") ?? alt?.modell ? { modell } : {}),
-    ...(str(a, "sprache") ?? alt?.sprache ? { sprache } : {}),
+    ...(untertitel !== "gehoert" ? { untertitel } : {}),
+    ...(str(a, "modell") ?? alt?.modell ? { modell: gr.modell } : {}),
+    ...(str(a, "sprache") ?? alt?.sprache ? { sprache: gr.sprache } : {}),
   });
 
   console.log("");
   for (const l of zuordnungBericht(ergebnis.zuordnung, ergebnis.markierungen)) console.log(l);
   if (ergebnis.pegelNotiz) console.log(`\n${ergebnis.pegelNotiz}`);
+  if (stilleNotiz) console.log(stilleNotiz);
   const befunde = pruefeSchnittplan(ergebnis.plan, { profil: marke.schnittprofil });
   if (befunde.length) {
     console.log("\nPrüfung des Plans:");
@@ -355,22 +453,63 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   }
   const dauer = platziere(ergebnis.plan);
   console.log(`\nPlan: ${p.plan} (${ergebnis.plan.clips.length} Clips, ${f1(dauer.gesamtFrames / ergebnis.plan.projekt.fps)} s)`);
+  console.log(`Zum Gegenlesen: ${p.gegenlesen}`);
+  console.log(`\nNächster Schritt: Gegenlesen. ${p.gegenlesen} vollständig lesen (Skript gegen Gehörtes, Regie, Abbrüche, Verhörer), Ergebnis nach ${p.gegenlesenAntwort} schreiben, dann:\n  ./studio reel gegenlesen ${id}`);
+  return 0;
+}
 
-  // Auftrag fürs Storyboard
-  const vorher = console.log;
-  const stumm: string[] = [];
-  console.log = (...x: unknown[]) => void stumm.push(x.join(" "));
+/* ---------- reel gegenlesen ---------- */
+
+async function gegenlesen(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>): Promise<number> {
+  const home = braucheHome();
+  const id = pruefeInhaltId(a.pos[2]);
+  const p = reelPfade(home, id);
+  const alt = leseReel(p);
+  if (!fs.existsSync(p.planRoh)) throw new Error(`Es gibt noch keinen Plan: zuerst «./studio reel vorbereiten ${id}»`);
+
+  let text: string | undefined;
+  if (a.opt["zwischenablage"] === true) {
+    text = g.liesZwischenablage();
+    if (!text.trim()) throw new Error("Die Zwischenablage ist leer. Zuerst die Antwort kopieren");
+  } else if (str(a, "datei")) text = fs.readFileSync(path.resolve(str(a, "datei")!), "utf8");
+  else if (fs.existsSync(p.gegenlesenAntwort)) text = fs.readFileSync(p.gegenlesenAntwort, "utf8");
+  if (text === undefined) throw new Error(`Das Ergebnis des Gegenlesens fehlt: ${p.gegenlesenAntwort}\n${p.gegenlesen} lesen und die Antwort als JSON dorthin schreiben (Format am Ende der Datei)`);
+  let json: unknown;
+  try {
+    json = extrahiereJson(text);
+  } catch (e) {
+    throw new Error(`In der Antwort steht kein JSON: ${(e as Error).message}`);
+  }
+  const antwort = GegenlesenAntwort.safeParse(json);
+  if (!antwort.success) throw new Error(`Das Gegenlesen ist ungültig: ${antwort.error.issues.map((i) => `${i.path.join(".") || "(Wurzel)"}: ${i.message}`).join("; ")}`);
+  fs.writeFileSync(p.gegenlesenAntwort, `${JSON.stringify(antwort.data, null, 2)}\n`);
+
+  // immer vom Plan «vor dem Gegenlesen» aus: Zweimal ausführen ergibt dasselbe, eine geänderte Antwort ersetzt die vorige
+  const roh = leseSchnittplan(JSON.parse(fs.readFileSync(p.planRoh, "utf8")));
+  const r = wendeGegenlesenAn(roh, antwort.data);
+  const planText = `${JSON.stringify(r.plan, null, 2)}\n`;
+  fs.writeFileSync(p.plan, planText);
+  fs.writeFileSync(p.gegenlesenStand, `${JSON.stringify({ planHash: planHash(planText), geschnitten: r.geschnitten, korrigiert: r.korrigiert, notiz: antwort.data.notiz }, null, 2)}\n`);
+  const vorher = platziere(roh).gesamtFrames;
+  const nachher = platziere(r.plan).gesamtFrames;
+  console.log(`Gegenlesen angewendet: ${r.geschnitten} Schnitte, ${r.korrigiert} Wörter korrigiert, Film ${f1(nachher / r.plan.projekt.fps)} s${nachher !== vorher ? ` (vorher ${f1(vorher / r.plan.projekt.fps)} s)` : ""}`);
+  for (const i of r.ignoriert) console.log(`Hinweis: ${i}`);
+  if (antwort.data.notiz) console.log(`Notiz: ${antwort.data.notiz}`);
+
+  // Auftrag fürs Storyboard, aus dem Plan nach dem Gegenlesen
+  const markeKey = alt?.marke ?? r.plan.projekt.marke;
+  const vorherLog = console.log;
+  console.log = () => undefined;
   try {
     await auftragBefehl(parseArgs(["schnitt", "auftrag", "--plan", p.plan, "--marke", markeKey, "-o", p.auftrag, ...(str(a, "regeln") ? ["--regeln", str(a, "regeln")!] : []), ...(str(a, "katalog") ? ["--katalog", str(a, "katalog")!] : [])]), env);
   } finally {
-    console.log = vorher;
+    console.log = vorherLog;
   }
   console.log(`Auftrag fürs Storyboard: ${p.auftrag}`);
-
   const kopiert = a.opt["nicht-kopieren"] !== true && g.schreibeZwischenablage !== undefined;
   if (kopiert) g.schreibeZwischenablage!(fs.readFileSync(p.auftrag, "utf8"));
   console.log(
-    `\nNächster Schritt:\n  1. Gelbe Stellen und Abweichungen ansehen (Liste oben, ${p.bericht}).\n  2. ${kopiert ? "Der Auftrag ist in der Zwischenablage: in den Chat mit Claude einfügen" : `Inhalt von ${p.auftrag} in den Chat mit Claude kopieren`} und das Storyboard schreiben lassen.\n  3. Antwort kopieren (Kopieren-Knopf am Codeblock), dann:\n     ./studio reel storyboard ${id} --zwischenablage`,
+    `\nNächster Schritt: Storyboard.\n  1. ${kopiert ? "Der Auftrag ist in der Zwischenablage: in den Chat mit Claude einfügen" : `${p.auftrag} lesen`} und das Storyboard schreiben lassen (Claude in einer Sitzung auf dem Mac schreibt es nach ${p.storyboard}).\n  2. ./studio reel storyboard ${id}${kopiert ? " --zwischenablage" : ""}`,
   );
   return 0;
 }
@@ -400,6 +539,10 @@ async function storyboard(a: Args, env: Umgebung, g: ReturnType<typeof standardG
   const p = reelPfade(home, id);
   const alt = leseReel(p);
   if (!fs.existsSync(p.plan)) throw new Error(`Es gibt noch keinen Plan: zuerst «./studio reel vorbereiten ${id}»`);
+  if (a.opt["ohne-gegenlesen"] === true) console.log("Hinweis: Ohne Gegenlesen (--ohne-gegenlesen). Regie und Verhörer im Video bleiben unbemerkt.");
+  else if (!gegenlesenGilt(p)) {
+    throw new Error(`Das Gegenlesen fehlt oder gilt nicht mehr für den jetzigen Plan. ${p.gegenlesen} lesen, ${p.gegenlesenAntwort} schreiben, dann «./studio reel gegenlesen ${id}». Eine Ausnahme: --ohne-gegenlesen`);
+  }
 
   let antwort: string | undefined;
   if (a.opt["zwischenablage"] === true) {
@@ -459,6 +602,17 @@ async function uebergabe(a: Args, env: Umgebung): Promise<number> {
 
 /* ---------- reel status ---------- */
 
+/** Das Gegenlesen ist angewendet und gehört zu genau diesem plan.json. */
+export function gegenlesenGilt(p: ReelPfade): boolean {
+  if (!fs.existsSync(p.gegenlesenStand) || !fs.existsSync(p.plan)) return false;
+  try {
+    const stand = JSON.parse(fs.readFileSync(p.gegenlesenStand, "utf8")) as { planHash?: string };
+    return stand.planHash === planHash(fs.readFileSync(p.plan, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
 function zustand(home: StudioHome, p: ReelPfade): ReelZustand {
   let aufnahmen = 0;
   try {
@@ -472,6 +626,7 @@ function zustand(home: StudioHome, p: ReelPfade): ReelZustand {
     skript: fs.existsSync(p.skript),
     aufnahmen,
     plan: fs.existsSync(p.plan),
+    gegenlesen: gegenlesenGilt(p),
     auftrag: fs.existsSync(p.auftrag),
     storyboard: fs.existsSync(p.storyboard),
     planStoryboard: fs.existsSync(p.planStoryboard),
@@ -494,6 +649,7 @@ async function status(a: Args): Promise<number> {
     console.log(`  Skript            ${haken(z.skript)}  ${p.skript}`);
     console.log(`  Aufnahmen         ${z.aufnahmen ? `${z.aufnahmen} Videos` : "nein "}  ${p.aufnahmen}`);
     console.log(`  Plan              ${haken(z.plan)}  ${p.plan}`);
+    console.log(`  Gegenlesen        ${haken(z.gegenlesen)}  ${p.gegenlesen}`);
     console.log(`  Auftrag           ${haken(z.auftrag)}  ${p.auftrag}`);
     console.log(`  Storyboard        ${haken(z.storyboard)}  ${p.storyboard}`);
     console.log(`  Plan mit Storyb.  ${haken(z.planStoryboard)}  ${p.planStoryboard}`);
@@ -521,6 +677,10 @@ export async function reelBefehl(sub: string, a: Args, env: Umgebung, geraete: R
       return neu(a, env, g);
     case "vorbereiten":
       return vorbereiten(a, env, g);
+    case "transkript":
+      return transkript(a, env, g);
+    case "gegenlesen":
+      return gegenlesen(a, env, g);
     case "storyboard":
       return storyboard(a, env, g);
     case "uebergabe":

@@ -309,3 +309,90 @@ describe("skriptWoerterMitZeit", () => {
     expect(skriptWoerterMitZeit("Hallo", [])).toEqual([]);
   });
 });
+
+describe("ordneZu: falsch gehörte Ränder schneiden den Satz nicht ab", () => {
+  const Rand = "Der Kunde wollte eine neue Küche.";
+
+  it("zählt ein falsch gehörtes letztes Wort zum Satz und sagt es", () => {
+    const z = ordneZu([Rand], [quelle("a", satz(1, "Der Kunde wollte eine neue Kirche."))]);
+    const e = z.zeilen[0]!;
+    expect(e.status).toBe("ok");
+    expect(e.gewaehlt!.text).toBe("Der Kunde wollte eine neue Kirche.");
+    expect(e.gewaehlt!.randDeutung).toEqual(["«küche» gehört als «Kirche.»"]);
+    // die Abweichung bleibt im Bericht stehen
+    expect(e.abweichung).toMatchObject({ fehlend: ["Küche."], zusaetzlich: ["Kirche."] });
+  });
+
+  it("zählt ein falsch gehörtes erstes Wort zum Satz (kurzes Wort: «Mir» statt «Wir»)", () => {
+    const z = ordneZu([Z1], [quelle("a", satz(1, "Mir haben diese Woche eine Küche komplett umgebaut."))]);
+    const e = z.zeilen[0]!;
+    expect(e.status).toBe("ok");
+    expect(e.gewaehlt!.von).toBeCloseTo(1, 6);
+    expect(e.gewaehlt!.randDeutung).toEqual(["«wir» gehört als «Mir»"]);
+  });
+
+  it("nimmt kein Wort, das zum Take einer anderen Zeile gehört", () => {
+    // «Kirche» am Ende von Zeile 1 sieht dem ersten Skriptwort von Zeile 2 («Küche») ähnlich und liegt 0,1 s davor; gesprochen wird Zeile 2 ohne dieses Wort
+    const z = ordneZu(["Der Kunde wollte eine Kirche.", "Küche siehst du das Ergebnis."], [quelle("a", satz(1, "Der Kunde wollte eine Kirche."), satz(2.8, "siehst du das Ergebnis."))]);
+    expect(z.zeilen[0]!.gewaehlt!.text).toBe("Der Kunde wollte eine Kirche.");
+    const zwei = z.zeilen[1]!;
+    expect(zwei.gewaehlt!.text).toBe("siehst du das Ergebnis.");
+    expect(zwei.gewaehlt!.von).toBeGreaterThan(2.8 - 1e-6);
+    expect(zwei.status).toBe("gelb");
+  });
+
+  it("überspringt keine grosse Lücke: Ein Wort 0,8 s vor dem Satz gehört nicht dazu", () => {
+    const z = ordneZu([Z1], [quelle("a", satz(1, "Mir haben diese Woche eine Küche komplett umgebaut.", { 1: 0.8 }))]);
+    expect(z.zeilen[0]!.status).toBe("gelb");
+    expect(z.zeilen[0]!.gewaehlt!.text.startsWith("haben")).toBe(true);
+  });
+
+  it("nimmt kein Füllwort und keine Regieanweisung für ein fehlendes Skriptwort", () => {
+    // «klappe» (Regie) sieht dem Skriptwort «Klammer» ähnlich genug für einen Rand, ist aber die Ansage vor dem Satz
+    const z = ordneZu(["Klammer prüft diese Woche den Stand."], [quelle("a", satz(1, "klappe prüft diese Woche den Stand."))]);
+    const e = z.zeilen[0]!;
+    expect(e.status).toBe("gelb");
+    expect(e.gewaehlt!.text).toBe("prüft diese Woche den Stand.");
+    expect(e.gewaehlt!.randDeutung).toEqual([]);
+    // dasselbe am Ende
+    const h = ordneZu(["Jetzt prüfen wir die Klammer."], [quelle("a", satz(1, "Jetzt prüfen wir die klappe"))]);
+    expect(h.zeilen[0]!.gewaehlt!.randDeutung).toEqual([]);
+    expect(h.zeilen[0]!.gewaehlt!.text).toBe("Jetzt prüfen wir die");
+    // Gegenprobe: ein gewöhnliches ähnliches Wort wird genommen
+    const g = ordneZu(["Klammer prüft diese Woche den Stand."], [quelle("a", satz(1, "Klappen prüft diese Woche den Stand."))]);
+    expect(g.zeilen[0]!.status).toBe("ok");
+  });
+});
+
+describe("ordneZu: Regie und Einschübe im Take", () => {
+  it("scheidet einen Take mit Regieanweisung aus, und ein sauberer späterer oder früherer gewinnt", () => {
+    const z = ordneZu([Z1], [quelle("a", satz(1, "Wir haben diese Woche action eine Küche komplett umgebaut."), satz(8, Z1))]);
+    const e = z.zeilen[0]!;
+    expect(e.gewaehlt!.von).toBeCloseTo(8, 6);
+    const mit = e.takes.find((t) => t.von < 2)!;
+    expect(mit.regie.map((r) => r.text)).toEqual(["action"]);
+    expect(mit.ausgeschieden.join()).toMatch(/Regieanweisung «action»/);
+  });
+
+  it("ist gelb, wenn nur ein Take mit Regieanweisung da ist", () => {
+    const z = ordneZu([Z1], [quelle("a", satz(1, "Wir haben diese Woche okay eine Küche komplett umgebaut."))]);
+    expect(z.zeilen[0]!.status).toBe("gelb");
+    expect(z.zeilen[0]!.gewaehlt!.regie).toHaveLength(1);
+  });
+
+  it("zählt ein Wort, das im Skript steht, nicht als Regie", () => {
+    const z = ordneZu(["Dann sagte er okay und ging nach Hause."], [quelle("a", satz(1, "Dann sagte er okay und ging nach Hause."))]);
+    expect(z.zeilen[0]!.status).toBe("ok");
+    expect(z.zeilen[0]!.gewaehlt!.regie).toEqual([]);
+  });
+
+  it("zieht einen sauberen früheren Take einem späteren mit Einschüben vor, obwohl der spätere sonst mehr Punkte bekäme", () => {
+    const z = ordneZu([Z2], [quelle("a", satz(3, Z2), satz(20, "Der Kunde wollte jetzt eigentlich mehr Stauraum."))]);
+    const e = z.zeilen[0]!;
+    expect(e.status).toBe("ok");
+    expect(e.gewaehlt!.von).toBeCloseTo(3, 6);
+    const spaeter = e.takes.find((t) => t.von > 10)!;
+    expect(spaeter.extras).toBe(2);
+    expect(spaeter.recall).toBe(1);
+  });
+});

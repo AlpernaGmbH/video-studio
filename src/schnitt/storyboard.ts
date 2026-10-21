@@ -1,8 +1,10 @@
-import type { KatalogEintrag, Regel, Schnittprofil, Storyboard } from "../core/schemas";
+import { Zoom, type KatalogEintrag, type Regel, type Schnittprofil, type Storyboard } from "../core/schemas";
 import { pruefeStoryboard, StoryboardFehler, type VerworfenesOverlay } from "../core/storyboard";
 import { kompakterIndex } from "../motion/bibliothek";
 import type { Stueck } from "../motion/stueck";
+import { STANDARD_SCHNITTPROFIL, ZOOM_STUFE } from "./planbau";
 import { leseSchnittplan, platziere, sekunden, type Schnittplan, type SchnittQuelle } from "./plan";
+import { wendeZoomsAn, type ZoomEinsatz } from "./zoom";
 import { projektKennung } from "../katalog/katalog";
 import { woerterMitHerkunft } from "./untertitel";
 
@@ -60,7 +62,17 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
   if (ctx.profil) {
     const p = ctx.profil;
     aus.push("## Schnittprofil der Marke", "");
-    aus.push(`- Aussage in den ersten ${s1(p.hookMaxSekunden)} s (Hook)`, `- Bildwechsel (Schnitt, Zoom, B-Roll, Grafik) spätestens alle ${s1(p.laengsteEinstellung)} s`, `- Pausen im Schnitt höchstens ${s2(p.laengstePause)} s`, `- Untertitel mit ${p.woerterJeUntertitel.min} bis ${p.woerterJeUntertitel.max} Wörtern`, "");
+    const zoomAn = p.zoom.modus === "betonung" && p.zoomTempo !== "langsam";
+    aus.push(
+      `- Aussage in den ersten ${s1(p.hookMaxSekunden)} s (Hook)`,
+      `- Eine neue visuelle Ebene (Grafik, B-Roll, Mockup) spätestens alle ${s1(p.laengsteEinstellung)} s; ein Zoom zählt nicht als Bildwechsel`,
+      zoomAn
+        ? `- Zooms nur auf betonten Wörtern, höchstens ${p.zoom.maxProMinute} je Minute, mindestens 1 s Abstand, 0,6 bis 3 s lang; der Schnitt setzt keinen Zoom von allein, du setzt sie am Schluss`
+        : "- Keine Zooms (Schnittprofil der Marke: aus)",
+      `- Pausen im Schnitt höchstens ${s2(p.laengstePause)} s`,
+      `- Untertitel mit ${p.woerterJeUntertitel.min} bis ${p.woerterJeUntertitel.max} Wörtern`,
+      "",
+    );
   }
 
   aus.push("## Skript mit Zeiten", "");
@@ -111,6 +123,7 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
           { effekt: "broll", t: 9.8, dauer: 1.5, params: { katalog: "k-0142" }, begruendung: "Zeigt die Aussage, bringt Bildwechsel" },
         ],
         betonung: [12, 40],
+        zooms: [{ wort: 12, dauer: 1.2, begruendung: "Betontes Wort, die Zahl soll hängen bleiben" }],
         notiz: "Ein Satz zur Gesamtidee",
       },
       null,
@@ -119,7 +132,7 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
     "```",
     "",
   );
-  aus.push("- `betonung`: Nummern aus der Wortliste oben.", "- Kein Eintrag ohne Begründung (mindestens ein kurzer Satz).", "- Der Plan ist ein Entwurf. Ein Mensch bestätigt ihn oder ändert ihn per Satz («Hook kürzer»).");
+  aus.push("- `betonung`: Nummern aus der Wortliste oben.", "- `zooms`: nur auf Wörtern aus `betonung` (`wort` ist dieselbe Nummer); `stufe` ist optional.", "- Kein Eintrag ohne Begründung (mindestens ein kurzer Satz).", "- Der Plan ist ein Entwurf. Ein Mensch bestätigt ihn oder ändert ihn per Satz («Hook kürzer»).");
   return aus;
 }
 
@@ -135,6 +148,8 @@ export interface AnwendenKontext {
   imLetztenVideoDerMarke?: string[];
   /** Ordner unter `renders/`, Standard: Inhalt-ID oder Projektname. */
   renderOrdner?: string;
+  /** Schnittprofil der Marke: bestimmt, ob und wie oft gezoomt werden darf. Ohne Profil gelten die Startwerte (kein Zoom). */
+  profil?: Schnittprofil;
 }
 
 export interface RenderAuftrag {
@@ -154,6 +169,8 @@ export interface Angewandt {
   warnungen: string[];
   renderListe: RenderAuftrag[];
   betont: { index: number; text: string; t: number }[];
+  zooms: { wort: number; text: string; t: number; dauer: number; stufe: number }[];
+  verworfeneZooms: { index: number; zoom: unknown; grund: string }[];
 }
 
 export function wendeStoryboardAn(plan: Schnittplan, roh: unknown, ctx: AnwendenKontext): Angewandt {
@@ -222,8 +239,35 @@ export function wendeStoryboardAn(plan: Schnittplan, roh: unknown, ctx: Anwenden
     return betontIdx.has(i) ? { ...rest, betont: true } : rest;
   });
 
-  const neu = leseSchnittplan({ ...plan, quellen, broll, overlays, woerter: neueWoerter });
-  return { plan: neu, storyboard: geprueft.plan, verworfen, warnungen, renderListe, betont };
+  // Zooms: nur auf betonten Wörtern, höchstens so viele je Minute, mit Abstand (Ruhe vor Effekt). Jeder Eintrag wird einzeln geprüft.
+  const profil = ctx.profil ?? STANDARD_SCHNITTPROFIL;
+  const zoomErlaubt = profil.zoom.modus === "betonung" && profil.zoomTempo !== "langsam";
+  const hoechstens = zoomErlaubt && profil.zoom.maxProMinute > 0 ? Math.max(1, Math.round((profil.zoom.maxProMinute * gesamt) / 60)) : 0;
+  const zooms: Angewandt["zooms"] = [];
+  const verworfeneZooms: Angewandt["verworfeneZooms"] = [];
+  const einsaetze: ZoomEinsatz[] = [];
+  (geprueft.plan.zooms as unknown[]).forEach((roh, index) => {
+    const nein = (grund: string) => verworfeneZooms.push({ index, zoom: roh, grund });
+    const p = Zoom.safeParse(roh);
+    if (!p.success) return nein(`Zoom ungültig: ${p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+    const z = p.data;
+    if (!zoomErlaubt) return nein("Zooms sind für diese Marke aus (Schnittprofil: zoom.modus «aus» oder Zoom-Tempo «langsam»)");
+    const b = betont.find((x) => x.index === z.wort);
+    if (!b) return nein(`Zoom nur auf betonten Wörtern: Wort ${z.wort} steht nicht in «betonung»`);
+    if (einsaetze.length >= hoechstens) return nein(`Mehr als ${hoechstens} Zooms in ${s1(gesamt)} s (Schnittprofil: höchstens ${profil.zoom.maxProMinute} je Minute)`);
+    const t = Math.max(0, b.t - 0.1);
+    const dauer = Math.min(z.dauer, gesamt - t);
+    if (dauer < 0.6) return nein(`Zoom bei ${s1(t)} s hat bis zum Ende des Videos weniger als 0,6 s Platz`);
+    const stoert = einsaetze.find((e) => t < e.t + e.dauer + 1 && e.t < t + dauer + 1);
+    if (stoert) return nein(`Zoom bei ${s1(t)} s liegt zu nah am Zoom bei ${s1(stoert.t)} s (mindestens 1 s Abstand)`);
+    const stufe = z.stufe ?? ZOOM_STUFE[profil.zoomTempo];
+    einsaetze.push({ t, dauer, stufe, begruendung: z.begruendung });
+    zooms.push({ wort: z.wort, text: b.text, t, dauer, stufe });
+  });
+
+  const ohneZoom = leseSchnittplan({ ...plan, quellen, broll, overlays, woerter: neueWoerter });
+  const neu = wendeZoomsAn(ohneZoom, einsaetze);
+  return { plan: neu, storyboard: geprueft.plan, verworfen, warnungen, renderListe, betont, zooms, verworfeneZooms };
 }
 
 export { StoryboardFehler };

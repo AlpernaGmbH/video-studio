@@ -47,7 +47,7 @@ describe("zuordnungBericht", () => {
     const t = zuordnungBericht(g, markierungen).join("\n");
     expect(t).toContain("Hinweise zum Schnitt:");
     expect(t).toMatch(/Zeile 1: Füllwort «ähm».*bleibt drin/);
-    expect(t).toMatch(/Zeile 1: Untertitel nehmen den gesprochenen Text/);
+    expect(t).toMatch(/Zeile 1: Untertitel nehmen den gehörten Text/);
   });
 
   it("kürzt lange Zeilen", () => {

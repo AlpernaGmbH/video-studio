@@ -66,12 +66,41 @@ describe("pruefeSchnittplan: Schnittprofil (Bauplan v2, 3.4)", () => {
     expect(REEL_MAX_SEKUNDEN).toBe(90);
   });
 
-  it("Einstellung ohne Bildwechsel: 1,5 s sind erlaubt, 4 s am Stück nicht", () => {
-    const plan = beispielPlan({ clips: [{ id: "k01", quelle: "sprache", von: 0, bis: 4 }], broll: [], overlays: [], woerter: [] });
-    const b = pruefeSchnittplan(plan, { profil });
-    expect(codes(b)).toContain("einstellung-zu-lang");
-    const ok = beispielPlan({ clips: [{ id: "k01", quelle: "sprache", von: 0, bis: 1.5 }], broll: [], overlays: [], woerter: [] });
+  it("Einstellung ohne Bildwechsel: bis zur Grenze des Profils erlaubt, darüber nicht", () => {
+    const grenze = profil.laengsteEinstellung;
+    const lang = beispielPlan({ clips: [{ id: "k01", quelle: "sprache", von: 0, bis: grenze + 2 }], broll: [], overlays: [], woerter: [] });
+    expect(codes(pruefeSchnittplan(lang, { profil }))).toContain("einstellung-zu-lang");
+    const ok = beispielPlan({ clips: [{ id: "k01", quelle: "sprache", von: 0, bis: grenze - 0.5 }], broll: [], overlays: [], woerter: [] });
     expect(codes(pruefeSchnittplan(ok, { profil }))).not.toContain("einstellung-zu-lang");
+  });
+
+  it("ein Zoom ist kein Bildwechsel: Teilstücke desselben Clips, die nahtlos weiterlaufen, beenden die Einstellung nicht", () => {
+    const grenze = profil.laengsteEinstellung;
+    // ein langer Take, in drei Stücke geteilt (Zoom auf dem mittleren): Quellzeit läuft ohne Sprung durch
+    const dritt = (grenze + 2) / 3;
+    const geteilt = beispielPlan({
+      clips: [
+        { id: "k01", quelle: "sprache", von: 0, bis: dritt },
+        { id: "k02", quelle: "sprache", von: dritt, bis: 2 * dritt, zoom: 1.1 },
+        { id: "k03", quelle: "sprache", von: 2 * dritt, bis: grenze + 2 },
+      ],
+      broll: [],
+      overlays: [],
+      woerter: [],
+    });
+    expect(codes(pruefeSchnittplan(geteilt, { profil }))).toContain("einstellung-zu-lang");
+    // mit einem echten Sprung in der Quelle (Jump-Cut) ist es ein Bildwechsel
+    const sprung = beispielPlan({
+      clips: [
+        { id: "k01", quelle: "sprache", von: 0, bis: dritt },
+        { id: "k02", quelle: "sprache", von: dritt + 1, bis: 2 * dritt + 1 },
+        { id: "k03", quelle: "sprache", von: 2 * dritt + 3, bis: grenze + 5 },
+      ],
+      broll: [],
+      overlays: [],
+      woerter: [],
+    });
+    expect(codes(pruefeSchnittplan(sprung, { profil }))).not.toContain("einstellung-zu-lang");
   });
 
   it("B-Roll und Grafik zählen als Bildwechsel", () => {

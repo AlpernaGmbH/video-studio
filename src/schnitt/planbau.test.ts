@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bauePlan, NACHLAUF, STANDARD_SCHNITTPROFIL, teileEinstellung, VORLAUF, ZOOM_STUFE, type PlanbauOptionen } from "./planbau";
-import type { TWort } from "./transkript";
+import { bauePlan, NACHLAUF, rasteEin, STANDARD_SCHNITTPROFIL, verschmelzeKleine, VORLAUF, type PlanbauOptionen } from "./planbau";
+import type { Segment, TWort } from "./transkript";
 import { PlanFehler, platziere, SchnittQuelle } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
 import { testLoeser, testSatz as satz } from "./testdaten";
@@ -20,7 +20,6 @@ const Z2 = "Der Kunde wollte mehr Stauraum.";
 describe("bauePlan: Reihenfolge und Ränder", () => {
   it("legt die Clips in der Reihenfolge des Skripts, auch wenn die Takes umgekehrt aufgenommen wurden", () => {
     const { plan } = bau([Z1, Z2], mat(satz(3, Z2), satz(20, Z1)));
-    // jede Zeile ist länger als 1,5 s und wird darum in mehrere Clips geteilt
     expect([...new Set(plan.clips.map((c) => c.zeile))]).toEqual([1, 2]);
     expect(plan.clips[0]!.zeile).toBe(1);
     expect(plan.clips[0]!.von).toBeGreaterThan(19);
@@ -84,10 +83,10 @@ describe("bauePlan: Pausen und Füllwörter", () => {
     expect(befunde.some((b) => b.code === "pause-zu-lang")).toBe(true);
   });
 
-  it("lässt Pausen bis zur erlaubten Länge stehen", () => {
+  it("lässt Pausen bis zur erlaubten Länge stehen: ein Satz, ein Clip", () => {
     const s = satz(10, Z1, { 4: 0.2 });
     const { plan } = bau([Z1], mat(s));
-    expect(plan.clips.filter((c) => c.zeile === 1)).toHaveLength(Math.ceil((s.bis - s.von + 0.16) / 1.5));
+    expect(plan.clips.filter((c) => c.zeile === 1)).toHaveLength(1);
   });
 
   it("schneidet bei einem gelben Take das Füllwort heraus und vermerkt es", () => {
@@ -116,95 +115,122 @@ describe("bauePlan: Pausen und Füllwörter", () => {
   });
 });
 
-describe("bauePlan: Bildwechsel und Zoom", () => {
-  it("teilt einen langen Clip ohne Pause an Wortgrenzen und entfernt dabei keine Zeit", () => {
+/** Ein Segment mit Wörtern von eigener Länge: [Text, Dauer, Pause davor]. */
+const segment = (start: number, woerter: [string, number, number?][]): Segment => {
+  let t = start;
+  const w = woerter.map(([text, dauer, pause]) => {
+    t += pause ?? 0.05;
+    const von = t;
+    t += dauer;
+    return { text, von, bis: t };
+  });
+  return { von: w[0]!.von, bis: w[w.length - 1]!.bis, text: w.map((x) => x.text).join(" "), woerter: w };
+};
+
+describe("bauePlan: kein Zoom-Automatismus, keine Mikro-Schnitte", () => {
+  it("setzt keinen Zoom und teilt einen langen Satz nicht in Zoom-Wechsel", () => {
     const text = "Wir haben diese Woche in Gossau eine Küche mit viel Stauraum komplett für eine Familie umgebaut.";
-    const s = satz(10, text);
-    const { plan } = bau([text], mat(s));
-    const clips = plan.clips;
-    expect(clips.length).toBeGreaterThanOrEqual(3);
-    for (let i = 1; i < clips.length; i++) expect(clips[i]!.von).toBeCloseTo(clips[i - 1]!.bis, 3);
-    for (const c of clips) expect(c.bis - c.von).toBeLessThanOrEqual(1.5 + 0.4);
-    expect(pruefeSchnittplan(plan, { profil: STANDARD_SCHNITTPROFIL }).filter((b) => b.code === "einstellung-zu-lang")).toEqual([]);
-  });
-
-  it("schneidet bevorzugt an einer Lücke zwischen Wörtern, wenn eine in der Nähe des gleichmässigen Schnitts liegt", () => {
-    const text = "Wir haben diese Woche in Gossau eine Küche mit viel Stauraum komplett umgebaut.";
-    // eine 0,2-s-Lücke (unter der längsten Pause) vor dem Wort mit der Nummer j
-    for (const j of [3, 6, 10]) {
-      const s = satz(10, text, { [j]: 0.2 });
-      const w = s.woerter!;
-      const luecke = (w[j - 1]!.bis + w[j]!.von) / 2;
-      const { plan } = bau([text], mat(s));
-      expect(plan.clips.slice(1).some((c) => Math.abs(c.von - luecke) < 1e-3), `Lücke vor Wort ${j}`).toBe(true);
-      for (const c of plan.clips) expect(c.bis - c.von).toBeLessThanOrEqual(1.5 + 1e-6);
-    }
-  });
-
-  it("setzt den Zoom-Punch bei jedem zweiten Schnitt", () => {
-    const { plan } = bau([Z1, Z2], mat(satz(3, Z1), satz(20, Z2)));
-    const n = plan.clips.length;
-    expect(n).toBeGreaterThanOrEqual(2);
-    plan.clips.forEach((c, i) => expect(c.zoom).toBe(i % 2 === 1 ? ZOOM_STUFE.mittel : 1));
-  });
-
-  it("zoomt bei «langsam» nicht und teilt auch nicht", () => {
-    const text = "Wir haben diese Woche in Gossau eine Küche mit viel Stauraum komplett für eine Familie umgebaut.";
-    const { plan } = bau([text, Z2], mat(satz(10, text), satz(30, Z2)), { profil: { ...STANDARD_SCHNITTPROFIL, zoomTempo: "langsam" } });
+    const { plan } = bau([text, Z2], mat(satz(10, text), satz(30, Z2)));
     expect(plan.clips).toHaveLength(2);
     expect(plan.clips.every((c) => c.zoom === 1)).toBe(true);
   });
 
-  it("nimmt die Stufe aus dem Zoom-Tempo", () => {
+  it("zoomt auch bei Zoom-Tempo «schnell» nicht von allein", () => {
     const { plan } = bau([Z1, Z2], mat(satz(3, Z1), satz(20, Z2)), { profil: { ...STANDARD_SCHNITTPROFIL, zoomTempo: "schnell" } });
-    expect(plan.clips[1]!.zoom).toBe(ZOOM_STUFE.schnell);
+    expect(plan.clips.every((c) => c.zoom === 1)).toBe(true);
+  });
+
+  it("verschmilzt Stücke unter minClip mit dem Nachbarn, die Pause bleibt im Clip", () => {
+    // sechs Wörter à 0,3 s, vor Wort 1, 2 und 4 je 0,5 s Pause: Läufe aus einem oder zwei Wörtern, jeder unter 0,7 s
+    const s = satz(10, "Wir haben diese Woche eine Küche", { 1: 0.5, 2: 0.5, 4: 0.5 });
+    const { plan, markierungen } = bau(["Wir haben diese Woche eine Küche"], mat(s));
+    for (const c of plan.clips) expect(c.bis - c.von).toBeGreaterThanOrEqual(0.7 - 1e-6);
+    expect(markierungen.some((m) => m.art === "verschmolzen")).toBe(true);
+    // Gegenprobe: ohne minClip bleiben es die kurzen Stücke
+    const roh = bau(["Wir haben diese Woche eine Küche"], mat(s), { profil: { ...STANDARD_SCHNITTPROFIL, minClip: 0 } }).plan;
+    expect(roh.clips.length).toBeGreaterThan(plan.clips.length);
   });
 });
 
-describe("teileEinstellung", () => {
-  /** Wörter von `dauer` Sekunden, 0,05 s Abstand; vor Wort `luecke` eine Pause von 0,24 s; Wort `komma` endet mit Komma. */
-  const woerter = (n: number, o: { luecke?: number; komma?: number; dauer?: number } = {}): TWort[] => {
-    let t = 0;
-    return Array.from({ length: n }, (_, i) => {
-      t += i === o.luecke ? 0.24 : 0;
-      const von = t;
-      t += o.dauer ?? 0.3;
-      const bis = t;
-      t += 0.05;
-      return { text: i === o.komma ? `w${i},` : `w${i}`, von, bis, echt: true };
-    });
-  };
-  const schnitte = (w: TWort[], grenze = 1.5): number[] => teileEinstellung(w, 0, w[w.length - 1]!.bis, grenze).slice(1).map((x) => x.von);
-  const laengen = (w: TWort[], grenze = 1.5): number[] => teileEinstellung(w, 0, w[w.length - 1]!.bis, grenze).map((x) => x.bis - x.von);
+describe("verschmelzeKleine", () => {
+  const w = (von: number, bis: number): TWort => ({ text: "x", von, bis, echt: true });
+  it("lässt genügend lange Läufe stehen", () => {
+    const r = verschmelzeKleine([[w(0, 1)], [w(2, 3)]], 0.7, 0.3);
+    expect(r.laeufe).toHaveLength(2);
+  });
+  it("verschmilzt einen kurzen Lauf mit dem folgenden und den letzten mit dem vorigen", () => {
+    expect(verschmelzeKleine([[w(0, 0.2)], [w(1, 2)]], 0.7, 0.3).laeufe).toHaveLength(1);
+    expect(verschmelzeKleine([[w(0, 1)], [w(2, 2.1)]], 0.7, 0.3).laeufe).toHaveLength(1);
+  });
+  it("überbrückt einen harten Bruch nie (dort wurde ein Füllwort herausgeschnitten)", () => {
+    const r = verschmelzeKleine([[w(0, 0.2)], [w(1, 1.1)]], 0.7, 0.3, [true, false]);
+    expect(r.laeufe).toHaveLength(2);
+  });
+});
 
-  it("lässt einen kurzen Clip ganz", () => {
-    const w = woerter(4);
-    expect(teileEinstellung(w, 0, w[3]!.bis, 1.5)).toEqual([{ von: 0, bis: w[3]!.bis }]);
+describe("rasteEin", () => {
+  const stille = [{ von: 5.1, bis: 5.6 }];
+  it("verlängert das Ende bis kurz nach dem Beginn der Stille, wenn Whisper das Wort zu früh beendet hat", () => {
+    const r = rasteEin({ von: 4.0, bis: 4.95 }, stille, { von: 4.2, bis: 4.85, danach: 5.7 });
+    expect(r.bis).toBeCloseTo(5.1 + 0.14, 3);
+  });
+  it("schneidet nie in das nächste Wort", () => {
+    const r = rasteEin({ von: 4.0, bis: 4.95 }, stille, { von: 4.2, bis: 4.85, danach: 5.15 });
+    expect(r.bis).toBeLessThanOrEqual(5.15 - 0.03 + 1e-9);
+  });
+  it("lässt das Ende, wenn keine Stille in der Nähe liegt", () => {
+    expect(rasteEin({ von: 4.0, bis: 4.95 }, [{ von: 9, bis: 9.5 }], { von: 4.2, bis: 4.85 }).bis).toBe(4.95);
+  });
+  it("beginnt kurz vor dem echten Einsatz, wenn Whisper das Wort zu spät beginnen lässt", () => {
+    const r = rasteEin({ von: 5.12, bis: 6 }, [{ von: 4.5, bis: 5.0 }], { von: 5.2, bis: 5.9 });
+    expect(r.von).toBeCloseTo(5.0 - 0.07, 3);
+  });
+  it("lässt den Anfang nicht vor das Ende des Wortes davor rutschen", () => {
+    const r = rasteEin({ von: 5.3, bis: 6 }, [{ von: 4.9, bis: 5.3 }], { von: 5.4, bis: 5.9, davor: 5.27 });
+    expect(r.von).toBeGreaterThanOrEqual(5.27 + 0.02 - 1e-9);
+  });
+  it("ignoriert Stillen unter 60 Millisekunden", () => {
+    expect(rasteEin({ von: 4.0, bis: 4.95 }, [{ von: 5.0, bis: 5.05 }], { von: 4.2, bis: 4.85 }).bis).toBe(4.95);
+  });
+});
+
+describe("bauePlan: Stille, Regie und Füllwörter", () => {
+  it("nimmt die Stille der Tonspur für Anfang und Ende des Clips", () => {
+    const s = satz(10, Z2);
+    const ende = s.bis;
+    const stille = new Map([["a", [{ von: ende + 0.05, bis: ende + 0.9 }]]]);
+    const { plan } = bau([Z2], mat(s), { stille });
+    expect(plan.clips[plan.clips.length - 1]!.bis).toBeCloseTo(ende + 0.05 + 0.14, 2);
+    // Gegenprobe: ohne Stille gilt der Nachlauf
+    expect(bau([Z2], mat(s)).plan.clips[0]!.bis).toBeCloseTo(ende + NACHLAUF, 2);
   });
 
-  it("teilt lückenlos: jedes Stück beginnt, wo das vorige endet, und die Summe bleibt die Dauer", () => {
-    const w = woerter(10);
-    const teile = teileEinstellung(w, 0, w[9]!.bis, 1.5);
-    for (let i = 1; i < teile.length; i++) expect(teile[i]!.von).toBe(teile[i - 1]!.bis);
-    expect(teile[0]!.von).toBe(0);
-    expect(teile[teile.length - 1]!.bis).toBe(w[9]!.bis);
+  it("schneidet ein kurzes Füllwort restlos heraus, auch wenn der Abstand unter der längsten Pause liegt", () => {
+    // «ähm» dauert 0,15 s mit 0,05 s Abstand: Wörter links und rechts liegen nur 0,25 s auseinander (unter 0,4 s)
+    const s = segment(10, [["Wir", 0.3], ["haben", 0.3], ["diese", 0.3], ["Woche", 0.3], ["ähm", 0.15], ["eine", 0.3], ["Küche", 0.3], ["komplett", 0.4], ["umgebaut.", 0.5]]);
+    const aem = s.woerter![4]!;
+    const { plan } = bau([Z1], mat(s));
+    const mitte = (aem.von + aem.bis) / 2;
+    expect(plan.clips.some((c) => mitte > c.von && mitte < c.bis)).toBe(false);
+    // und kein Clip streift es am Rand
+    expect(plan.clips.some((c) => aem.von < c.bis - 1e-6 && aem.bis > c.von + 1e-6)).toBe(false);
   });
 
-  it("zieht eine Lücke zwischen Wörtern einem gleichmässigeren Schnitt mitten im Satz vor", () => {
-    const w = woerter(9, { luecke: 4 });
-    const mitte = (w[3]!.bis + w[4]!.von) / 2;
-    expect(schnitte(w)[0]).toBeCloseTo(mitte, 6);
-    expect(Math.max(...laengen(w))).toBeLessThanOrEqual(1.5);
+  it("schneidet eine Regieanweisung im Take heraus und vermerkt sie", () => {
+    const s = satz(10, "Wir haben diese Woche okay eine Küche komplett umgebaut.");
+    const okay = s.woerter![4]!;
+    const { plan, markierungen } = bau([Z1], mat(s));
+    expect(markierungen.some((m) => m.art === "regie" && /okay/.test(m.text))).toBe(true);
+    const mitte = (okay.von + okay.bis) / 2;
+    expect(plan.clips.some((c) => mitte > c.von && mitte < c.bis)).toBe(false);
+    expect(plan.woerter.some((w) => /okay/i.test(w.text))).toBe(false);
   });
 
-  it("zieht eine Stelle nach einem Komma vor", () => {
-    const w = woerter(7, { komma: 3 });
-    expect(schnitte(w)[0]).toBeCloseTo((w[3]!.bis + w[4]!.von) / 2, 6);
-  });
-
-  it("wählt die Schnitte so, dass kein Stück über die Grenze hinaus wächst, wenn das möglich ist", () => {
-    const w = woerter(9, { luecke: 2 });
-    expect(Math.max(...laengen(w))).toBeLessThanOrEqual(1.5);
+  it("lässt ein Wort stehen, das zum Skript gehört, auch wenn es sonst eine Regieanweisung wäre", () => {
+    const skript = "Dann sagte er okay und ging nach Hause.";
+    const { plan, markierungen } = bau([skript], mat(satz(10, skript)));
+    expect(markierungen.some((m) => m.art === "regie")).toBe(false);
+    expect(plan.woerter.map((w) => w.text)).toContain("okay");
   });
 });
 
@@ -232,14 +258,15 @@ describe("bauePlan: fehlende Zeilen, Abweichungen und Fehler", () => {
     expect(plan.clips.some((c) => mitte > c.von && mitte < c.bis)).toBe(true);
   });
 
-  it("nimmt für die Untertitel standardmässig den Skripttext und auf Wunsch den gesprochenen", () => {
+  it("nimmt für die Untertitel standardmässig das Gehörte und auf Wunsch den Skripttext", () => {
     const text = "Wir haben diese Woche eine Küche komplett neu umgebaut.";
     const s = satz(10, text);
-    const skript = bau([Z1], mat(s)).plan.woerter.map((w) => w.text).join(" ");
-    expect(skript).toBe(Z1);
-    const gesprochen = bau([Z1], mat(s), { gesprochen: [1] });
-    expect(gesprochen.plan.woerter.map((w) => w.text).join(" ")).toBe(text);
-    expect(gesprochen.markierungen.some((m) => m.art === "gesprochen")).toBe(true);
+    const gehoert = bau([Z1], mat(s));
+    expect(gehoert.plan.woerter.map((w) => w.text).join(" ")).toBe(text);
+    expect(gehoert.markierungen.some((m) => m.art === "gesprochen")).toBe(true);
+    const skript = bau([Z1], mat(s), { untertitel: "skript" });
+    expect(skript.plan.woerter.map((w) => w.text).join(" ")).toBe(Z1);
+    expect(bau([Z1], mat(s), { untertitel: "skript", gesprochen: [1] }).plan.woerter.map((w) => w.text).join(" ")).toBe(text);
   });
 });
 

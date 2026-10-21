@@ -80,7 +80,7 @@ export function normiere(wort: string): string {
 
 const istZahl = (n: string): boolean => /^\d+$/.test(n) || ZAHLWOERTER.has(n);
 
-function abstand(a: string, b: string): number {
+export function abstand(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
   let vor = Array.from({ length: n + 1 }, (_, j) => j);

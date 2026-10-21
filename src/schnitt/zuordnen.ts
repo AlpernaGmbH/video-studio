@@ -3,6 +3,7 @@ import type { Markenprofil } from "../core/schemas";
 import type { StudioHome } from "../setup";
 import { messePegel, ordneZuMitPegel } from "./energie";
 import { bauePlan, type Markierung } from "./planbau";
+import type { Stille } from "./stille";
 import type { Schnittplan, SchnittQuelle } from "./plan";
 import type { Segment } from "./transkript";
 import { loesePfad } from "./uebergabe";
@@ -22,8 +23,12 @@ export interface ZuordnenEingabe {
   transkripte: { quelle: string; segmente: Segment[] }[];
   name: string;
   inhalt?: string;
-  /** Zeilen, deren Untertitel den gesprochenen statt den Skripttext nehmen. */
+  /** Zeilen, deren Untertitel den gesprochenen Text nehmen, auch wenn `untertitel` «skript» ist. */
   gesprochen?: number[];
+  /** Untertitel nach dem Gehörten (Standard) oder nach dem Skript. */
+  untertitel?: "gehoert" | "skript";
+  /** Stille je Quelle (ffmpeg silencedetect), damit Schnitte in der Stille landen. */
+  stille?: ReadonlyMap<string, Stille[]>;
   home?: StudioHome;
   ohnePegel?: boolean;
 }
@@ -58,6 +63,8 @@ export async function fuehreZuordnungAus(e: ZuordnenEingabe): Promise<ZuordnenEr
     quellen: e.quellen,
     ...(e.marke.schnittprofil ? { profil: e.marke.schnittprofil } : {}),
     gesprochen: e.gesprochen ?? [],
+    ...(e.untertitel ? { untertitel: e.untertitel } : {}),
+    ...(e.stille ? { stille: e.stille } : {}),
   });
   return { plan, zuordnung, markierungen, pegelNotiz };
 }

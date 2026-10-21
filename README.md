@@ -42,21 +42,22 @@ Alle Befehle laufen über den Starter **`./studio`** im Ordner des Repos (nicht 
 ./studio schnitt transkribiere <aufnahme.mov>
 ```
 
-## Ein Reel bauen, vier Befehle
+## Ein Reel bauen
 
-Feste Ordner: Skript und Ergebnisse unter `Studio/inhalte/<ID>/`, die Videos unter `rohmaterial/<ID>/` (Medien-Ordner). `<ID>` ist die Kennung des Inhalts, zum Beispiel `c-0007`.
+Feste Ordner: Skript und Ergebnisse unter `Studio/inhalte/<ID>/`, die Videos unter `rohmaterial/<ID>/` (Medien-Ordner). `<ID>` ist die Kennung aus «Inhalte» (`c-0007`). Im Alltag tippst du das nicht: Claude Code auf dem Mac führt es aus, wenn du sagst «Editier mir das Video».
 
 ```sh
 ./studio reel neu c-0007 --marke alperna --zwischenablage   # Skript vorher kopieren; legt die Ordner an und öffnet den für die Videos
-# Videos in den geöffneten Ordner kopieren, dann:
-./studio reel vorbereiten c-0007                            # Whisper, Zuordnung, Schnittplan, Auftrag (landet in der Zwischenablage)
-# Auftrag im Chat an Claude geben, die Antwort kopieren, dann:
-./studio reel storyboard c-0007 --zwischenablage            # prüft, rendert Grafiken, macht Kontaktbogen und Vorschau-Video und öffnet beide
+./studio reel transkript c-0007                             # ohne Skript, oder wenn es nicht stimmt: Sätze mit Zeiten zum Auswählen
+./studio reel vorbereiten c-0007                            # Whisper, Stille, Zuordnung, Schnittplan, ergebnis/gegenlesen.md
+./studio reel gegenlesen c-0007                             # Claude hat gegenlesen.md gelesen (Regie, Abbrüche, Verhörer); schreibt den Auftrag fürs Storyboard
+./studio reel storyboard c-0007 --zwischenablage            # Grafiken, B-Roll, Betonung, Zooms; rendert, macht Kontaktbogen und Vorschau-Video
 ./studio reel uebergabe c-0007                              # Ordner für DaVinci Resolve
 ./studio reel status                                        # wo steht welcher Inhalt, was ist der nächste Schritt
 ```
 
-`vorbereiten` lässt vorhandene Transkripte stehen (neuere Videos oder `--neu` transkribieren erneut) und merkt sich Marke und Titel in `reel.json`. Ein neues Storyboard ersetzt das alte, das vorige bleibt als `storyboard-vorher.json`.
+`vorbereiten` lässt vorhandene Transkripte stehen (neuere Videos oder `--neu` transkribieren erneut), misst die Stille der Tonspur, damit Schnitte nicht in Silben fallen, und merkt sich Marke und Titel in `reel.json`. Die Untertitel zeigen das Gehörte, denn das Skript stimmt nicht immer. Ohne gültiges Gegenlesen läuft `reel storyboard` nicht.
+Zooms gibt es nur im Storyboard, nur auf betonten Wörtern und höchstens so viele je Minute, wie das Schnittprofil der Marke sagt. Ein neues Storyboard ersetzt das alte, das vorige bleibt als `storyboard-vorher.json`.
 Solange kein Stück «aktiv» ist, gibt es keine Grafiken ohne `--entwurf` (Regel 3). Die Einzelschritte bleiben als `./studio schnitt …` erreichbar.
 
 ## Wo was liegt

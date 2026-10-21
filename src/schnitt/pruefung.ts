@@ -140,9 +140,15 @@ export function pruefeSchnittplan(plan: Schnittplan, ctx: PruefKontext = {}): Be
   // Regeln des Schnittprofils
   const p = ctx.profil;
   if (p) {
-    // Bildwechsel: Schnitt, B-Roll oder Grafik, spätestens alle `laengsteEinstellung` Sekunden
+    // Bildwechsel: Sprung im Schnitt, B-Roll oder Grafik, spätestens alle `laengsteEinstellung` Sekunden
     const punkte = new Set<number>([0, gesamt]);
-    for (const c of zeit.clips) punkte.add(sekunden(c.startFrame, fps));
+    // Ein Clip, der dort weiterläuft, wo der vorige aufhörte (Zoom-Teilung), ist kein Bildwechsel: Ein Zoom zählt nicht (Plan v4)
+    let vorher: (typeof zeit.clips)[number] | undefined;
+    for (const c of zeit.clips) {
+      const weiter = vorher && vorher.clip.quelle === c.clip.quelle && Math.abs(c.clip.von - vorher.clip.bis) < 1e-3;
+      if (!weiter) punkte.add(sekunden(c.startFrame, fps));
+      vorher = c;
+    }
     for (const r of plan.broll) {
       punkte.add(sekunden(inFrames(r.t, fps), fps));
       punkte.add(sekunden(inFrames(r.t + r.dauer, fps), fps));

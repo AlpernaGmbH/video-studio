@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KatalogEintrag, Regel } from "../core/schemas";
+import { KatalogEintrag, Regel, type Schnittprofil } from "../core/schemas";
 import { stueckVerlauf, stueckZahl } from "../testing/fixtures";
 import { bauePlan } from "./planbau";
 import { SchnittQuelle, type Schnittplan } from "./plan";
@@ -77,7 +77,7 @@ describe("bauAuftrag", () => {
     Regel.parse({ id: "r-003", text: "Anderer Kunde: alles gross.", typ: "optik", marke: "kunde-x", status: "aktiv", beleg: { anzahl: 2, verweise: ["x"] }, freigabe: { wer: "Andrej", wann: "2026-10-10T10:00:00.000Z" } }),
     Regel.parse({ id: "r-004", text: "Vorschlag, noch nicht aktiv.", typ: "handwerk", status: "vorschlag", beleg: { anzahl: 1, verweise: ["x"] } }),
   ];
-  const text = bauAuftrag(plan, { stuecke: [stueckZahl(), stueckVerlauf({ id: "gebaut-karte", status: "gebaut", freigabe: undefined })], katalog, regeln, profil: { laengstePause: 0.25, laengsteEinstellung: 1.5, woerterJeUntertitel: { min: 2, max: 3 }, hookMaxSekunden: 2, zoomTempo: "mittel", textlaengen: {} } }).join("\n");
+  const text = bauAuftrag(plan, { stuecke: [stueckZahl(), stueckVerlauf({ id: "gebaut-karte", status: "gebaut", freigabe: undefined })], katalog, regeln, profil: { laengstePause: 0.25, laengsteEinstellung: 1.5, woerterJeUntertitel: { min: 2, max: 3 }, hookMaxSekunden: 2, zoomTempo: "mittel", zoom: { modus: "betonung", maxProMinute: 4 }, minClip: 0.7, textlaengen: {} } }).join("\n");
 
   it("nennt Projekt, Marke, Länge und das Schnittprofil", () => {
     expect(text).toContain("# Storyboard-Auftrag: Küche Gossau");
@@ -89,7 +89,7 @@ describe("bauAuftrag", () => {
   it("zeigt jede Zeile mit Zeiten der Timeline und nummerierten Wörtern", () => {
     expect(text).toMatch(/\*\*Zeile 1, 0,0 bis [\d,]+ s:\*\* Wir haben diese Woche eine Küche komplett umgebaut\./);
     expect(text).toMatch(/\*\*Zeile 2, [\d,]+ bis [\d,]+ s:\*\* Der Kunde wollte mehr Stauraum\./);
-    expect(text).toMatch(/Wörter \(Nummer, Wort, Sekunde\): 0 Wir 0,0; 1 haben/);
+    expect(text).toMatch(/Wörter \(Nummer, Wort, Sekunde\): 0 Wir 0,1; 1 haben/);
     // die Nummern sind die der Timeline-Reihenfolge, auch für die zweite Zeile
     expect(text).toMatch(/8 Der [\d,]+; 9 Kunde/);
   });
@@ -246,5 +246,85 @@ describe("LIESMICH nennt betonte Wörter", () => {
     expect(mit).toMatch(/- [\d,]+ s: Küche/);
     const ohne = liesmich({ plan: basis(), dauer: 5, seiten: 3, befunde: [], export: exp, audio: aud, umgewandelt: [], dateien: ["plan.json"] });
     expect(ohne).not.toContain("Betonte Wörter");
+  });
+});
+
+describe("wendeStoryboardAn: Zooms am Schluss", () => {
+  const profil: Schnittprofil = { laengstePause: 0.4, laengsteEinstellung: 5, woerterJeUntertitel: { min: 2, max: 3 }, hookMaxSekunden: 2, zoomTempo: "mittel", zoom: { modus: "betonung", maxProMinute: 20 }, minClip: 0.7, textlaengen: {} };
+  const kopf = { hook: "Warum deine Küche anders aussieht", overlays: [] };
+  const zoom = (wort: number, extra: Record<string, unknown> = {}) => ({ wort, dauer: 1.2, begruendung: "Betontes Wort, die Zahl soll hängen bleiben", ...extra });
+  const mit = (sb: Record<string, unknown>, p: Schnittprofil = profil) => wendeStoryboardAn(basis(), { ...kopf, ...sb }, ctx({ profil: p }));
+  const gezoomt = (r: ReturnType<typeof mit>) => r.plan.clips.filter((c) => c.zoom > 1);
+
+  it("setzt einen Zoom auf ein betontes Wort: Das Mittelstück bekommt die Stufe des Zoom-Tempos, die Länge bleibt", () => {
+    const vorher = platziere(basis()).gesamtFrames;
+    const r = mit({ betonung: [5], zooms: [zoom(5)] });
+    expect(r.verworfeneZooms).toEqual([]);
+    expect(r.zooms).toHaveLength(1);
+    expect(r.zooms[0]).toMatchObject({ wort: 5, text: "Küche", stufe: 1.1 });
+    expect(r.zooms[0]!.t).toBeCloseTo(r.betont[0]!.t - 0.1, 3);
+    expect(gezoomt(r)).toHaveLength(1);
+    expect(platziere(r.plan).gesamtFrames).toBe(vorher);
+  });
+
+  it("nimmt die Stufe aus dem Eintrag, wenn er eine nennt", () => {
+    const r = mit({ betonung: [5], zooms: [zoom(5, { stufe: 1.2 })] });
+    expect(gezoomt(r)[0]!.zoom).toBe(1.2);
+  });
+
+  it("verwirft einen Zoom auf einem Wort, das nicht betont ist", () => {
+    const r = mit({ betonung: [5], zooms: [zoom(9)] });
+    expect(r.verworfeneZooms[0]!.grund).toMatch(/nur auf betonten Wörtern: Wort 9/);
+    expect(gezoomt(r)).toHaveLength(0);
+  });
+
+  it("verwirft alle Zooms, wenn die Marke keine will (Modus «aus» oder Tempo «langsam»)", () => {
+    for (const p of [{ ...profil, zoom: { modus: "aus" as const, maxProMinute: 20 } }, { ...profil, zoomTempo: "langsam" as const }]) {
+      const r = mit({ betonung: [5], zooms: [zoom(5)] }, p);
+      expect(r.verworfeneZooms[0]!.grund).toMatch(/aus/);
+      expect(gezoomt(r)).toHaveLength(0);
+    }
+  });
+
+  it("begrenzt die Zahl auf das Schnittprofil: Bei 9 s Video und 4 je Minute ein Zoom", () => {
+    const p = { ...profil, zoom: { modus: "betonung" as const, maxProMinute: 4 } };
+    const r = mit({ betonung: [5, 13], zooms: [zoom(5), zoom(13)] }, p);
+    expect(r.zooms).toHaveLength(1);
+    expect(r.verworfeneZooms[0]!.grund).toMatch(/Mehr als 1 Zooms/);
+  });
+
+  it("verlangt einen Abstand von einer Sekunde zwischen zwei Zooms", () => {
+    const r = mit({ betonung: [4, 5], zooms: [zoom(4, { dauer: 0.8 }), zoom(5, { dauer: 0.8 })] });
+    expect(r.zooms).toHaveLength(1);
+    expect(r.verworfeneZooms[0]!.grund).toMatch(/zu nah am Zoom/);
+  });
+
+  it("lehnt einen ungültigen Eintrag einzeln ab, ohne das Storyboard zu kippen", () => {
+    const r = mit({ betonung: [5, 13], zooms: [{ wort: 5, dauer: 0.2, begruendung: "Betontes Wort, Zahl" }, zoom(13)] });
+    expect(r.verworfeneZooms[0]!.grund).toMatch(/Zoom ungültig: dauer/);
+    expect(r.zooms.map((z) => z.wort)).toEqual([13]);
+    const ohneBegruendung = mit({ betonung: [5], zooms: [{ wort: 5 }] });
+    expect(ohneBegruendung.verworfeneZooms[0]!.grund).toMatch(/begruendung/);
+  });
+
+  it("setzt ohne Schnittprofil keinen Zoom (Startwert: aus)", () => {
+    const r = wendeStoryboardAn(basis(), { ...kopf, betonung: [5], zooms: [zoom(5)] }, ctx());
+    expect(r.zooms).toHaveLength(0);
+    expect(r.verworfeneZooms).toHaveLength(1);
+  });
+
+  it("ersetzt die Zooms eines früheren Storyboards, statt sie zu sammeln", () => {
+    const eins = mit({ betonung: [5], zooms: [zoom(5)] });
+    const zwei = wendeStoryboardAn(eins.plan, { ...kopf, betonung: [13], zooms: [zoom(13)] }, ctx({ profil }));
+    expect(gezoomt(zwei)).toHaveLength(1);
+    expect(zwei.zooms[0]!.wort).toBe(13);
+  });
+
+  it("der Auftrag sagt, wann gezoomt werden darf und dass ein Zoom kein Bildwechsel ist", () => {
+    const text = bauAuftrag(basis(), { stuecke: [], katalog: [], profil }).join("\n");
+    expect(text).toContain("Zooms nur auf betonten Wörtern, höchstens 20 je Minute");
+    expect(text).toContain("ein Zoom zählt nicht als Bildwechsel");
+    const aus = bauAuftrag(basis(), { stuecke: [], katalog: [], profil: { ...profil, zoom: { modus: "aus", maxProMinute: 4 } } }).join("\n");
+    expect(aus).toContain("Keine Zooms");
   });
 });

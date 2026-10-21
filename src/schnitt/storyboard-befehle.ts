@@ -84,15 +84,17 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
     brollQuellen.set(key, SchnittQuelle.parse({ id: `broll-${key}`, pfad: k.pfad, ...(await sondiere(abs)) }));
   }
 
-  const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive });
+  const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive, ...(marke.schnittprofil ? { profil: marke.schnittprofil } : {}) });
   fs.writeFileSync(ausDatei, `${JSON.stringify(r.plan, null, 2)}\n`);
 
   console.log(`Hook: ${r.storyboard.hook}`);
-  console.log(`Übernommen: ${r.plan.overlays.length} Grafiken, ${r.plan.broll.length} B-Roll, ${r.betont.length} betonte Wörter`);
-  if (r.verworfen.length) {
+  console.log(`Übernommen: ${r.plan.overlays.length} Grafiken, ${r.plan.broll.length} B-Roll, ${r.betont.length} betonte Wörter, ${r.zooms.length} Zooms`);
+  if (r.verworfen.length || r.verworfeneZooms.length) {
     console.log("\nVerworfen:");
     for (const v of r.verworfen) console.log(`  Eintrag ${v.index + 1}: ${v.grund}`);
+    for (const v of r.verworfeneZooms) console.log(`  Zoom ${v.index + 1}: ${v.grund}`);
   }
+  for (const zz of r.zooms) console.log(`Zoom auf «${zz.text}» bei ${zz.t.toFixed(1).replace(".", ",")} s, ${zz.dauer.toFixed(1).replace(".", ",")} s lang, ${zz.stufe.toFixed(2).replace(".", ",")}-fach`);
   for (const w of r.warnungen) console.log(`Hinweis: ${w}`);
   if (notiz) console.log(`Hinweis: ${notiz}`);
   if (nichtDa.length) console.log(`Hinweis: B-Roll-Dateien nicht auf diesem Rechner: ${nichtDa.join(", ")}`);

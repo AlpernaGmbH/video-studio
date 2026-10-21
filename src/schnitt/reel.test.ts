@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseArgs } from "../args";
 import { rendereStueck, umgebung, type Umgebung } from "../motion/werkstatt";
 import { leseSchnittplan } from "./plan";
-import { listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, type ReelGeraete, type ReelZustand } from "./reel";
+import { listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, transkriptMarkdown, type ReelGeraete, type ReelZustand } from "./reel";
 import { testSatz } from "./testdaten";
 import type { Segment } from "./transkript";
 
@@ -21,10 +21,11 @@ const root = path.resolve(import.meta.dirname, "..", "..");
 /* ---------- reine Helfer ---------- */
 
 describe("pruefeInhaltId", () => {
-  it("nimmt Kennungen wie c-0007 und lehnt alles ab, was einen Pfad verlassen könnte", () => {
+  it("nimmt die Kennung aus «Inhalte» (c-0007) und lehnt alles andere ab, auch was einen Pfad verlassen könnte", () => {
     expect(pruefeInhaltId("c-0007")).toBe("c-0007");
-    expect(pruefeInhaltId("Reel_2")).toBe("Reel_2");
-    for (const schlecht of ["../x", "a/b", "a\\b", "-x", ".versteckt", "mit leer", "ü", "x".repeat(65)]) expect(() => pruefeInhaltId(schlecht), schlecht).toThrow(/gültige Inhalt-ID/);
+    expect(pruefeInhaltId("c-1234")).toBe("c-1234");
+    // der Schnittplan kennt nur diese Form (projekt.inhalt): alles andere scheiterte erst beim Bauen des Plans
+    for (const schlecht of ["Reel_2", "c-007", "c-00007", "C-0007", "../x", "a/b", "a\\b", "-x", ".versteckt", "mit leer", "ü", "c-0007/../x"]) expect(() => pruefeInhaltId(schlecht), schlecht).toThrow(/gültige Inhalt-ID/);
     expect(() => pruefeInhaltId(undefined)).toThrow(/ID fehlt/);
     expect(() => pruefeInhaltId("")).toThrow(/ID fehlt/);
   });
@@ -75,11 +76,12 @@ describe("listeAufnahmen", () => {
 });
 
 describe("naechsterSchritt", () => {
-  const z = (x: Partial<ReelZustand>): ReelZustand => ({ skript: true, aufnahmen: 1, plan: true, auftrag: true, storyboard: true, planStoryboard: true, vorschau: true, resolve: false, ...x });
+  const z = (x: Partial<ReelZustand>): ReelZustand => ({ skript: true, aufnahmen: 1, plan: true, gegenlesen: true, auftrag: true, storyboard: true, planStoryboard: true, vorschau: true, resolve: false, ...x });
   it("führt der Reihe nach durch den Ablauf", () => {
     expect(naechsterSchritt("c-1", z({ skript: false }))).toMatch(/reel neu c-1 --zwischenablage/);
     expect(naechsterSchritt("c-1", z({ aufnahmen: 0 }))).toMatch(/rohmaterial\/c-1\/.*reel vorbereiten c-1/);
     expect(naechsterSchritt("c-1", z({ plan: false }))).toBe("«./studio reel vorbereiten c-1»");
+    expect(naechsterSchritt("c-1", z({ gegenlesen: false, storyboard: false }))).toMatch(/gegenlesen\.md.*gegenlesen\.json.*reel gegenlesen c-1/);
     expect(naechsterSchritt("c-1", z({ storyboard: false, planStoryboard: false }))).toMatch(/reel storyboard c-1 --zwischenablage/);
     expect(naechsterSchritt("c-1", z({ planStoryboard: false }))).toBe("«./studio reel storyboard c-1»");
     expect(naechsterSchritt("c-1", z({}))).toMatch(/reel uebergabe c-1/);
@@ -232,7 +234,17 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     return { ...w, video };
   };
 
-  it("vorbereiten: sondiert, transkribiert, ordnet zu und schreibt Plan, Bericht, Auftrag und reel.json; der Auftrag liegt in der Zwischenablage", async () => {
+  /** Wie `vorbereitet`, dazu ein Gegenlesen ohne Befund (Claude hat gelesen und nichts gefunden). */
+  const bereit = async (): Promise<{ aufrufe: () => number; video: string }> => {
+    const r = await vorbereitet();
+    fs.writeFileSync(studio("inhalte", "c-0007", "ergebnis", "gegenlesen.json"), JSON.stringify({ gelesen: true, schnitte: [], woerter: [] }));
+    expect(await lauf("reel", "gegenlesen", "c-0007", "--nicht-kopieren")).toBe(0);
+    ausgabe.length = 0;
+    kopiert.length = 0;
+    return r;
+  };
+
+  it("vorbereiten: sondiert, transkribiert, ordnet zu und schreibt Plan, Bericht, Gegenlesen und reel.json; Auftrag und Zwischenablage kommen erst nach dem Gegenlesen", async () => {
     const { aufrufe } = await vorbereitet();
     expect(aufrufe()).toBe(1);
     const e = (n: string): string => studio("inhalte", "c-0007", "ergebnis", n);
@@ -243,13 +255,19 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     expect(JSON.parse(fs.readFileSync(e("quellen.json"), "utf8"))[0]).toMatchObject({ id: "sprache-01", art: "video", fps: 25, hatAudio: true });
     expect(JSON.parse(fs.readFileSync(e("bericht.json"), "utf8")).zuordnung.zeilen).toHaveLength(3);
     expect(fs.existsSync(e(path.join("transkripte", "sprache-01.json")))).toBe(true);
-    expect(fs.readFileSync(e("auftrag.md"), "utf8")).toContain("# Storyboard-Auftrag: Küche Gossau");
-    expect(kopiert).toEqual([fs.readFileSync(e("auftrag.md"), "utf8")]);
+    // das Gegenlesen steht vor dem Storyboard: kein Auftrag, keine Zwischenablage
+    expect(fs.existsSync(e("auftrag.md"))).toBe(false);
+    expect(kopiert).toEqual([]);
+    const lesen = fs.readFileSync(e("gegenlesen.md"), "utf8");
+    expect(lesen).toContain("# Gegenlesen: Küche Gossau");
+    expect(lesen).toContain(`- Gehört: «${Z1}»`);
+    expect(lesen.match(/^## Clip /gm)).toHaveLength(plan.clips.length);
+    expect(fs.readFileSync(e("plan-vor-gegenlesen.json"), "utf8")).toBe(fs.readFileSync(e("plan.json"), "utf8"));
     expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toEqual({ schema: 1, id: "c-0007", marke: "alperna", name: "Küche Gossau" });
     const t = text();
     expect(t).toContain("Zugeordnet: 3 von 3 (100 Prozent");
     expect(t).toContain("Transkribiere 1 von 1: Sprache 01.mp4");
-    expect(t).toMatch(/reel storyboard c-0007 --zwischenablage/);
+    expect(t).toMatch(/Nächster Schritt: Gegenlesen[\s\S]*reel gegenlesen c-0007/);
     expect(t).toMatch(/Energie nicht gemessen|Bester/); // Pegel wird mit dem echten Material gemessen, wenn mehrere Takes da sind
   }, 120_000);
 
@@ -267,17 +285,34 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     expect(aufrufe()).toBe(3);
   }, 180_000);
 
-  it("vorbereiten: --nicht-kopieren lässt die Zwischenablage in Ruhe; --gesprochen und --name landen in reel.json", async () => {
+  it("vorbereiten: --gesprochen, --name und --untertitel landen in reel.json und bleiben beim nächsten Lauf; die Untertitel folgen standardmässig dem Gehörten", async () => {
     await vorbereitet();
-    kopiert.length = 0;
-    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--nicht-kopieren", "--gesprochen", "1,3", "--name", "Eigener Titel");
-    expect(kopiert).toEqual([]);
-    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toMatchObject({ name: "Eigener Titel", gesprochen: [1, 3] });
-    const plan = leseSchnittplan(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"), "utf8")));
-    expect(plan.projekt.name).toBe("Eigener Titel");
+    const plan = () => leseSchnittplan(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"), "utf8")));
+    expect(plan().woerter.map((w) => w.text).join(" ")).toBe(`${Z1} ${Z2} ${Z3}`);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--gesprochen", "1,3", "--name", "Eigener Titel", "--untertitel", "skript");
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toMatchObject({ name: "Eigener Titel", gesprochen: [1, 3], untertitel: "skript" });
+    expect(plan().projekt.name).toBe("Eigener Titel");
     // ein weiterer Lauf ohne die Schalter behält sie
-    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--nicht-kopieren");
-    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toMatchObject({ name: "Eigener Titel", gesprochen: [1, 3] });
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"))).toMatchObject({ name: "Eigener Titel", gesprochen: [1, 3], untertitel: "skript" });
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--untertitel", "quatsch")).rejects.toThrow(/gehoert.*skript/);
+  }, 120_000);
+
+  it("vorbereiten: rastet Anfang und Ende der Clips in die Stille der Tonspur ein; --ohne-stille lässt es", async () => {
+    zwischenablage = SKRIPT;
+    await lauf("reel", "neu", "c-0007", "--marke", "alperna", "--zwischenablage", "--nicht-oeffnen");
+    ersatzWhisper(whisperJson(testSatz(1, Z1), testSatz(10, Z2), testSatz(20, Z3)));
+    // Whisper beendet Zeile 1 bei 3,75 s, gesprochen wird bis 3,95 s: danach Stille
+    fs.mkdirSync(medien("rohmaterial", "c-0007"), { recursive: true });
+    ff("-f", "lavfi", "-i", "testsrc2=size=320x568:rate=25:duration=30", "-f", "lavfi", "-i", "aevalsrc='if(between(t,1,3.95)+between(t,10,11.9)+between(t,20,21.9),0.5*sin(2*PI*300*t),0)':s=48000:d=30", "-shortest", medien("rohmaterial", "c-0007", "Sprache 01.mp4"));
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    const plan = () => leseSchnittplan(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"), "utf8")));
+    const ende1 = (): number => plan().clips.filter((c) => c.zeile === 1).at(-1)!.bis;
+    expect(ende1()).toBeCloseTo(3.95 + 0.14, 1);
+    expect(text()).not.toContain("Stille nicht gemessen");
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--ohne-stille");
+    expect(ende1()).toBeCloseTo(3.75 + 0.22, 1);
+    expect(text()).toContain("Stille nicht gemessen (--ohne-stille)");
   }, 120_000);
 
   it("vorbereiten: klare Fehler für fehlendes Skript, leeren Aufnahmenordner und Dateien ausserhalb von Studio und Medien", async () => {
@@ -300,8 +335,99 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     expect(fs.existsSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"))).toBe(false);
   }, 60_000);
 
-  it("storyboard: Antwort aus der Zwischenablage (mit Text und Codezaun) wird gespeichert, angewendet, gerendert; Kontaktbogen und Vorschau entstehen und öffnen sich", async () => {
+  it("gegenlesen: schneidet Regie aus dem Plan, schreibt den Auftrag nach dem Gegenlesen und legt ihn in die Zwischenablage", async () => {
     await vorbereitet();
+    const e = (n: string): string => studio("inhalte", "c-0007", "ergebnis", n);
+    const roh = leseSchnittplan(JSON.parse(fs.readFileSync(e("plan.json"), "utf8")));
+    const c = roh.clips[0]!;
+    const w = roh.woerter.find((x) => x.text === "Woche")!;
+    fs.writeFileSync(e("gegenlesen.json"), JSON.stringify({ gelesen: true, schnitte: [{ quelle: "sprache-01", von: w.von - 0.02, bis: w.bis + 0.02, grund: "Regie: Zwischenruf" }], woerter: [{ quelle: "sprache-01", von: roh.woerter.find((x) => x.text === "Küche")!.von, bis: roh.woerter.find((x) => x.text === "Küche")!.bis, text: "Küchen", grund: "Verhörer: Whisper hörte das so" }] }));
+    ausgabe.length = 0;
+    expect(await lauf("reel", "gegenlesen", "c-0007")).toBe(0);
+    const neu = leseSchnittplan(JSON.parse(fs.readFileSync(e("plan.json"), "utf8")));
+    expect(neu.clips.length).toBe(roh.clips.length + 1);
+    expect(neu.woerter.map((x) => x.text)).not.toContain("Woche");
+    expect(neu.woerter.map((x) => x.text)).toContain("Küchen");
+    expect(neu.clips.some((x) => x.von < w.von && x.bis > w.von)).toBe(false);
+    expect(c.von).toBe(neu.clips[0]!.von);
+    // der Plan vor dem Gegenlesen bleibt, der Auftrag beruht auf dem neuen Plan, die Zwischenablage bekommt ihn
+    expect(JSON.parse(fs.readFileSync(e("plan-vor-gegenlesen.json"), "utf8")).clips).toHaveLength(roh.clips.length);
+    const auftrag = fs.readFileSync(e("auftrag.md"), "utf8");
+    expect(auftrag).toContain("# Storyboard-Auftrag: Küche Gossau");
+    expect(auftrag).not.toMatch(/\bWoche\b/);
+    expect(kopiert).toEqual([auftrag]);
+    expect(text()).toMatch(/Gegenlesen angewendet: 1 Schnitte, 1 Wörter korrigiert/);
+    expect(text()).toMatch(/reel storyboard c-0007 --zwischenablage/);
+  }, 120_000);
+
+  it("gegenlesen: zweimal ausgeführt ergibt dasselbe, eine geänderte Antwort ersetzt die vorige", async () => {
+    await vorbereitet();
+    const e = (n: string): string => studio("inhalte", "c-0007", "ergebnis", n);
+    const roh = leseSchnittplan(JSON.parse(fs.readFileSync(e("plan.json"), "utf8")));
+    const w = roh.woerter.find((x) => x.text === "Woche")!;
+    const schnitt = { quelle: "sprache-01", von: w.von - 0.02, bis: w.bis + 0.02, grund: "Regie: Zwischenruf" };
+    fs.writeFileSync(e("gegenlesen.json"), JSON.stringify({ gelesen: true, schnitte: [schnitt] }));
+    await lauf("reel", "gegenlesen", "c-0007", "--nicht-kopieren");
+    const eins = fs.readFileSync(e("plan.json"), "utf8");
+    await lauf("reel", "gegenlesen", "c-0007", "--nicht-kopieren");
+    expect(fs.readFileSync(e("plan.json"), "utf8")).toBe(eins);
+    fs.writeFileSync(e("gegenlesen.json"), JSON.stringify({ gelesen: true }));
+    await lauf("reel", "gegenlesen", "c-0007", "--nicht-kopieren");
+    expect(fs.readFileSync(e("plan.json"), "utf8")).toBe(fs.readFileSync(e("plan-vor-gegenlesen.json"), "utf8"));
+    expect(kopiert).toEqual([]);
+  }, 120_000);
+
+  it("gegenlesen: nimmt die Antwort auch aus der Zwischenablage (mit Text und Codezaun) und verlangt «gelesen»", async () => {
+    await vorbereitet();
+    zwischenablage = "Hier das Ergebnis:\n```json\n" + JSON.stringify({ gelesen: true, schnitte: [], woerter: [] }) + "\n```";
+    expect(await lauf("reel", "gegenlesen", "c-0007", "--zwischenablage", "--nicht-kopieren")).toBe(0);
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "gegenlesen.json"), "utf8")).gelesen).toBe(true);
+    zwischenablage = JSON.stringify({ gelesen: false });
+    await expect(lauf("reel", "gegenlesen", "c-0007", "--zwischenablage")).rejects.toThrow(/gelesen/);
+    zwischenablage = "Kein JSON hier.";
+    await expect(lauf("reel", "gegenlesen", "c-0007", "--zwischenablage")).rejects.toThrow(/kein JSON/);
+  }, 120_000);
+
+  it("gegenlesen: ohne Plan und ohne Antwort gibt es klare Fehler", async () => {
+    await expect(lauf("reel", "gegenlesen", "c-0007")).rejects.toThrow(/zuerst «.\/studio reel vorbereiten c-0007»/);
+    await vorbereitet();
+    await expect(lauf("reel", "gegenlesen", "c-0007")).rejects.toThrow(/Ergebnis des Gegenlesens fehlt.*gegenlesen\.md/s);
+  }, 120_000);
+
+  it("storyboard: verweigert ohne Gegenlesen und wenn der Plan seither neu gebaut wurde; --ohne-gegenlesen ist die ausdrückliche Ausnahme", async () => {
+    await vorbereitet();
+    zwischenablage = antwort([]);
+    await expect(lauf("reel", "storyboard", "c-0007", "--zwischenablage", "--entwurf")).rejects.toThrow(/Gegenlesen fehlt oder gilt nicht mehr.*reel gegenlesen c-0007/s);
+    expect(fs.existsSync(studio("inhalte", "c-0007", "ergebnis", "storyboard.json"))).toBe(false);
+    // mit Gegenlesen geht es
+    fs.writeFileSync(studio("inhalte", "c-0007", "ergebnis", "gegenlesen.json"), JSON.stringify({ gelesen: true }));
+    await lauf("reel", "gegenlesen", "c-0007", "--nicht-kopieren");
+    mockRender();
+    expect(await lauf("reel", "storyboard", "c-0007", "--zwischenablage", "--entwurf", "--ohne-vorschau", "--nicht-oeffnen")).toBe(0);
+    // ein neuer Plan entwertet das Gegenlesen
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    await expect(lauf("reel", "storyboard", "c-0007", "--entwurf", "--ohne-vorschau")).rejects.toThrow(/Gegenlesen fehlt oder gilt nicht mehr/);
+    // und von Hand geänderte plan.json auch
+    expect(await lauf("reel", "storyboard", "c-0007", "--entwurf", "--ohne-vorschau", "--nicht-oeffnen", "--ohne-gegenlesen")).toBe(0);
+    expect(text()).toContain("Ohne Gegenlesen (--ohne-gegenlesen)");
+  }, 240_000);
+
+  it("transkript: schreibt die Sätze mit Zeiten zum Auswählen, ohne dass ein Skript da sein muss", async () => {
+    await lauf("reel", "neu", "c-0007", "--marke", "alperna", "--nicht-oeffnen");
+    ersatzWhisper(whisperJson(testSatz(1, "Und Action"), testSatz(3, Z1), testSatz(10, Z2)));
+    legeVideoAn("Sprache 01.mp4", 20);
+    expect(await lauf("reel", "transkript", "c-0007")).toBe(0);
+    const md = fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "transkript.md"), "utf8");
+    expect(md).toContain("# Transkript: c-0007");
+    expect(md).toMatch(/1\. \[1,0 bis [\d,]+ s\] Und Action/);
+    expect(md).toMatch(/2\. \[3,0 bis [\d,]+ s\] Wir haben diese Woche/);
+    expect(md).toContain("wörtlich");
+    expect(text()).toMatch(/skript\.md.*reel vorbereiten c-0007/s);
+    expect(fs.existsSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"))).toBe(false);
+  }, 120_000);
+
+  it("storyboard: Antwort aus der Zwischenablage (mit Text und Codezaun) wird gespeichert, angewendet, gerendert; Kontaktbogen und Vorschau entstehen und öffnen sich", async () => {
+    await bereit();
     const mock = mockRender();
     zwischenablage = antwort([zahl()]);
     ausgabe.length = 0;
@@ -320,7 +446,7 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
   }, 240_000);
 
   it("storyboard: ein zweites Storyboard ersetzt das erste und hebt das vorige auf; --ohne-vorschau, --ohne-rendern und --nicht-oeffnen werden beachtet", async () => {
-    await vorbereitet();
+    await bereit();
     const mock = mockRender();
     zwischenablage = antwort([zahl()]);
     await lauf("reel", "storyboard", "c-0007", "--zwischenablage", "--entwurf", "--ohne-vorschau", "--nicht-oeffnen");
@@ -337,7 +463,7 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
   }, 240_000);
 
   it("storyboard: schlägt ein Schritt fehl, laufen die nächsten trotzdem, und der Exit-Code ist 1 (hier: Grafik nicht gerendert, Vorschau unmöglich)", async () => {
-    await vorbereitet();
+    await bereit();
     mockRender();
     zwischenablage = antwort([zahl()]);
     ausgabe.length = 0;
@@ -350,7 +476,7 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
 
   it("storyboard: ohne Plan, ohne Storyboard und mit einer Antwort ohne JSON gibt es klare Fehler", async () => {
     await expect(lauf("reel", "storyboard", "c-0007")).rejects.toThrow(/zuerst «.\/studio reel vorbereiten c-0007»/);
-    await vorbereitet();
+    await bereit();
     await expect(lauf("reel", "storyboard", "c-0007")).rejects.toThrow(/Storyboard fehlt.*--zwischenablage/s);
     zwischenablage = "Das ist leider kein JSON.";
     await expect(lauf("reel", "storyboard", "c-0007", "--zwischenablage")).rejects.toThrow(/kein Storyboard als JSON/);
@@ -361,7 +487,7 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
   }, 120_000);
 
   it("uebergabe: schreibt den Resolve-Ordner; Stücke, die nicht aktiv sind, brauchen --entwurf; ein zweiter Lauf überschreibt nichts", async () => {
-    await vorbereitet();
+    await bereit();
     mockRender();
     zwischenablage = antwort([zahl()]);
     await lauf("reel", "storyboard", "c-0007", "--zwischenablage", "--entwurf", "--ohne-vorschau", "--nicht-oeffnen");
@@ -378,7 +504,7 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
 
   it("uebergabe: ohne Storyboard geht es mit der Sprache allein und sagt das; ohne Plan ist es ein Fehler", async () => {
     await expect(lauf("reel", "uebergabe", "c-0007")).rejects.toThrow(/zuerst «.\/studio reel vorbereiten c-0007»/);
-    await vorbereitet();
+    await bereit();
     ausgabe.length = 0;
     expect(await lauf("reel", "uebergabe", "c-0007")).toBe(0);
     expect(text()).toContain("Es gibt noch kein Storyboard");
@@ -402,11 +528,32 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     await lauf("reel", "status", "c-0007");
     expect(text()).toMatch(/Aufnahmen\s+1 Videos/);
     expect(text()).toMatch(/Plan\s+ja/);
+    expect(text()).toMatch(/Gegenlesen\s+nein/);
+    expect(text()).toMatch(/Nächster Schritt: ergebnis\/gegenlesen\.md vollständig lesen/);
+    fs.writeFileSync(studio("inhalte", "c-0007", "ergebnis", "gegenlesen.json"), JSON.stringify({ gelesen: true }));
+    await lauf("reel", "gegenlesen", "c-0007", "--nicht-kopieren");
+    ausgabe.length = 0;
+    await lauf("reel", "status", "c-0007");
+    expect(text()).toMatch(/Gegenlesen\s+ja/);
     expect(text()).toMatch(/Storyboard\s+nein/);
     ausgabe.length = 0;
     await lauf("reel", "status");
     expect(text()).toMatch(/^c-0007: Den Auftrag/m);
   }, 120_000);
+});
+
+describe("transkriptMarkdown", () => {
+  it("nummeriert die Sätze über alle Quellen und nennt die Zeiten der Quelldatei", () => {
+    const md = transkriptMarkdown("t", [
+      { quelle: "a", segmente: [{ von: 1, bis: 2.5, text: "Eins" }, { von: 3, bis: 4, text: "Zwei" }] },
+      { quelle: "b", segmente: [{ von: 0, bis: 1, text: "Drei" }] },
+    ]);
+    expect(md).toContain("## Quelle a");
+    expect(md).toContain("1. [1,0 bis 2,5 s] Eins");
+    expect(md).toContain("2. [3,0 bis 4,0 s] Zwei");
+    expect(md).toContain("## Quelle b");
+    expect(md).toContain("3. [0,0 bis 1,0 s] Drei");
+  });
 });
 
 describe("reel", () => {

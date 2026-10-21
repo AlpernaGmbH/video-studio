@@ -39,8 +39,9 @@ export type KatalogEintrag = z.infer<typeof KatalogEintrag>;
 /* ---------- Markenprofil (Bauplan Kap. 4) ---------- */
 
 /**
- * Schnittprofil (Plan v3, 9.1): Die Optik folgt der Marke, das Tempo dem Schnittprofil. Alperna: Optik ruhig, Schnitt schnell (Retention).
- * Eine Marke kann ruhig aussehen und schnell geschnitten sein, ein anderer Kunde umgekehrt.
+ * Schnittprofil (Plan v3, 9.1, geändert durch Plan v4): Die Optik folgt der Marke, das Tempo dem Schnittprofil. Alperna: ruhig und hochwertig.
+ * Ein Schnitt darf schnell sein, wenn er hochwertig aussieht; billig wirkt Hektik ohne Gestaltung. Darum gibt es keinen Zoom-Automatismus mehr:
+ * Zooms setzt das Storyboard am Schluss, nur auf betonten Wörtern (`zoom`).
  */
 export const Schnittprofil = z
   .object({
@@ -51,7 +52,12 @@ export const Schnittprofil = z
     woerterJeUntertitel: z.object({ min: z.number().int().min(1), max: z.number().int().min(1) }),
     /** Höchstens so viele Sekunden bis zur ersten Aussage. */
     hookMaxSekunden: z.number().positive(),
+    /** Stärke eines Zooms, den das Storyboard setzt: mittel = 1,1-fach, schnell = 1,15-fach. «langsam» heisst: keine Zooms. */
     zoomTempo: z.enum(["langsam", "mittel", "schnell"]),
+    /** Zoom nur nach dem Storyboard («betonung») oder nie («aus»), höchstens so viele je Minute. */
+    zoom: z.object({ modus: z.enum(["aus", "betonung"]), maxProMinute: z.number().min(0) }).default({ modus: "aus", maxProMinute: 4 }),
+    /** Kürzeste Einstellung in Sekunden. Kürzere Stücke werden mit dem Nachbarn verschmolzen, statt als Mikro-Schnitt zu flackern. */
+    minClip: z.number().min(0).default(0.7),
     /** Textlängen je Format (Zeichen), zum Beispiel {"linkedin-post": {"min": 400, "max": 1300}}. */
     textlaengen: z.record(z.object({ min: z.number().int().min(0), max: z.number().int().positive() })).default({}),
   })
@@ -228,11 +234,26 @@ export const Overlay = z.object({
 });
 export type Overlay = z.infer<typeof Overlay>;
 
+/** Ein Zoom auf einem betonten Wort (Plan v4: Zooms setzt das Storyboard am Schluss, nicht der Schnitt). */
+export const Zoom = z.object({
+  /** Nummer des betonten Wortes, wie in `betonung`. */
+  wort: z.number().int().min(0),
+  /** Dauer in Sekunden. Kürzer als 0,6 s wirkt wie ein Ruckler. */
+  dauer: z.number().min(0.6).max(3).default(1.2),
+  /** Faktor, 1,1 = 10 Prozent grösser. Fehlt er, gilt die Stufe des Zoom-Tempos der Marke. */
+  stufe: z.number().min(1.02).max(1.3).optional(),
+  /** Kein Zoom ohne Begründung. */
+  begruendung: z.string().min(5),
+});
+export type Zoom = z.infer<typeof Zoom>;
+
 export const Storyboard = z.object({
   hook: z.string().min(1),
   overlays: z.array(Overlay),
   /** Wortindizes, die betont werden */
   betonung: z.array(z.number().int().min(0)).default([]),
+  /** Zooms, nur auf betonten Wörtern. Einzeln geprüft: ein ungültiger Eintrag kippt das Storyboard nicht. */
+  zooms: z.array(z.unknown()).default([]),
   notiz: z.string().default(""),
 });
 export type Storyboard = z.infer<typeof Storyboard>;

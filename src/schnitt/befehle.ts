@@ -34,7 +34,8 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
                                       [--name "Titel"] [--inhalt c-0007] [--gesprochen 3,5] [--ohne-pegel] [--bericht bericht.json]
                                       Skript und Whisper-Transkript zu einem Schnittplan: pro Zeile der beste Take (Bauplan v2, Kap. 3.3), Pausen, Füllwörter und Bildwechsel
                                       nach dem Schnittprofil der Marke (Kap. 3.4). Die Quelle im Transkript ist die Kennung aus quellen.json (Ausgabe von «./studio schnitt sondiere»).
-                                      --gesprochen: Zeilen, deren Untertitel den gesprochenen statt den Skripttext nehmen. B-Roll, Grafiken und Musik kommen später ins Storyboard.
+                                      Die Untertitel nehmen das Gehörte (das Skript stimmt nicht immer), --untertitel skript nimmt den Skripttext, --gesprochen 3,5 das Gehörte nur für diese Zeilen.
+                                      B-Roll, Grafiken, Zooms und Musik kommen später ins Storyboard.
   schnitt auftrag --plan plan.json [--katalog katalog.json] [--regeln regeln.json] [--marke key] [-o auftrag.md]
                                       Auftrag für das Storyboard (Bauplan v2, Kap. 3.5): Skript mit Zeiten der Timeline, aktive Stücke, B-Roll aus dem Katalog, aktive Regeln, Format der Antwort.
                                       Katalog: Liste von Katalog-Einträgen (JSON), Standard <Datenordner>/katalog.json
@@ -134,6 +135,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         name,
         ...(inhalt ? { inhalt } : {}),
         gesprochen,
+        ...(a.opt["untertitel"] === "skript" ? { untertitel: "skript" as const } : {}),
         ...(studioHome() ? { home: studioHome()! } : {}),
         ohnePegel: a.opt["ohne-pegel"] === true,
       });

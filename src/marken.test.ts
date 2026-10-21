@@ -53,13 +53,19 @@ describe("Alperna entspricht dem Alperna Design System (gedämpftes Blau)", () =
   });
 });
 
-describe("Schnittprofil (Plan v3, 9.1)", () => {
+describe("Schnittprofil (Plan v3, 9.1, geändert durch Plan v4)", () => {
   const alperna = () => Markenprofil.parse(JSON.parse(fs.readFileSync(path.join(root, "marken", "alperna.json"), "utf8")));
 
-  it("Alperna: Optik ruhig, Schnitt schnell, so wie im Plan (Pause 0,25 s, Einstellung 1,5 s, 2 bis 3 Wörter, Hook 2 s, Zoom mittel)", () => {
-    expect(alperna().schnittprofil).toMatchObject({ laengstePause: 0.25, laengsteEinstellung: 1.5, woerterJeUntertitel: { min: 2, max: 3 }, hookMaxSekunden: 2, zoomTempo: "mittel" });
+  it("Alperna: ruhig und hochwertig (Plan v4): Einstellung bis 5 s, Pause bis 0,4 s, 2 bis 3 Wörter, Hook 2 s, Zoom nur am Schluss und höchstens 4 je Minute, keine Mikro-Schnitte", () => {
+    expect(alperna().schnittprofil).toMatchObject({ laengstePause: 0.4, laengsteEinstellung: 5, woerterJeUntertitel: { min: 2, max: 3 }, hookMaxSekunden: 2, zoomTempo: "mittel", zoom: { modus: "betonung", maxProMinute: 4 }, minClip: 0.7 });
     expect(alperna().ton.sfxDichte).toBe(0);
     expect(alperna().effektStil.bewegungstempo).toBe(1);
+  });
+
+  it("ein Profil aus der Zeit vor Plan v4 (ohne zoom und minClip) bekommt die ruhigen Startwerte: kein Zoom, 0,7 s", () => {
+    const alt = Schnittprofil.parse({ laengstePause: 0.25, laengsteEinstellung: 1.5, woerterJeUntertitel: { min: 2, max: 3 }, hookMaxSekunden: 2, zoomTempo: "mittel" });
+    expect(alt.zoom).toEqual({ modus: "aus", maxProMinute: 4 });
+    expect(alt.minClip).toBe(0.7);
   });
 
   it("verweigert widersprüchliche Werte statt sie still zu übernehmen", () => {
