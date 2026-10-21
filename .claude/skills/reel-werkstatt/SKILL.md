@@ -1,6 +1,6 @@
 ---
 name: reel-werkstatt
-description: Baut aus Rohaufnahmen und Skript ein Reel bis zum Ordner für DaVinci Resolve: Transkription, Skript-Zuordnung mit Take-Auswahl, Storyboard mit B-Roll und Grafiken, Prüfung, Übergabe. Auch den Katalog der B-Roll beschreiben. Benutzen, wenn Rohmaterial und ein Skript für ein Video da sind, ein Storyboard geschrieben werden soll oder B-Roll im Katalog fehlt.
+description: Baut aus Rohaufnahmen und Skript ein Reel bis zum Ordner für DaVinci Resolve: Transkription, Skript-Zuordnung mit Take-Auswahl, Storyboard mit B-Roll und Grafiken, Prüfung, Übergabe. Auch den Katalog der B-Roll beschreiben. Benutzen, wenn Rohmaterial und ein Skript für ein Video da sind (auch bei «editier mir das Video, das Rohmaterial liegt in …»), ein Storyboard geschrieben werden soll oder B-Roll im Katalog fehlt.
 ---
 
 # Reel-Werkstatt
@@ -15,6 +15,8 @@ Vom Rohmaterial zum Resolve-Ordner (`docs/plan/editing-blueprint.md`, Bauplan v2
 Auf dem Mac gibt es den Ablauf mit festen Ordnern, benutze ihn, statt die Einzelschritte unten von Hand zu verketten (`./studio reel` zeigt alles):
 
 1. `./studio reel neu <ID> --marke <key> --zwischenablage` (Skript vorher kopieren), Videos nach `rohmaterial/<ID>/`.
+   - Das Skript kommt aus dem Notion-Inhalt (Entwurf). Fehlt es, frag nach: Ohne Skript gibt es keine Take-Auswahl, und du erfindest keines. Mit der Datei statt der Zwischenablage: `--skript <datei>`.
+   - Liegt das Rohmaterial woanders (ausserhalb von Studio- und Medien-Ordner), kopiere die Videos nach `rohmaterial/<ID>/` des Medien-Ordners (`cp -c` auf demselben Laufwerk braucht keinen zusätzlichen Platz), statt `--aufnahmen` mit einem fremden Ordner zu versuchen: Der Plan braucht Pfade relativ zum Medien-Ordner. Verschiebe und lösche nichts; frag vor dem Kopieren, wenn es mehr als etwa 20 GB sind.
 2. `./studio reel vorbereiten <ID>`: Whisper, Zuordnung, Plan, `ergebnis/auftrag.md`. Lies die Ausgabe vollständig und gib FEHLT, GELB, Abweichungen und die Zuordnungsquote weiter (Regeln in Schritt 4 unten).
 3. Aus `auftrag.md` das Storyboard schreiben (Schritt 6 unten), als **einen** JSON-Codeblock, den der Mensch kopiert; dann `./studio reel storyboard <ID> --zwischenablage` (Stücke, die nicht aktiv sind, nur mit `--entwurf`).
 4. Kontaktbogen und Vorschau zeigen lassen, Änderungen per Satz einarbeiten (neue Antwort, derselbe Befehl), erst nach dem Ja des Menschen `./studio reel uebergabe <ID>`.
