@@ -12,13 +12,13 @@ höchstens «offen». Notion erzwingt keine Übergangsregeln, deshalb prüft der
 ## Material (Footage, Fotos, Skripte)
 
 Ein Mensch hängt Material im Prüfplatz an: Im Feld «Dateien» steht je Eintrag eine Zeile `Art: Pfad | Notiz` (Pfad relativ zu `Studio/` oder https-Link). Vor der Produktion eines Inhalts mit Aufwand «Dreh nötig» prüfst du:
-`npm run studio -- inhalte material --inhalte .cache/inhalte.json`. Exit-Code 1 heisst: Eine Datei fehlt auf diesem Rechner oder es fehlt Footage oder Foto. Dann bleibt der Inhalt stehen und du sagst, was fehlt. Du hängst nie selbst Footage an und schreibst nur Zeilen der Art «Render» für fertige Dateien, sonst bleibt das Feld unverändert (freie Zeilen erhalten).
+`./studio inhalte material --inhalte .cache/inhalte.json`. Exit-Code 1 heisst: Eine Datei fehlt auf diesem Rechner oder es fehlt Footage oder Foto. Dann bleibt der Inhalt stehen und du sagst, was fehlt. Du hängst nie selbst Footage an und schreibst nur Zeilen der Art «Render» für fertige Dateien, sonst bleibt das Feld unverändert (freie Zeilen erhalten).
 
 ## Abgleich (nach jeder Änderung durch Menschen, mindestens einmal am Tag)
 
 1. Ansicht «Inhalte» und Ansicht «Marken» lesen (`notion-query-data-sources`, Modus `view`, Adressen in `notion.json` unter `inhalte.ansicht` und `marken.ansicht`).
    `has_more` beachten und mit `start_cursor` weiterlesen. Beide Ergebnisse als JSON-Dateien in `.cache/` ablegen.
-2. `npm run studio -- inhalte abgleich --inhalte .cache/inhalte.json --marken .cache/marken.json --uebernehmen`
+2. `./studio inhalte abgleich --inhalte .cache/inhalte.json --marken .cache/marken.json --uebernehmen`
    (beim allerersten Lauf auf einer gefüllten Datenbank zusätzlich `--erstlauf`: Die Beispiele `c-0001` bis `c-0003` und der Altbestand `c-0004` bis `c-0098`
    aus dem LinkedIn-Cockpit stehen schon in ihrem Status. Altbestand trägt «Batch» `Import Cockpit …`, keine Tor-Entscheide und keine Bestätigung. Ihn nie als freigegeben behandeln und keine Entscheide nachtragen.)
 3. Die Ausgabe nennt `eingriffe`, `blockiert`, `zurueckgesetzt` und `hinweise`. Jeder Eingriff trägt fertige `eigenschaften`: mit `notion-update-page`
@@ -35,14 +35,14 @@ Ein Mensch hängt Material im Prüfplatz an: Im Feld «Dateien» steht je Eintra
 Ein Post braucht einen Rohstoff: Der Beleg verweist auf einen Eintrag in der Datenbank «Rohstoffe» (`notion.json`, `rohstoffe`), jede Zahl im Text steht im Beleg.
 Fehlt der Rohstoff, frag den Menschen nach dem Fakt, statt ihn zu erfinden. Neue Rohstoffe trägst du mit Marke, Konkretem und Beleg ein, «Bestätigt von» und «Bestätigt am» füllt ein Mensch.
 Ideen aus der Datenbank «Inspiration» übernimmst du nur als Struktur, nie als Text; der Link steht in «Referenz» (Quelle «Viral-Liste»). Der Viral Watcher ist ausgeschaltet (Taplio entfällt), neue Zeilen entstehen nur von Hand. Entwurf in eine Datei, dann:
-`npm run studio -- inhalte textpruefen --marke alperna --format "LinkedIn-Post" --text-datei entwurf.txt --beleg-datei beleg.txt --id c-0007`
+`./studio inhalte textpruefen --marke alperna --format "LinkedIn-Post" --text-datei entwurf.txt --beleg-datei beleg.txt --id c-0007`
 Exit-Code 1 heisst: Fehler beheben, nicht abschwächen. Erst bei bestandener Prüfung den Status auf «Entwurf fertig» setzen. Die Prüfung ersetzt kein Urteil über Ton und Inhalt.
 Bei Reels und Carousels vermerkt die Render-Prüfung das Ergebnis: `inhalte pruefung c-0007 --bestanden` oder `--nicht-bestanden --text "…"`.
 
 ## Ideenfindung mit dem Bestand (Altbeiträge)
 
 Die Altbeiträge bleiben in Notion (Entscheid Andrej, 18.10.2026) und sind Teil jeder Ideenfindung. Bevor du eine Idee vorschlägst:
-`npm run studio -- inhalte archiv --inhalte .cache/inhalte.json --thema "<Thema der Idee in einem Satz>"`
+`./studio inhalte archiv --inhalte .cache/inhalte.json --thema "<Thema der Idee in einem Satz>"`
 Die Ausgabe zeigt, **was es schon gibt**: ähnliche Beiträge jeden Alters mit Datum, Alter, Status und bei Verworfenen dem Grund, dazu den Bestand je Pillar, Hook-Muster, Format und Plattform und wann jeder Pillar zuletzt dran war.
 - `imFenster: true`: Das Thema lief in den letzten 90 Tagen. Gleicher Fakt blockiert Tor I, ein neuer Winkel mit anderem Fakt nicht. Sag dem Menschen, was schon da war.
 - `imFenster: false`: Das Thema darf mit neuem Winkel wiederkommen. Nenne im Pitch den früheren Beitrag («aufgreifen, weil …») und was jetzt neu ist.
@@ -53,7 +53,7 @@ Altbeiträge gelten nie als freigegeben (kein Tor-Entscheid) und werden nicht ve
 ## Gate 0 ins Profil übernehmen
 
 Gate 0 gibt ein Mensch im Prüfplatz frei (Ansicht «Marken»). Damit der finale Export freigeschaltet wird, muss das Profil im Repo nachziehen:
-Ansicht «Marken» als JSON ablegen, `npm run studio -- marken gate0 --marken .cache/marken.json` (Vorschau), dann mit `--anwenden`, danach `marken/<id>.json` committen und pushen.
+Ansicht «Marken» als JSON ablegen, `./studio marken gate0 --marken .cache/marken.json` (Vorschau), dann mit `--anwenden`, danach `marken/<id>.json` committen und pushen.
 Du setzt Gate 0 nie selbst. Steht «freigegeben» ohne Namen in Notion, übernimmt der Befehl nichts und sagt es.
 
 ## Pausiert und Fortsetzen

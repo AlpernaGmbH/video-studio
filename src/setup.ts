@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
+import { whisperProgramm } from "./schnitt/whisper";
 
 /**
  * Einrichtung je Mac. Der Code kommt per git, die Daten und Medien liegen in OneDrive im Ordner «Studio».
@@ -53,7 +54,7 @@ export function studioHome(env: NodeJS.ProcessEnv = process.env, home = os.homed
   const datei = configPfad(env, home);
   if (!fs.existsSync(datei)) return undefined;
   const p = Config.safeParse(JSON.parse(fs.readFileSync(datei, "utf8")));
-  if (!p.success) throw new Error(`${datei} ist ungültig. Mit «studio init --home <Pfad>» neu schreiben`);
+  if (!p.success) throw new Error(`${datei} ist ungültig. Mit «./studio init --home <Pfad>» neu schreiben`);
   return { pfad: p.data.studioHome, quelle: "config", medien: medienEnv ?? p.data.medienHome };
 }
 
@@ -111,7 +112,7 @@ export function mehrereOrdner(kandidaten: string[]): string {
     .map((k) => {
       const e = eintraege(k);
       const inhalt = e === undefined ? "nicht lesbar" : e.length === 0 ? "LEER: vermutlich nicht angemeldet oder ein Doppel-Eintrag" : `${e.length} Einträge`;
-      return `  ${path.basename(k)} (${inhalt})\n    npm run studio -- init --home "${k}/Studio"`;
+      return `  ${path.basename(k)} (${inhalt})\n    ./studio init --home "${k}/Studio"`;
     })
     .join("\n\n");
   return [
@@ -212,9 +213,9 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
     else add("fehler", cmd, `fehlt. Installieren mit «brew install ffmpeg»`);
   }
   // Whisper ist nur für «schnitt transkribiere» nötig: fehlt es, ist das eine Warnung, kein Fehler
-  const whisper = s.env["STUDIO_WHISPER_BIN"] || "whisper";
+  const whisper = whisperProgramm(s.env, s.userHome);
   if (s.befehl(whisper, ["--help"])) add("ok", "Whisper", `${whisper} vorhanden (schnitt transkribiere)`);
-  else add("warnung", "Whisper", `«${whisper}» fehlt. Für «schnitt transkribiere»: «pip install openai-whisper», oder STUDIO_WHISPER_BIN setzen. Ohne Whisper lässt sich ein Transkript auch anderswo erzeugen und mit «schnitt zuordnen» benutzen`);
+  else add("warnung", "Whisper", `«${whisper}» fehlt. Einrichten: «./studio whisper einrichten». Ohne Whisper lässt sich ein Transkript auch anderswo erzeugen und mit «./studio schnitt zuordnen» benutzen`);
   if (s.befehl("npx", ["--version"])) add("ok", "npx", "vorhanden (holt HyperFrames in der fest eingetragenen Version)");
   else add("fehler", "npx", "fehlt. Node samt npm installieren");
 
@@ -225,7 +226,7 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
     add("fehler", "Studio-Ordner", (e as Error).message);
   }
   if (!home) {
-    if (!p.some((x) => x.name === "Studio-Ordner")) add("fehler", "Studio-Ordner", "nicht eingerichtet. «npm run studio -- init» ausführen");
+    if (!p.some((x) => x.name === "Studio-Ordner")) add("fehler", "Studio-Ordner", "nicht eingerichtet. «./studio init» ausführen");
     return p;
   }
 
@@ -276,7 +277,7 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
   const fehlendKlein = KLEINE_UNTERORDNER.filter((u) => !fs.existsSync(path.join(home!.pfad, u)));
   const fehlendGross = fs.existsSync(medien) ? GROSSE_UNTERORDNER.filter((u) => !fs.existsSync(path.join(medien, u))) : [];
   const fehlend = [...fehlendKlein, ...fehlendGross];
-  if (fehlend.length) add("warnung", "Unterordner", `fehlen: ${fehlend.join(", ")}. «npm run studio -- init» legt sie an`);
+  if (fehlend.length) add("warnung", "Unterordner", `fehlen: ${fehlend.join(", ")}. «./studio init» legt sie an`);
   else add("ok", "Unterordner", UNTERORDNER.join(", "));
 
   const orte: [string, string][] = home.medien ? [["Platz Studio-Ordner", home.pfad], ["Platz Medien", home.medien]] : [["Platz", home.pfad]];
@@ -300,7 +301,7 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
   } else add("hinweis", "Ideenprotokoll", "noch leer (entsteht mit der ersten Idee)");
 
   const bib = s.bibliothekPruefen();
-  if (bib.fehler) add("fehler", "Motion-Bibliothek", `${bib.fehler} Fehler im Lint («npm run studio -- motion lint»)`);
+  if (bib.fehler) add("fehler", "Motion-Bibliothek", `${bib.fehler} Fehler im Lint («./studio motion lint»)`);
   else add("ok", "Motion-Bibliothek", `Lint ohne Fehler${bib.warnungen ? `, ${bib.warnungen} Warnungen` : ""}`);
 
   const nz = s.notionZielPruefen();

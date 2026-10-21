@@ -2,23 +2,30 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Args } from "../args";
 import type { KatalogEintrag } from "../core/schemas";
+import type { OffenerEintrag } from "./katalog";
 import type { Umgebung } from "../motion/werkstatt";
 import { studioHome } from "../setup";
 import { relativierePfad } from "../schnitt/uebergabe";
 import { leseSchnittplan } from "../schnitt/plan";
 import { fuegeBeschreibungenEin, ladeKatalog, ladeOffen, markiereGenutzt, naechsterSchluessel, projektKennung, speichereKatalog, speichereOffen, sucheKatalog } from "./katalog";
-import { scanne, type ScanWerkzeuge } from "./scan";
+import { scanne, artVonDatei, type ScanWerkzeuge } from "./scan";
+import { erzeugeBoegen } from "./bogen";
+import { spawnSync } from "node:child_process";
+import { medienOrdner } from "../setup";
 
 /** Befehle `studio katalog …` (Bauplan v2, Kap. 3.7). Der Katalog liegt im Datenordner: katalog.json, katalog-offen.json, katalog/vorschau/. */
 
 export const KATALOG_HILFE = `Katalog der Fotos, B-Roll und Sounds (Bauplan v2, Kap. 3.7)
-  katalog scan <ordner> [--max n] [--ohne-vorschau]
-                                      Ordner scannen: Metadaten (ffprobe) und drei Vorschaubilder je Clip. Neue Dateien landen als «offen» in katalog-offen.json,
-                                      bekannte werden übersprungen, Originale bleiben unberührt. Der Ordner muss im Studio- oder Medien-Ordner liegen.
-  katalog offen [--limit 10]          Die nächsten offenen Dateien als JSON mit Pfaden der Vorschaubilder (Claude sieht sie an und beschreibt sie)
-  katalog beschreibe --json datei.json
-                                      Beschreibungen von Claude übernehmen: [{"schluessel","titel","beschreibung","tags","sicherheit","besteSekunden"?,"personen"?,"log"?}].
-                                      Ein vorhandener Eintrag wird überschrieben (Korrektur). Ungültiges bleibt mit Grund liegen.
+  katalog scan [ordner oder datei] [--max n] [--ohne-vorschau]
+                                      Scannen: Metadaten (ffprobe) und drei Vorschaubilder je Clip. Neue Dateien landen als «offen» in katalog-offen.json,
+                                      bekannte werden übersprungen, Originale bleiben unberührt. Ohne Angabe wird der Ordner «rohmaterial» im Medien-Ordner gescannt.
+                                      Danach entstehen die Bögen zum Beschreiben (siehe «./studio katalog bogen») und der Ordner mit den Bögen geht im Finder auf.
+  katalog bogen                       Bögen neu erzeugen: Bilder mit der Katalog-Nummer auf jedem Clip, vier Clips pro Bild. Die Bilder in den Chat ziehen, dort werden die Clips beschrieben.
+  katalog offen [--limit 10]          Die nächsten offenen Dateien als JSON mit Pfaden der Vorschaubilder (für Claude Code auf dem Mac)
+  katalog beschreibe [--zwischenablage | --json datei.json | --json -]
+                                      Beschreibungen übernehmen: [{"schluessel","titel","beschreibung","tags","sicherheit","besteSekunden"?,"personen"?,"log"?}].
+                                      --zwischenablage liest die Liste aus der Zwischenablage (macOS: JSON im Chat kopieren, dann diesen Befehl), «--json -» aus der Eingabe.
+                                      Text drumherum und Codezäune stören nicht. Ein vorhandener Eintrag wird überschrieben (Korrektur). Ungültiges bleibt mit Grund liegen.
   katalog genutzt --plan plan.json [--datum JJJJ-MM-TT]
                                       Trägt ein, dass die B-Roll des Plans in diesem Video vorkam (Feld «zuletzt genutzt», Kennung «Name [marke]»).
                                       Erst aufrufen, wenn das Video fertig ist: Danach gilt die B-Roll im nächsten Video derselben Marke als «lief schon».
@@ -30,23 +37,75 @@ const SCHLUESSEL_HILFE = "Titel nach dem Schema Kunde_Ort_Motiv_Aktion_Datum; Or
 
 const sek = (n: number): string => n.toFixed(1).replace(".", ",");
 
+/** Liest eine JSON-Liste aus Text, auch wenn Erklärungen oder Codezäune darum stehen: vom ersten «[» bis zur passenden «]». */
+export function extrahiereListe(text: string): unknown[] {
+  const start = text.indexOf("[");
+  if (start < 0) throw new Error("Keine Liste gefunden: Der Text muss mit [ beginnen und die Beschreibungen als {…} enthalten");
+  let tiefe = 0;
+  let inString = false;
+  let esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i]!;
+    if (inString) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === "[") tiefe++;
+    else if (c === "]" && --tiefe === 0) {
+      try {
+        const roh = JSON.parse(text.slice(start, i + 1)) as unknown;
+        if (Array.isArray(roh)) return roh;
+      } catch (e) {
+        throw new Error(`Die Liste ist kein gültiges JSON: ${(e as Error).message}`);
+      }
+    }
+  }
+  throw new Error("Die Liste ist unvollständig: Die schliessende ] fehlt. Wurde beim Kopieren etwas abgeschnitten?");
+}
+
+/** Bögen erzeugen, ihre Orte nennen und auf dem Mac den Ordner im Finder öffnen. */
+async function zeigeBoegen(offen: OffenerEintrag[], dd: string, oeffnen: boolean): Promise<void> {
+  const ziel = path.join(dd, "katalog", "bogen");
+  let r: Awaited<ReturnType<typeof erzeugeBoegen>>;
+  try {
+    r = await erzeugeBoegen(offen, dd, ziel);
+  } catch (e) {
+    console.log(`\nFEHLER bei den Bögen: ${(e as Error).message}\nDie Vorschaubilder liegen einzeln in ${path.join(dd, "katalog", "vorschau")}.`);
+    return;
+  }
+  if (!r.dateien.length) {
+    console.log("Es gibt keine Vorschaubilder, also keine Bögen.");
+    return;
+  }
+  console.log(`\n${r.dateien.length} ${r.dateien.length === 1 ? "Bogen" : "Bögen"} zum Beschreiben in ${ziel}:`);
+  r.dateien.forEach((d, i) => console.log(`  ${path.basename(d)}: ${r.inhalt[i]!.join(", ")}`));
+  if (r.ohneBild.length) console.log(`Ohne Bild (nur Dateiname und Metadaten): ${r.ohneBild.map((o) => o.schluessel).join(", ")}`);
+  console.log("\nNächster Schritt: die Bilder in den Chat ziehen und «beschreibe die Clips» schreiben. Die Liste, die zurückkommt, kopieren und dann:\n  ./studio katalog beschreibe --zwischenablage");
+  if (oeffnen && process.platform === "darwin") spawnSync("open", [ziel]);
+}
+
 export async function katalogBefehl(sub: string, a: Args, env: Umgebung, werkzeuge?: ScanWerkzeuge): Promise<number> {
   const dd = env.datenDir;
   switch (sub) {
     case "scan": {
-      const ordner = a.pos[2];
-      if (!ordner) throw new Error("Aufruf: katalog scan <ordner>");
-      const abs = path.resolve(ordner);
-      if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) throw new Error(`Kein Ordner: ${abs}`);
       const home = studioHome();
-      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «studio init» ausführen");
+      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «./studio init» ausführen");
+      const ziel = a.pos[2] ?? path.join(medienOrdner(home), "rohmaterial");
+      const abs = path.resolve(ziel);
+      if (!fs.existsSync(abs)) throw new Error(`${a.pos[2] ? "Nicht gefunden" : "Der Standardordner fehlt"}: ${abs}${a.pos[2] ? "" : ". Ordner angeben: ./studio katalog scan <ordner oder datei>"}`);
+      const istDatei = fs.statSync(abs).isFile();
+      if (istDatei && !artVonDatei(abs)) throw new Error(`Das ist kein Video, Foto oder Sound: ${abs}`);
       const katalog = ladeKatalog(dd);
       const offen = ladeOffen(dd);
       const bekannt = new Set([...katalog.map((k) => k.pfad), ...offen.map((o) => o.pfad)]);
       const max = typeof a.opt["max"] === "string" ? Number(a.opt["max"]) : undefined;
       if (max !== undefined && !(Number.isInteger(max) && max > 0)) throw new Error("--max erwartet eine ganze Zahl über 0");
       const r = await scanne({
-        ordner: abs,
+        ordner: istDatei ? path.dirname(abs) : abs,
+        ...(istDatei ? { dateien: [abs] } : {}),
         relativ: (d) => relativierePfad(home, d),
         bekannt,
         naechster: naechsterSchluessel([...katalog.map((k) => k.schluessel), ...offen.map((o) => o.schluessel)]),
@@ -58,9 +117,25 @@ export async function katalogBefehl(sub: string, a: Args, env: Umgebung, werkzeu
       if (r.neu.length) speichereOffen(dd, [...offen, ...r.neu]);
       console.log(`${r.neu.length} neue Dateien, ${r.bekannt} schon bekannt${r.zurueckgestellt ? `, ${r.zurueckgestellt} zurückgestellt (--max)` : ""}`);
       for (const u of r.uebersprungen) console.log(`  übersprungen: ${u.datei}: ${u.grund}`);
-      const gesamtOffen = offen.length + r.neu.length;
-      console.log(`${gesamtOffen} Dateien warten auf ihre Beschreibung. Nächster Schritt: «studio katalog offen» (Claude sieht sich die Vorschaubilder an und beschreibt sie)${r.zurueckgestellt ? `; danach den Scan wiederholen` : ""}.`);
+      const gesamtOffen = [...offen, ...r.neu];
+      if (!gesamtOffen.length) {
+        console.log(r.uebersprungen.length ? "Keine Datei konnte gelesen werden." : "Nichts zu beschreiben.");
+        return r.uebersprungen.length ? 1 : 0;
+      }
+      console.log(`${gesamtOffen.length} Dateien warten auf ihre Beschreibung.`);
+      if (a.opt["ohne-vorschau"] !== true) await zeigeBoegen(gesamtOffen, dd, werkzeuge === undefined);
+      else console.log("Ohne Vorschaubilder gibt es keine Bögen. Nächster Schritt: «./studio katalog offen».");
+      if (r.zurueckgestellt) console.log("Danach den Scan wiederholen, die übrigen Dateien kommen dann dran.");
       return r.uebersprungen.length && !r.neu.length ? 1 : 0;
+    }
+    case "bogen": {
+      const offen = ladeOffen(dd);
+      if (!offen.length) {
+        console.log("Nichts zu beschreiben: Es gibt keine offenen Dateien.");
+        return 0;
+      }
+      await zeigeBoegen(offen, dd, true);
+      return 0;
     }
     case "offen": {
       const limit = typeof a.opt["limit"] === "string" ? Number(a.opt["limit"]) : 10;
@@ -68,14 +143,20 @@ export async function katalogBefehl(sub: string, a: Args, env: Umgebung, werkzeu
       const offen = ladeOffen(dd);
       const naechste = offen.slice(0, limit).map((o) => ({ ...o, vorschau: o.vorschau.map((v) => path.join(dd, v)) }));
       console.log(JSON.stringify(naechste, null, 2));
-      console.error(`${naechste.length} von ${offen.length} offenen Dateien. Antwort als JSON-Liste für «katalog beschreibe»: ${SCHLUESSEL_HILFE}.`);
+      console.error(`${naechste.length} von ${offen.length} offenen Dateien. Antwort als JSON-Liste für «./studio katalog beschreibe»: ${SCHLUESSEL_HILFE}.`);
       return 0;
     }
     case "beschreibe": {
-      const datei = a.opt["json"];
-      if (typeof datei !== "string") throw new Error("Aufruf: katalog beschreibe --json datei.json");
-      const roh = JSON.parse(fs.readFileSync(datei, "utf8")) as unknown;
-      if (!Array.isArray(roh)) throw new Error("Die Datei muss eine Liste von Beschreibungen enthalten");
+      let text: string;
+      if (a.opt["zwischenablage"] === true) {
+        const r = spawnSync("pbpaste", [], { encoding: "utf8" });
+        if (r.error || r.status !== 0) throw new Error("Die Zwischenablage lässt sich nur auf dem Mac lesen (pbpaste). Stattdessen: --json datei.json");
+        text = r.stdout;
+        if (!text.trim()) throw new Error("Die Zwischenablage ist leer. Zuerst die JSON-Liste im Chat kopieren (Kopieren-Knopf am Codeblock)");
+      } else if (a.opt["json"] === "-") text = fs.readFileSync(0, "utf8");
+      else if (typeof a.opt["json"] === "string") text = fs.readFileSync(a.opt["json"] as string, "utf8");
+      else throw new Error("Aufruf: ./studio katalog beschreibe --zwischenablage   (oder --json datei.json, oder --json - für die Eingabe)");
+      const roh = extrahiereListe(text);
       const e = fuegeBeschreibungenEin(ladeOffen(dd), ladeKatalog(dd), roh);
       if (e.neu.length || e.ueberschrieben.length) {
         speichereKatalog(dd, e.katalog);
@@ -83,6 +164,7 @@ export async function katalogBefehl(sub: string, a: Args, env: Umgebung, werkzeu
       }
       console.log(`${e.neu.length} neu im Katalog, ${e.ueberschrieben.length} überschrieben, ${e.fehler.length} abgelehnt; ${e.offen.length} offen, ${e.katalog.length} im Katalog`);
       for (const f of e.fehler) console.log(`  ${f.schluessel}: ${f.grund}`);
+      if (e.offen.length) console.log(`Noch offen: ${e.offen.map((o) => o.schluessel).join(", ")}`);
       return e.fehler.length ? 1 : 0;
     }
     case "genutzt": {

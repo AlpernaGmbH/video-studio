@@ -9,16 +9,38 @@ Stand und offene Punkte: `STATUS.md`.
 ```sh
 git clone https://github.com/AlpernaGmbH/video-studio.git && cd video-studio
 npm install
-npm run studio -- init              # Studio-Ordner in OneDrive anlegen, Pfad für diesen Mac merken
+./studio init              # Studio-Ordner in OneDrive anlegen, Pfad für diesen Mac merken
 npx hyperframes@0.8.164 browser ensure      # lädt Chrome Headless Shell
 npx hyperframes@0.8.164 telemetry disable   # wegen Kundenmaterial
-npm run studio -- doctor            # prüft Node, ffmpeg, OneDrive, Protokoll, Bibliothek, Notion-Ziel
+./studio doctor            # prüft Node, ffmpeg, OneDrive, Protokoll, Bibliothek, Notion-Ziel
 npm run check                       # Typecheck, Tests, Lint der Bibliothek
 npm run selftest:render             # rendert jedes Stück wirklich und prüft das Ergebnis
 ```
 
 Node 22 oder neuer (HyperFrames verlangt es), ffmpeg und ffprobe im Pfad. Im Finder Rechtsklick auf `Studio`, «Immer auf diesem Gerät behalten».
 Ausführlich und mit Fehlertabelle: `.claude/skills/studio-einrichten/SKILL.md`.
+
+## Aufruf und Aktualisieren
+
+Alle Befehle laufen über den Starter **`./studio`** im Ordner des Repos (nicht `studio …` ohne `./`, das gibt es nicht als Befehl auf dem Mac, und nicht `npm run studio --`, das ändert den Ordner und macht relative Pfade kaputt).
+`./studio hilfe` zeigt alle Befehle. **`./studio update`** holt den neuesten Stand (git pull) und aktualisiert die Pakete: Das ist der erste Schritt, wenn ein Befehl «unbekannt» ist.
+
+## Clips beschreiben (Katalog), drei Schritte
+
+```sh
+./studio update
+./studio katalog scan                  # ohne Angabe: Ordner «rohmaterial»; mit Angabe ein Ordner oder eine einzelne Datei
+# Die Bilder aus dem Ordner, der sich öffnet, in den Chat ziehen und «beschreibe die Clips» schreiben.
+# Die Liste, die zurückkommt, kopieren (Kopieren-Knopf am Codeblock), dann:
+./studio katalog beschreibe --zwischenablage
+```
+
+## Transkript und Whisper
+
+```sh
+./studio whisper einrichten            # einmalig: installiert Whisper in eine eigene Python-Umgebung und lädt das Modell (large-v3: 3 GB)
+./studio schnitt transkribiere <aufnahme.mov>
+```
 
 ## Wo was liegt
 
@@ -38,14 +60,14 @@ Erst dann ist es aktiv und das Storyboard darf es benutzen. Konzept: `docs/motio
 ## Befehle
 
 ```sh
-npm run studio -- help
-npm run studio -- motion luecken --skript skript.md --projekt P-023      # Trockenlauf
-npm run studio -- motion neu wert-verlauf --name "Wert-Verlauf" --typen verlauf
-npm run studio -- motion render zahl-zaehler -o out.webm --set wert=7 --set suffix=" von 10" --dauer 2.6 --marke alperna
-npm run studio -- motion batch zahl-zaehler --zeilen zeilen.json -o renders/ --marke alperna
-npm run studio -- ideen liste
-npm run studio -- ideen notion-lesen --json zeilen.json          # Entscheide aus Notion lesen (Vorschau)
-npm run studio -- pruefplatz bauen                               # Prüfplatz mit aktuellem Stand bauen
+./studio help
+./studio motion luecken --skript skript.md --projekt P-023      # Trockenlauf
+./studio motion neu wert-verlauf --name "Wert-Verlauf" --typen verlauf
+./studio motion render zahl-zaehler -o out.webm --set wert=7 --set suffix=" von 10" --dauer 2.6 --marke alperna
+./studio motion batch zahl-zaehler --zeilen zeilen.json -o renders/ --marke alperna
+./studio ideen liste
+./studio ideen notion-lesen --json zeilen.json          # Entscheide aus Notion lesen (Vorschau)
+./studio pruefplatz bauen                               # Prüfplatz mit aktuellem Stand bauen
 ```
 
 ## Aufbau

@@ -137,6 +137,8 @@ export interface ScanOptionen {
   /** Wohin die Vorschaubilder kommen (Datenordner, darunter `katalog/vorschau`). */
   datenDir: string;
   maximal?: number;
+  /** Nur diese Dateien statt aller Dateien im Ordner (eine einzelne Datei scannen). */
+  dateien?: string[];
   ohneVorschau?: boolean;
   werkzeuge?: ScanWerkzeuge;
 }
@@ -156,7 +158,7 @@ export async function scanne(o: ScanOptionen): Promise<ScanErgebnis> {
   const uebersprungen: ScanErgebnis["uebersprungen"] = [];
   let bekannt = 0;
   let zurueck = 0;
-  for (const datei of findeDateien(o.ordner)) {
+  for (const datei of o.dateien ?? findeDateien(o.ordner)) {
     const rel = o.relativ(datei);
     if (!rel) {
       uebersprungen.push({ datei, grund: "liegt ausserhalb von Studio- und Medien-Ordner, der Pfad im Katalog muss relativ sein" });

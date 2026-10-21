@@ -20,6 +20,7 @@ import { inhalteBefehl, INHALTE_HILFE, markenBefehl, MARKEN_HILFE } from "./inha
 import { presetsBefehl, PRESETS_HILFE } from "./presets/befehle";
 import { katalogBefehl, KATALOG_HILFE } from "./katalog/befehle";
 import { schnittBefehl, SCHNITT_HILFE } from "./schnitt/befehle";
+import { whisperBefehl, WHISPER_HILFE } from "./schnitt/whisper-setup";
 import { formatiere, hatFehler, initialisiere, pruefeUmgebung, studioHome, type Sonde } from "./setup";
 import { pruefeRender, messeRender, parseHfCheck } from "./motion/render-pruefung";
 import { SIGNAL_TYPEN, type SignalTyp } from "./motion/stueck";
@@ -28,6 +29,9 @@ import { erzeugeDeklaration, loeseVariablen } from "./motion/stueck";
 import { checkStueck, erzeugeLookBogen, findeStueck, ladeMarke, rendereBatch, rendereStueck, umgebung, vorschauBilder, extrahiereJson, type Umgebung } from "./motion/werkstatt";
 
 const HILFE = `studio – Video-Editing-System der Alperna GmbH
+
+Aufruf im Ordner des Repos oder aus jedem Ordner: ./studio <gruppe> <befehl> …   (statt «npm run studio --»; Pfade gelten ab dem Ordner, in dem du bist)
+Stand holen und Pakete aktualisieren: ./studio update
 
 Einrichtung (einmal je Mac)
   init [--home "<OneDrive>/Studio"] [--medien "<Laufwerk>/Studio-Medien"]   Studio-Ordner in OneDrive anlegen und den Pfad für diesen Mac merken.
@@ -75,6 +79,7 @@ Notion (Ansicht und Entscheide; die Sitzung holt und schreibt die Zeilen mit den
 ${INHALTE_HILFE}
 ${MARKEN_HILFE}
 ${KATALOG_HILFE}
+${WHISPER_HILFE}
 ${SCHNITT_HILFE}
 ${PRESETS_HILFE}
 Umgebung: STUDIO_HOME (Studio-Ordner statt Konfiguration), STUDIO_MEDIEN (Medien-Ordner), STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse; sonst <Studio-Ordner>/daten), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
@@ -452,13 +457,13 @@ function echteSonde(): Sonde {
 async function main(): Promise<number> {
   const a = parseArgs(process.argv.slice(2));
   const [gruppe, sub] = a.pos;
-  if (!gruppe || gruppe === "help" || a.opt["help"]) {
+  if (!gruppe || gruppe === "help" || gruppe === "hilfe" || a.opt["help"]) {
     console.log(HILFE);
     return 0;
   }
   if (gruppe === "init") {
     const r = initialisiere({ home: typeof a.opt["home"] === "string" ? a.opt["home"] : undefined, medien: typeof a.opt["medien"] === "string" ? a.opt["medien"] : undefined });
-    console.log(`Studio-Ordner: ${r.home}${r.medien ? `\nMedien-Ordner: ${r.medien}` : ""}${r.angelegt.length ? `\nAngelegt: ${r.angelegt.length} Ordner` : "\nBestand unverändert"}\nKonfiguration: ${r.config}${r.hinweise.length ? `\n\nACHTUNG:\n${r.hinweise.map((h) => `  ${h}`).join("\n")}` : ""}\n\nNächste Schritte:\n  npm install\n  npx hyperframes@0.8.164 browser ensure\n  npx hyperframes@0.8.164 telemetry disable\n  npm run studio -- doctor`);
+    console.log(`Studio-Ordner: ${r.home}${r.medien ? `\nMedien-Ordner: ${r.medien}` : ""}${r.angelegt.length ? `\nAngelegt: ${r.angelegt.length} Ordner` : "\nBestand unverändert"}\nKonfiguration: ${r.config}${r.hinweise.length ? `\n\nACHTUNG:\n${r.hinweise.map((h) => `  ${h}`).join("\n")}` : ""}\n\nNächste Schritte:\n  npm install\n  npx hyperframes@0.8.164 browser ensure\n  npx hyperframes@0.8.164 telemetry disable\n  ./studio doctor`);
     return 0;
   }
   if (gruppe === "doctor") {
@@ -483,9 +488,10 @@ async function main(): Promise<number> {
   if (gruppe === "inhalte" && sub) return inhalteBefehl(sub, a, env, jetzt);
   if (gruppe === "marken" && sub) return markenBefehl(sub, a, env, jetzt);
   if (gruppe === "katalog" && sub) return katalogBefehl(sub, a, env);
+  if (gruppe === "whisper" && sub) return whisperBefehl(sub, a);
   if (gruppe === "schnitt" && sub) return schnittBefehl(sub, a, env);
   if (gruppe === "presets" && sub) return presetsBefehl(sub, a, env);
-  console.error(HILFE);
+  console.error(`Unbekannter Befehl «${[gruppe, sub].filter(Boolean).join(" ")}».\nGruppen: init, doctor, motion, ideen, inhalte, marken, katalog, whisper, schnitt, presets, pruefplatz. Alle Befehle: ./studio hilfe\nIst dein Stand alt? ./studio update`);
   return 2;
 }
 

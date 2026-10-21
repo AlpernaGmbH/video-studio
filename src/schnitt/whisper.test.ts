@@ -65,7 +65,7 @@ describe("transkribiere", () => {
 
   it("sagt, wie man Whisper installiert, wenn das Programm fehlt", async () => {
     const { start } = ersatz([], { fehlt: true });
-    await expect(transkribiere({ eingang: aufnahme(), ziel: path.join(dir, "t.json"), start })).rejects.toThrow(/pip install openai-whisper.*STUDIO_WHISPER_BIN/);
+    await expect(transkribiere({ eingang: aufnahme(), ziel: path.join(dir, "t.json"), start })).rejects.toThrow(/whisper einrichten.*STUDIO_WHISPER_BIN/);
   });
 
   it("meldet den Fehler von Whisper mit den letzten Zeilen", async () => {

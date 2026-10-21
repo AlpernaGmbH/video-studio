@@ -169,7 +169,7 @@ export function lintStueck(g: GeladenesStueck): Befund[] {
   if (stueck.status !== "entwurf") {
     const vorschau = path.join(dir, "vorschau");
     const bilder = fs.existsSync(vorschau) ? fs.readdirSync(vorschau).filter((f) => /\.(png|jpe?g)$/i.test(f)) : [];
-    if (bilder.length === 0) warnung("vorschau_fehlt", "Keine Vorschaubilder in vorschau/ (npm run studio -- motion vorschau <id>)");
+    if (bilder.length === 0) warnung("vorschau_fehlt", "Keine Vorschaubilder in vorschau/ (./studio motion vorschau <id>)");
   }
 
   // 4. Einsatzbeispiele müssen mit den Parametern auflösbar sein

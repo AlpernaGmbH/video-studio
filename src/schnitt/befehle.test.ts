@@ -430,7 +430,7 @@ fs.writeFileSync(path.join(out, name), JSON.stringify({ segments: [{ start: 0, e
     vi.stubEnv("STUDIO_WHISPER_BIN", path.join(tmp, "gibt-es-nicht"));
     const aufnahme = path.join(tmp, "a.mp4");
     fs.writeFileSync(aufnahme, "x");
-    await expect(lauf("schnitt", "transkribiere", aufnahme)).rejects.toThrow(/pip install openai-whisper/);
+    await expect(lauf("schnitt", "transkribiere", aufnahme)).rejects.toThrow(/whisper einrichten/);
     await expect(lauf("schnitt", "transkribiere")).rejects.toThrow(/Aufruf/);
   });
 });

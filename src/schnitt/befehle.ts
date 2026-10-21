@@ -35,7 +35,7 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
   schnitt zuordnen --skript skript.md --transkript <quelle>=<whisper.json>[,…] --quellen quellen.json --marke key -o plan.json
                                       [--name "Titel"] [--inhalt c-0007] [--gesprochen 3,5] [--ohne-pegel] [--bericht bericht.json]
                                       Skript und Whisper-Transkript zu einem Schnittplan: pro Zeile der beste Take (Bauplan v2, Kap. 3.3), Pausen, Füllwörter und Bildwechsel
-                                      nach dem Schnittprofil der Marke (Kap. 3.4). Die Quelle im Transkript ist die Kennung aus quellen.json (Ausgabe von «schnitt sondiere»).
+                                      nach dem Schnittprofil der Marke (Kap. 3.4). Die Quelle im Transkript ist die Kennung aus quellen.json (Ausgabe von «./studio schnitt sondiere»).
                                       --gesprochen: Zeilen, deren Untertitel den gesprochenen statt den Skripttext nehmen. B-Roll, Grafiken und Musik kommen später ins Storyboard.
   schnitt auftrag --plan plan.json [--katalog katalog.json] [--regeln regeln.json] [--marke key] [-o auftrag.md]
                                       Auftrag für das Storyboard (Bauplan v2, Kap. 3.5): Skript mit Zeiten der Timeline, aktive Stücke, B-Roll aus dem Katalog, aktive Regeln, Format der Antwort.
@@ -103,13 +103,13 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       const r = await transkribiere({ eingang, ziel, modell: typeof a.opt["modell"] === "string" ? (a.opt["modell"] as string) : STANDARD_MODELL, sprache: typeof a.opt["sprache"] === "string" ? (a.opt["sprache"] as string) : "de" });
       console.log(`${r.datei}: ${r.segmente} Segmente über ${r.spanne.toFixed(1).replace(".", ",")} s, ${r.mitWortzeiten} mit Wortzeiten, ${r.ueberLimit} über ${4} s (werden geteilt)`);
       if (r.mitWortzeiten < r.segmente) console.log(`Hinweis: ${r.segmente - r.mitWortzeiten} Segmente ohne Wortzeiten. Sie werden nach Zeichenzahl verteilt, Pausen im Satz und Füllwörter lassen sich dort nicht schneiden (--word_timestamps True).`);
-      console.log(`Nächster Schritt: «studio schnitt zuordnen --transkript <quelle>=${r.datei} …»`);
+      console.log(`Nächster Schritt: «./studio schnitt zuordnen --transkript <quelle>=${r.datei} …»`);
       return 0;
     }
     case "zuordnen": {
       const marke = ladeMarke(env, pflicht(a, "marke", "Schlüssel des Markenprofils, zum Beispiel alperna"));
       const skriptDatei = pflicht(a, "skript", "Skript als Text oder Markdown");
-      const quellen = z.array(SchnittQuelle).min(1).parse(lesJson(pflicht(a, "quellen", "Liste der Quellen als JSON, Ausgabe von «schnitt sondiere»")));
+      const quellen = z.array(SchnittQuelle).min(1).parse(lesJson(pflicht(a, "quellen", "Liste der Quellen als JSON, Ausgabe von «./studio schnitt sondiere»")));
       const ausDatei = pflicht(a, "o", "Zieldatei für den Schnittplan, zum Beispiel -o plan.json");
       const videos = quellen.filter((q) => q.art === "video");
       const roh = pflicht(a, "transkript", "Quelle=Datei, mehrere durch Komma getrennt");
@@ -155,7 +155,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         zeige(befunde);
       }
       const dauerPlan = platziere(plan);
-      console.log(`\nPlan: ${ausDatei} (${plan.clips.length} Clips, ${(dauerPlan.gesamtFrames / plan.projekt.fps).toFixed(1).replace(".", ",")} s)\nNächster Schritt: Abweichungen und gelbe Stellen entscheiden, B-Roll und Grafiken im Storyboard ergänzen, dann «schnitt pruefe --plan ${ausDatei}» und «schnitt resolve».`);
+      console.log(`\nPlan: ${ausDatei} (${plan.clips.length} Clips, ${(dauerPlan.gesamtFrames / plan.projekt.fps).toFixed(1).replace(".", ",")} s)\nNächster Schritt: Abweichungen und gelbe Stellen entscheiden, B-Roll und Grafiken im Storyboard ergänzen, dann «./studio schnitt pruefe --plan ${ausDatei}» und «./studio schnitt resolve».`);
       return 0;
     }
     case "auftrag":
@@ -164,11 +164,11 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       return storyboardBefehl(a, env);
     case "vorschau": {
       const home = studioHome();
-      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «studio init» ausführen");
+      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «./studio init» ausführen");
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
       const loese = (rel: string): string => loesePfad(home, rel);
       const fehlt = fehlendeDateien(plan, loese);
-      if (fehlt.length) throw new Error(`Für die Vorschau fehlen Dateien auf diesem Rechner (Grafiken: zuerst «schnitt storyboard … --rendern»):\n- ${fehlt.join("\n- ")}`);
+      if (fehlt.length) throw new Error(`Für die Vorschau fehlen Dateien auf diesem Rechner (Grafiken: zuerst «./studio schnitt storyboard … --rendern»):\n- ${fehlt.join("\n- ")}`);
       let ziel: string;
       if (typeof a.opt["o"] === "string") ziel = path.resolve(a.opt["o"] as string);
       else {
@@ -198,14 +198,14 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
     }
     case "kontaktbogen": {
       const home = studioHome();
-      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «studio init» ausführen");
+      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «./studio init» ausführen");
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
       const ziel = typeof a.opt["o"] === "string" ? path.resolve(a.opt["o"] as string) : path.join(env.studioRoot, ".cache", `kontaktbogen-${plan.projekt.inhalt ?? "plan"}.html`);
       const r = await erzeugeBogen({ plan, loese: (p) => loesePfad(home, p) });
       fs.mkdirSync(path.dirname(ziel), { recursive: true });
       fs.writeFileSync(ziel, r.html);
       console.log(`${ziel}\n${(Buffer.byteLength(r.html) / 1024).toFixed(0)} KB, ${r.eintraege.length} Einträge, ${r.eintraege.length - r.ohneBild.length} mit Standbild`);
-      if (r.nichtGerendert.length) console.log(`Nicht gerendert: Eintrag ${r.nichtGerendert.join(", ")} (zuerst «schnitt storyboard … --rendern»)`);
+      if (r.nichtGerendert.length) console.log(`Nicht gerendert: Eintrag ${r.nichtGerendert.join(", ")} (zuerst «./studio schnitt storyboard … --rendern»)`);
       if (r.ohneBild.length) console.log(`Ohne Standbild: Eintrag ${r.ohneBild.join(", ")}`);
       return r.ohneBild.length || r.nichtGerendert.length ? 1 : 0;
     }
@@ -221,7 +221,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
     }
     case "resolve": {
       const home = studioHome();
-      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «studio init» ausführen");
+      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «./studio init» ausführen");
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
       const lib = ladePresets(presetDir);
       const marke = ladeMarke(env, typeof a.opt["marke"] === "string" ? a.opt["marke"] : plan.projekt.marke);

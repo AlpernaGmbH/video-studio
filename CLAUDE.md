@@ -17,10 +17,10 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 - `library/motion/<id>/` – ein Stück: `piece.json` (Datenblatt) und `index.html` (HyperFrames-Komposition)
 - `marken/<key>.json` – Markenprofile. Status `platzhalter` sperrt den finalen Export (Gate 0)
 - `assets/fonts/` – Schriften, die Markenprofile ansprechen dürfen (`fonts.json`)
-- `src/inhalte/` – Inhalte (Plan v3): Zeile ↔ Inhalt, Übergangsregeln mit Tor I und Tor P, Abgleich mit dem Stand, Textprüfung, Marken mit Gate 0 (auch Übernahme ins Profil), Material an Inhalten (`material.ts`), Befehle `studio inhalte …` und `studio marken gate0`
-- `src/schnitt/` – Schnittplan und Übergabe an DaVinci Resolve: Skript-Zuordnung und Take-Auswahl aus Whisper-Transkripten, Storyboard im Plan (B-Roll, Grafiken, Betonung), Frame-Raster, Prüfung gegen das Schnittprofil, Untertitel (SRT), FCPXML 1.8 und OTIO, Befehle `studio schnitt …`. Plan: `docs/plan/editing-blueprint.md`
-- `src/katalog/` – Katalog der Fotos, B-Roll und Sounds (Plan v2 Kap. 3.7): Scan, Vorschaubilder, Beschreibung durch Claude, Suche, Befehle `studio katalog …`. Anleitung: `docs/katalog.md`
-- `presets/`, `src/presets/` – Presets für Export, Ton, Untertitel und Grafik (je Datei eine ID, mit Herkunft), Messung fertiger Videos, Befehle `studio presets …`
+- `src/inhalte/` – Inhalte (Plan v3): Zeile ↔ Inhalt, Übergangsregeln mit Tor I und Tor P, Abgleich mit dem Stand, Textprüfung, Marken mit Gate 0 (auch Übernahme ins Profil), Material an Inhalten (`material.ts`), Befehle `./studio inhalte …` und `./studio marken gate0`
+- `src/schnitt/` – Schnittplan und Übergabe an DaVinci Resolve: Skript-Zuordnung und Take-Auswahl aus Whisper-Transkripten, Storyboard im Plan (B-Roll, Grafiken, Betonung), Frame-Raster, Prüfung gegen das Schnittprofil, Untertitel (SRT), FCPXML 1.8 und OTIO, Befehle `./studio schnitt …`. Plan: `docs/plan/editing-blueprint.md`
+- `src/katalog/` – Katalog der Fotos, B-Roll und Sounds (Plan v2 Kap. 3.7): Scan, Vorschaubilder, Beschreibung durch Claude, Suche, Befehle `./studio katalog …`. Anleitung: `docs/katalog.md`
+- `presets/`, `src/presets/` – Presets für Export, Ton, Untertitel und Grafik (je Datei eine ID, mit Herkunft), Messung fertiger Videos, Befehle `./studio presets …`
 - `src/notion/` – Abbild Idee ↔ Notion-Zeile, `src/setup.ts` – `init` und `doctor`, `src/pruefplatz.ts` – Daten für das Artifact
 - `pruefplatz/index.html` – Vorlage des Prüfplatzes (Artifact): Seitenleiste mit Heute, Plattformen und Werkstatt, Seitenfenster für Details und Aktionen, `notion.json` – Kennungen von Notion-Seite, Datenbank und Prüfplatz
 - Daten (Ideenprotokoll, Ereignisse, Standbilder): `<Studio-Ordner>/daten/` in OneDrive, Pfad je Mac in `~/.config/video-studio/config.json`. Ohne Einrichtung `data/`
@@ -48,8 +48,8 @@ Code hier. Einrichtung eines Macs: Skill `studio-einrichten`. Notion, OneDrive, 
 1. `STATUS.md` lesen, dann arbeiten. Eine Aufgabe, ein Commit.
 2. Vor jedem Commit: `npm run check` (Typecheck, Tests, Lint der Bibliothek). **Den Exit-Code prüfen**, nicht nur die Ausgabe: Eine Pipe mit `grep` oder `tail` verschluckt ihn. Bei Änderungen an Stücken oder Render-Code zusätzlich
    `npm run selftest:render` (rendert wirklich, braucht Chrome Headless Shell: `npx hyperframes@0.8.164 browser ensure`).
-3. Neue Stücke nur über `npm run studio -- motion neu …`. Das Gerüst erfüllt den Stück-Vertrag (Kopf von `src/motion/stueck.ts`).
+3. Neue Stücke nur über `./studio motion neu …`. Das Gerüst erfüllt den Stück-Vertrag (Kopf von `src/motion/stueck.ts`).
 4. Neue Regel im Code heisst: Test, der ohne die Regel scheitert. Tests, die nur die Fixture prüfen, sind keine Tests.
 5. Keine neuen Abhängigkeiten ohne Eintrag in `STATUS.md` mit Begründung und Lizenz.
 6. Dieses Repo importiert nichts aus der Website und umgekehrt.
-7. Änderungen am Prüfplatz: `npm run studio -- pruefplatz bauen`, `scripts/pruefplatz-test.cjs` laufen lassen, dann veröffentlichen.
+7. Änderungen am Prüfplatz: `./studio pruefplatz bauen`, `scripts/pruefplatz-test.cjs` laufen lassen, dann veröffentlichen.

@@ -59,8 +59,8 @@ describe("init", () => {
     } catch (e) {
       meldung = (e as Error).message;
     }
-    expect(meldung).toContain(`npm run studio -- init --home "${a}/Studio"`);
-    expect(meldung).toContain(`npm run studio -- init --home "${b}/Studio"`);
+    expect(meldung).toContain(`./studio init --home "${a}/Studio"`);
+    expect(meldung).toContain(`./studio init --home "${b}/Studio"`);
     expect(meldung).toMatch(/Schulkonten/);
     expect(meldung).toMatch(/ich rate nicht/);
   });
@@ -130,7 +130,7 @@ describe("doctor", () => {
     initialisiere({ env: env(), userHome: user });
     const ohne = pruefeUmgebung(sonde({ befehl: (cmd) => (cmd === "whisper" ? undefined : "vorhanden") }));
     expect(ohne.find((x) => x.name === "Whisper")).toMatchObject({ stufe: "warnung" });
-    expect(ohne.find((x) => x.name === "Whisper")?.text).toMatch(/pip install openai-whisper/);
+    expect(ohne.find((x) => x.name === "Whisper")?.text).toMatch(/whisper einrichten/);
     expect(hatFehler(ohne)).toBe(false);
     expect(pruefeUmgebung(sonde()).find((x) => x.name === "Whisper")?.stufe).toBe("ok");
     const eigenes = pruefeUmgebung(sonde({ env: { ...env(), STUDIO_WHISPER_BIN: "/opt/w" }, befehl: (cmd) => (cmd === "/opt/w" ? "vorhanden" : undefined) }));

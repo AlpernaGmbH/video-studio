@@ -5,8 +5,8 @@ Die Vorstufe (`motion luecken`) findet Zahlen, Verläufe, Vergleiche, Aufzählun
 
 ## Vorgehen
 
-1. `npm run studio -- motion index` lesen: Das sind die vorhandenen Stücke, eine Zeile pro Stück.
-2. `npm run studio -- motion luecken --skript <datei> --projekt <id>` laufen lassen (Trockenlauf).
+1. `./studio motion index` lesen: Das sind die vorhandenen Stücke, eine Zeile pro Stück.
+2. `./studio motion luecken --skript <datei> --projekt <id>` laufen lassen (Trockenlauf).
 3. Das ganze Skript selbst lesen. Frage bei jedem Satz: Würde der Zuschauer die Aussage schneller verstehen, wenn er sie sieht?
    Typische Fälle, die die Vorstufe nicht erkennt:
    - eine räumliche oder zeitliche Abfolge («der Weg einer Anfrage durch den Betrieb»)

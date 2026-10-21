@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseArgs } from "../args";
 import { umgebung, type Umgebung } from "../motion/werkstatt";
 import { katalogBefehl } from "./befehle";
+import { findeSchrift } from "./bogen";
 import { ladeKatalog, ladeOffen } from "./katalog";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
@@ -84,8 +85,8 @@ describe("katalog genutzt", () => {
 
 describe("katalog ohne Material", () => {
   it("scan verlangt einen Ordner, einen eingerichteten Studio-Ordner und einen Ordner im Studio- oder Medien-Ordner", async () => {
-    await expect(lauf("katalog", "scan")).rejects.toThrow(/Aufruf/);
-    await expect(lauf("katalog", "scan", path.join(tmp, "gibt-es-nicht"))).rejects.toThrow(/Kein Ordner/);
+    await expect(lauf("katalog", "scan")).rejects.toThrow(/Standardordner fehlt.*rohmaterial/);
+    await expect(lauf("katalog", "scan", path.join(tmp, "gibt-es-nicht"))).rejects.toThrow(/Nicht gefunden/);
     fs.mkdirSync(path.join(tmp, "Medien"), { recursive: true });
     vi.stubEnv("STUDIO_HOME", "");
     vi.stubEnv("STUDIO_CONFIG", path.join(tmp, "keine-config.json"));
@@ -210,4 +211,63 @@ describe.skipIf(!hatFfmpeg)("katalog mit echtem ffmpeg", () => {
     expect(ausgabe.join("\n")).toMatch(/übersprungen: .*kaputt\.mov: ffprobe/);
     expect(ladeOffen(env.datenDir)).toHaveLength(3);
   }, 120_000);
+describe.skipIf(!hatFfmpeg || !findeSchrift())("katalog: Bögen, Standardordner, Zwischenablage", () => {
+  const bogenDir = () => path.join(env.datenDir, "katalog", "bogen");
+
+  it("scan ohne Angabe nimmt «rohmaterial» im Medien-Ordner und macht danach die Bögen mit den Nummern", async () => {
+    legeMaterialAn();
+    expect(await lauf("katalog", "scan")).toBe(0);
+    const text = ausgabe.join("\n");
+    expect(text).toContain("3 neue Dateien");
+    expect(text).toContain("3 Dateien warten auf ihre Beschreibung");
+    expect(text).toMatch(/1 Bogen zum Beschreiben in .*bogen:\n  bogen-01\.jpg: k-0001, k-0002/);
+    expect(text).toContain("Ohne Bild (nur Dateiname und Metadaten): k-0003");
+    expect(text).toContain("./studio katalog beschreibe --zwischenablage");
+    expect(fs.readdirSync(bogenDir())).toEqual(["bogen-01.jpg"]);
+  }, 120_000);
+
+  it("scan einer einzelnen Datei nimmt nur diese", async () => {
+    legeMaterialAn();
+    expect(await lauf("katalog", "scan", path.join(bib(), "kunde-x", "gossau", "clip.mp4"))).toBe(0);
+    expect(ladeOffen(env.datenDir).map((o) => o.pfad)).toEqual(["rohmaterial/bib/kunde-x/gossau/clip.mp4"]);
+    ausgabe.length = 0;
+    await expect(lauf("katalog", "scan", path.join(tmp, "notiz.txt"))).rejects.toThrow(/Nicht gefunden/);
+    fs.writeFileSync(path.join(tmp, "notiz.txt"), "x");
+    await expect(lauf("katalog", "scan", path.join(tmp, "notiz.txt"))).rejects.toThrow(/kein Video, Foto oder Sound/);
+  }, 120_000);
+
+  it("bogen erzeugt die Bilder neu, und ohne offene Dateien sagt es das", async () => {
+    expect(await lauf("katalog", "bogen")).toBe(0);
+    expect(ausgabe.join("\n")).toContain("keine offenen Dateien");
+    legeMaterialAn();
+    await lauf("katalog", "scan", "--ohne-vorschau");
+    expect(fs.existsSync(bogenDir())).toBe(false);
+    expect(ausgabe.join("\n")).toContain("Ohne Vorschaubilder gibt es keine Bögen");
+  }, 120_000);
+
+  it("beschreibe --zwischenablage liest die Liste samt Text und Codezaun aus der Zwischenablage (pbpaste)", async () => {
+    legeMaterialAn();
+    await lauf("katalog", "scan", path.join(bib(), "kunde-x", "gossau", "clip.mp4"), "--ohne-vorschau");
+    const antwort = path.join(tmp, "antwort.txt");
+    fs.writeFileSync(antwort, 'Hier die Beschreibung:\n```json\n[{"schluessel":"k-0001","titel":"KundeX_Gossau_Test","beschreibung":"Testbild mit Farbbalken","tags":["Test"],"sicherheit":"hoch"}]\n```\n');
+    const bin = path.join(tmp, "bin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, "pbpaste"), `#!/bin/sh\ncat ${antwort}\n`, { mode: 0o755 });
+    vi.stubEnv("PATH", `${bin}:${process.env["PATH"]}`);
+    expect(await lauf("katalog", "beschreibe", "--zwischenablage")).toBe(0);
+    expect(ladeKatalog(env.datenDir).map((k) => k.titel)).toEqual(["KundeX_Gossau_Test"]);
+    expect(ausgabe.join("\n")).toContain("1 neu im Katalog");
+  }, 120_000);
+
+  it("beschreibe ohne Zwischenablage (kein pbpaste) und mit leerer Zwischenablage sagt, was zu tun ist", async () => {
+    vi.stubEnv("PATH", "/usr/bin-gibt-es-nicht");
+    await expect(lauf("katalog", "beschreibe", "--zwischenablage")).rejects.toThrow(/nur auf dem Mac/);
+    const bin = path.join(tmp, "bin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, "pbpaste"), "#!/bin/sh\n", { mode: 0o755 });
+    vi.stubEnv("PATH", bin);
+    await expect(lauf("katalog", "beschreibe", "--zwischenablage")).rejects.toThrow(/Zwischenablage ist leer/);
+    await expect(lauf("katalog", "beschreibe")).rejects.toThrow(/--zwischenablage/);
+  });
+});
 });

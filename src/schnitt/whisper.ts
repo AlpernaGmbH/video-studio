@@ -6,13 +6,21 @@ import { leseTranskript, MAX_SEGMENT } from "./transkript";
 
 /**
  * Whisper aufrufen (Bauplan v2, Kap. 3.2). Ausgeführt wird die Kommandozeile von openai-whisper (`pip install openai-whisper`) oder eine, die dieselben Schalter kennt;
- * ein anderes Programm lässt sich mit der Umgebungsvariable STUDIO_WHISPER_BIN eintragen. Whisper läuft lokal, die Aufnahmen verlassen den Rechner nicht (Regel 5).
+ * ein anderes Programm lässt sich mit der Umgebungsvariable STUDIO_WHISPER_BIN eintragen. `./studio whisper einrichten` installiert es in eine eigene Umgebung (whisper-setup.ts). Whisper läuft lokal, die Aufnahmen verlassen den Rechner nicht (Regel 5).
  * Welches Modell Schweizerdeutsch am besten trifft, entscheidet Test T2: «large-v3» ist eine Annahme, `--modell` ändert sie.
  */
 
 export const STANDARD_MODELL = "large-v3";
 
-export const whisperProgramm = (env: NodeJS.ProcessEnv = process.env): string => env["STUDIO_WHISPER_BIN"] || "whisper";
+/** Wo `./studio whisper einrichten` Whisper installiert: eine eigene Python-Umgebung im Benutzerordner, damit nichts am System verändert wird. */
+export const whisperUmgebung = (home: string = os.homedir()): string => path.join(home, ".local", "share", "video-studio", "whisper");
+
+/** Das Programm: STUDIO_WHISPER_BIN, sonst die eingerichtete Umgebung, sonst «whisper» aus dem Pfad. */
+export function whisperProgramm(env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string {
+  if (env["STUDIO_WHISPER_BIN"]) return env["STUDIO_WHISPER_BIN"];
+  const eigenes = path.join(whisperUmgebung(home), "bin", "whisper");
+  return fs.existsSync(eigenes) ? eigenes : "whisper";
+}
 
 /** Schalter von openai-whisper: Hochdeutsche Ausgabe, Wortzeiten, JSON. */
 export function whisperArgs(o: { datei: string; modell: string; sprache: string; ausgabeDir: string }): string[] {
@@ -66,7 +74,7 @@ export async function transkribiere(o: TranskribiereOptionen): Promise<Transkrip
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "studio-whisper-"));
   try {
     const r = await (o.start ?? starteWhisper)(programm, whisperArgs({ datei: path.resolve(o.eingang), modell: o.modell ?? STANDARD_MODELL, sprache: o.sprache ?? "de", ausgabeDir: tmp }));
-    if (r.fehlt) throw new Error(`«${programm}» ist auf diesem Rechner nicht installiert. Installieren mit «pip install openai-whisper» (braucht ffmpeg), oder mit STUDIO_WHISPER_BIN ein anderes Programm eintragen, das dieselben Schalter kennt`);
+    if (r.fehlt) throw new Error(`«${programm}» ist auf diesem Rechner nicht installiert. Einrichten mit «./studio whisper einrichten» (installiert es in eine eigene Python-Umgebung, braucht ffmpeg und Python 3), oder mit STUDIO_WHISPER_BIN ein anderes Programm eintragen, das dieselben Schalter kennt`);
     if (r.code !== 0) throw new Error(`Whisper schlug fehl (Exit ${r.code}): ${r.stderr.trim().split("\n").slice(-3).join(" | ")}`);
     const json = path.join(tmp, `${path.basename(o.eingang, path.extname(o.eingang))}.json`);
     if (!fs.existsSync(json)) throw new Error(`Whisper lief, aber hat keine JSON-Datei geschrieben (erwartet: ${path.basename(json)}; gefunden: ${fs.readdirSync(tmp).join(", ") || "nichts"})`);

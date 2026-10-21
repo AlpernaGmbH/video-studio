@@ -84,7 +84,8 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
   aus.push("Parameter mit * sind Pflicht. Die Datenblätter stehen in `library/motion/<id>/piece.json`.", "");
 
   const letzte = new Set(imLetztenVideo(ctx.katalog, projektKennung(plan.projekt.name, plan.projekt.marke), plan.projekt.marke));
-  const bilder = ctx.katalog.filter((k) => k.art !== "sound");
+  // Fotos stehen nicht als B-Roll im Angebot (Entscheid Andrej, 21.10.): Sie bleiben im Katalog für Carousel, Blog und Google-Beitrag
+  const bilder = ctx.katalog.filter((k) => k.art === "video");
   const frei = bilder.filter((k) => !letzte.has(k.schluessel));
   aus.push("## B-Roll (Katalog)", "");
   if (!frei.length) aus.push("(Der Katalog ist leer. Ohne Katalog-Schlüssel gibt es keine B-Roll.)");
@@ -93,7 +94,7 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
     aus.push(`- ${k.schluessel} · ${k.art}${k.orientierung ? `, ${k.orientierung}` : ""}${dauer ? `, ${dauer}` : ""}${k.zeitlupe ? ", Zeitlupe" : ""}${k.personen ? ", Personen" : ""} · ${k.titel} · ${k.beschreibung} · ${k.tags.join(", ")}`);
   }
   if (bilder.length - frei.length > 0) aus.push("", `${bilder.length - frei.length} Einträge fehlen, weil sie im letzten Video der Marke liefen.`);
-  aus.push("", "B-Roll nur mit Katalog-Schlüssel, höchstens einmal pro Video, mindestens so lang wie das Overlay. Fotos sind im Schnittplan noch nicht möglich und werden verworfen.", "");
+  aus.push("", "B-Roll nur mit Katalog-Schlüssel, höchstens einmal pro Video, mindestens so lang wie das Overlay. Fotos und Sounds stehen nicht in der Liste: Fotos sind keine B-Roll.", "");
 
   const regeln = (ctx.regeln ?? []).filter((r) => r.status === "aktiv" && (r.typ === "handwerk" || r.marke === plan.projekt.marke));
   aus.push("## Aktive Regeln", "");

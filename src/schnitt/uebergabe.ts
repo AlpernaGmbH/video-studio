@@ -207,7 +207,7 @@ Preset «${e.id}»: ${e.container.toUpperCase()}, H.264, ${e.breite}×${e.hoehe}
 Danach die fertige Datei prüfen lassen:
 
 \`\`\`
-npm run studio -- schnitt export-pruefen <datei.mp4> --preset ${e.id} --audio ${audio.id}
+./studio schnitt export-pruefen <datei.mp4> --preset ${e.id} --audio ${audio.id}
 \`\`\`
 
 ${betonteWoerter(plan)}## Stellen, die Claude beim Schnitt auffielen

@@ -10,7 +10,7 @@ Du liest sie, führst das Protokoll nach und schreibst den neuen Stand zurück. 
 
 Die Bibliothek wächst aus drei Quellen: aus den aufgenommenen Videos (Skript oder Transkript), aus gespeicherten
 Inspirationsvideos und aus dem, was ein Mensch direkt verlangt. Jede Idee trägt den genauen Auslöser und die Begründung,
-warum nichts Bestehendes passt. Konzept und Regeln: `docs/motion-werkstatt.md`. Alle Befehle: `npm run studio -- help`.
+warum nichts Bestehendes passt. Konzept und Regeln: `docs/motion-werkstatt.md`. Alle Befehle: `./studio help`.
 
 ## Harte Regeln
 
@@ -96,19 +96,19 @@ Ziel (Datenquelle) und Adresse des Prüfplatzes stehen in `notion.json`. Notion-
 
 **Rein (zu Beginn jeder Sitzung, und wenn jemand «entschieden» sagt):**
 1. `notion-query-data-sources` mit `data: {"mode": "view", "view_url": <motionIdeen.ansicht aus notion.json>, "page_size": 100}`. **Nie SQL oder Modus `rows`:** Die zählen gegen ein knappes Kontingent des Notion-Arbeitsbereichs (beobachtet am 17.10., Meldung `usage_limit_reached`), der Modus `view` nicht. Bei `has_more` mit `start_cursor` weiterlesen. Die Antwort in eine Datei speichern.
-2. `npm run studio -- ideen notion-lesen --json <datei>` (Vorschau), dann mit `--anwenden`. Fehler und Hinweise dem Menschen sagen
+2. `./studio ideen notion-lesen --json <datei>` (Vorschau), dann mit `--anwenden`. Fehler und Hinweise dem Menschen sagen
    (Entscheid ohne Namen, zu früh gesetzt, Abweichung zwischen Notion und Protokoll).
 3. Für jede Idee in `zeileNeuSchreiben` die Zeile neu schreiben (unten).
 4. `ohneIdee`: von Hand angelegte Zeilen sind direkte Aufträge. Frage nach dem genauen Satz, lege die Idee mit `ideen neu` an (`quelle.typ: "auftrag"`) und schreibe
    die Zeile. Die handgemachte Zeile nicht doppeln: Sie bekommt die `Idee-ID`.
 
 **Raus (nach jedem Übergang, den du auslöst):**
-1. `npm run studio -- ideen notion-zeile <id> [--bilder …] [--render-bilder …]` gibt `properties` und `inhalt`.
+1. `./studio ideen notion-zeile <id> [--bilder …] [--render-bilder …]` gibt `properties` und `inhalt`.
 2. Keine Zeile: `notion-create-pages` mit `parent: {type: "data_source_id", data_source_id: <datenquelle aus notion.json>}`, `properties`, `content`.
    Sonst `notion-update-page` mit `update_properties` und `replace_content`. Die Seiten-Kennung steht in der `url` der Zeile aus der Ansicht (die letzten 32 Zeichen).
 3. Nach dem Schreiben kurz nachlesen: Steht `Status` richtig?
 
-**Prüfplatz neu veröffentlichen**, wenn ein Stück aktiviert oder die Marke geändert wurde: `npm run studio -- pruefplatz bauen`, dann das Artifact-Werkzeug mit
+**Prüfplatz neu veröffentlichen**, wenn ein Stück aktiviert oder die Marke geändert wurde: `./studio pruefplatz bauen`, dann das Artifact-Werkzeug mit
 `file_path` `.cache/pruefplatz.html` und `url` aus `notion.json`. Der Prüfplatz speichert nichts selbst, ein neuer Stand verliert nichts.
 
 ## Wenn etwas hängt
@@ -117,5 +117,5 @@ Ziel (Datenquelle) und Adresse des Prüfplatzes stehen in `notion.json`. Notion-
 - «zero duration» beim Render: Timeline wird nicht synchron registriert.
 - Vorschaubild leer: Render prüfen (`motion pruefen`), nicht das Bild.
 - Schrift fehlt: in `assets/fonts/` ablegen und in `fonts.json` eintragen. Es gibt keinen stillen Rückfall.
-- `studio doctor` prüft Node, ffmpeg, Studio-Ordner, OneDrive, Protokoll, Bibliothek und Notion-Ziel. Erster Schritt bei jedem unklaren Fehler auf einem Mac.
+- `./studio doctor` prüft Node, ffmpeg, Studio-Ordner, OneDrive, Protokoll, Bibliothek und Notion-Ziel. Erster Schritt bei jedem unklaren Fehler auf einem Mac.
 - Notion antwortet nicht oder ein Werkzeug fehlt: dem Menschen sagen, dass Notion nicht verbunden ist. Nie so tun, als wäre eine Zeile geschrieben.

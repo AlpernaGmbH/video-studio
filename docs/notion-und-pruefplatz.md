@@ -46,14 +46,14 @@ Felder von Stufen, die noch nicht erreicht sind. So gilt kein zu früh gesetzter
 **Rein: Entscheide lesen** (zu Beginn jeder Sitzung und wenn jemand sagt «ich habe entschieden»)
 
 1. `notion-query-data-sources` im Modus `view` mit `view_url` (`motionIdeen.ansicht` in `notion.json`) und `page_size` 100, bei `has_more` mit `start_cursor` weiter. Ergebnis als Datei speichern.
-2. `npm run studio -- ideen notion-lesen --json zeilen.json` zeigt die Vorschau. Danach mit `--anwenden`.
+2. `./studio ideen notion-lesen --json zeilen.json` zeigt die Vorschau. Danach mit `--anwenden`.
    Die Abnahme führt das Protokoll nach und aktiviert das Stück mit dem Namen aus «Abnahme von».
 3. Für jede Idee in `zeileNeuSchreiben` die Zeile aktualisieren (nächster Absatz).
 4. `ohneIdee` sind Zeilen, die ein Mensch von Hand angelegt hat. Das ist ein direkter Auftrag: Idee mit `ideen neu` anlegen (`quelle.typ` `auftrag`).
 
 **Raus: Zeile schreiben** (nach jedem Übergang, den Claude auslöst)
 
-1. `npm run studio -- ideen notion-zeile <id>` gibt `properties` und `inhalt` aus.
+1. `./studio ideen notion-zeile <id>` gibt `properties` und `inhalt` aus.
 2. Gibt es keine Zeile: `notion-create-pages` mit `data_source_id` aus `notion.json`. Sonst `notion-update-page`, `update_properties`, dazu
    `replace_content` mit `inhalt`.
 3. Bilder: Standbilder als Asset in den Prüfplatz laden (Artifact-Werkzeug, `asset: true`, `file_paths`), die Adressen in eine Datei
@@ -66,7 +66,7 @@ Felder von Stufen, die noch nicht erreicht sind. So gilt kein zu früh gesetzter
 - Nach dem Schreiben liest er nach und meldet nur «Gespeichert», wenn der Entscheid in Notion steht.
 - Fehlerfälle haben je eigenen Text: Zugriff nicht erlaubt, Notion nicht verbunden, durch Richtlinie gesperrt, unklarer Ausgang.
 - Bibliothek und Marke stehen als Stand in der Seite. Nach jeder Aktivierung oder Markenänderung neu bauen und veröffentlichen:
-  `npm run studio -- pruefplatz bauen`, dann das Artifact-Werkzeug mit `file_path` `.cache/pruefplatz.html` und `url` aus `notion.json`.
+  `./studio pruefplatz bauen`, dann das Artifact-Werkzeug mit `file_path` `.cache/pruefplatz.html` und `url` aus `notion.json`.
 - Freigabe für Menschen: Das Artifact ist privat. Wer entscheiden soll, braucht Zugriff auf das Artifact (Teilen-Menü) **und** auf die
   Notion-Seite. Die Notion-Verbindung muss jeder in claude.ai selbst herstellen. Beim ersten Speichern fragt claude.ai um Erlaubnis.
 - Browser-Test mit nachgebautem Notion: `scripts/pruefplatz-test.cjs`. Er prüft die Logik, **nicht** die echte Zustimmungsabfrage.
@@ -94,7 +94,7 @@ Bestand und Herkunft: `docs/marketing-system-bestand.md`. Übernommen am 18.10.2
 
 Seitenleiste mit **Heute** (nur Karten, auf die ein Mensch wartet: Gate 0, Tor I, Tor P, Pitch, Look, Abnahme; «Der Reihe nach durchgehen»), **Plattformen** (Instagram, LinkedIn, Blog, Google Maps; laufende Inhalte in Idee, In Arbeit, Bereit zum Posten; Gepostetes, Ausgewertetes und Verworfenes nur als Hinweis mit Link ins Cockpit-Archiv; Pausiertes hinter dem Knopf «N Inhalte pausiert: ansehen», dort öffnet ein Inhalt und lässt sich fortsetzen) und **Werkstatt** (Motion-Bibliothek, Motion-Ideen, Marke). Details und Aktionen öffnen im Seitenfenster. Den Namen trägst du unten in der Leiste unter «Entscheiden als» ein. Plattform eines Inhalts: Feld «Plattformen», ohne Angabe das Format (Reel, Carousel, Story gehören zu Instagram). Beispielzeilen («Beispiel: …») stehen nicht in den Plattformlisten.
 
-**Material:** Footage, Fotos, Audio, Skripte und Logos hängst du im Seitenfenster eines Inhalts als Verweis an. Hochgeladen wird nichts: Die Dateien liegen auf OneDrive oder dem Medien-Laufwerk (Plan v3, Kapitel 3.3), im Feld «Dateien» steht nur der Pfad ab dem Ordner «Studio» oder ein OneDrive-Link. Auf dem Mac zeigt `studio inhalte material --inhalte zeilen.json`, ob die Dateien wirklich dort liegen.
+**Material:** Footage, Fotos, Audio, Skripte und Logos hängst du im Seitenfenster eines Inhalts als Verweis an. Hochgeladen wird nichts: Die Dateien liegen auf OneDrive oder dem Medien-Laufwerk (Plan v3, Kapitel 3.3), im Feld «Dateien» steht nur der Pfad ab dem Ordner «Studio» oder ein OneDrive-Link. Auf dem Mac zeigt `./studio inhalte material --inhalte zeilen.json`, ob die Dateien wirklich dort liegen.
 
 ## Inhalte, Tor I, Tor P und Gate 0 (Prüfplatz ab Version 3)
 
@@ -108,7 +108,7 @@ Der Prüfplatz liest zusätzlich die Ansichten «Inhalte» und «Marken». Er sc
 | Inhalte, «Weitere Handlungen» im Seitenfenster | `Status` (Pausiert, Verworfen, Veröffentlicht), `Status von`, `Status-Grund`, `Status am`, beim Pausieren `Status vor Pause` | Status noch wie angezeigt. Pausieren ab «Neu» bis «Geplant» (Grund), Verwerfen (zwei Wörter, nicht aus «Pitch bereit»: dort entscheidet Tor I), «Veröffentlicht» bestätigen nur bei Publishing Manuell oder Paket, ohne Grund |
 | Inhalte, «Material» im Seitenfenster | nur `Dateien` | kein Entscheid, darum ohne Namen. Feld vorher frisch gelesen, danach nachgelesen. Format `Art: Pfad oder Link | Notiz`, Pfad relativ zu `Studio/`, Links nur https, höchstens 1900 Zeichen |
 
-Den Status ändert der Prüfplatz nie. Den Wechsel nach einem Entscheid führt der Abgleich aus (`studio inhalte abgleich`, Skill `inhalte-werkstatt`), wenn die Regeln es erlauben.
+Den Status ändert der Prüfplatz nie. Den Wechsel nach einem Entscheid führt der Abgleich aus (`./studio inhalte abgleich`, Skill `inhalte-werkstatt`), wenn die Regeln es erlauben.
 Wartet ein Tor-Entscheid auf Gate 0, bleibt er stehen und wirkt, sobald Gate 0 freigegeben ist. Der Entwurf eines Texts steht im Inhalt der Notion-Seite und wird beim Öffnen der Karte mit `notion-fetch` geladen.
 
 ## Pausieren und Fortsetzen (ab 18.10.2026)

@@ -39,7 +39,7 @@ Gilt zusätzlich zu Bauplan v2 und v3. Bei Widerspruch gilt dieses Dokument für
 | Schnittgrenzen auf die Wellenform legen | **später** | Gehört zur Schnittlogik (Phase 2), nicht zur Übergabe |
 | Schnitt als echte, trimmbare Clips auf der Timeline | **gebaut, das ist der Kern** | Genau das braucht Andrej in Resolve: Schnittplan, FCPXML und OTIO |
 | Schnittänderung passt Grafiken, Sound, Untertitel an | **teilweise** | Im Plan sind Untertitel an die Wörter der Quelle gebunden und wandern mit den Clips. Grafiken und B-Roll haben feste Timeline-Zeiten. In Resolve selbst verschiebt sich nichts automatisch |
-| Audio: Sprache −17 LUFS, Begrenzer −6 dBFS | **als Preset `blueprint`, Standard bleibt −14** | Unser Plan nennt −14 LUFS («Annahme»), der Blueprint −17 bei −6. Beides unbelegt. Getestet wird mit einem echten privaten Upload (T4). Die Messung ist gebaut (`studio schnitt export-pruefen`) |
+| Audio: Sprache −17 LUFS, Begrenzer −6 dBFS | **als Preset `blueprint`, Standard bleibt −14** | Unser Plan nennt −14 LUFS («Annahme»), der Blueprint −17 bei −6. Beides unbelegt. Getestet wird mit einem echten privaten Upload (T4). Die Messung ist gebaut (`./studio schnitt export-pruefen`) |
 | Zweite Stimme anheben, wenn mehr als 3 dB leiser | **später** | Nur relevant für Interviews |
 | Grade: LUT nur auf Kameramaterial, unter den Grafiken | **übernehmen** | Entspricht dem Look-Feld der Marke. In Resolve ein Knoten auf dem Kamera-Clip, nicht auf der Grafikspur. Die LUT selbst steht noch aus |
 | Look «Autumn-Rec709», Intensität 80, Sättigung 120 | **nicht übernehmen** | Das ist der Look des Autors. Unserer ist der Cine-Look der Marke Alperna, LUT folgt |
@@ -65,7 +65,7 @@ Der Blueprint steuert die laufende App. Wir tun das nicht, aus vier Gründen:
 
 ### Was Andrej bekommt
 
-Befehl auf dem Mac: `npm run studio -- schnitt resolve --plan plan.json`. Das Ergebnis ist ein Ordner, standardmässig `Studio/inhalte/c-0007/ergebnis/resolve/`:
+Befehl auf dem Mac: `./studio schnitt resolve --plan plan.json`. Das Ergebnis ist ein Ordner, standardmässig `Studio/inhalte/c-0007/ergebnis/resolve/`:
 
 | Datei | Inhalt |
 |---|---|
@@ -80,28 +80,28 @@ Ein vorhandener Ordner wird nie überschrieben: die nächste Fassung heisst `res
 
 ### Chat gegen Mac
 
-Im Chat (claude.ai) lässt sich der Schnittplan schreiben und mit `studio schnitt pruefe` prüfen, weil er reiner Text ist. Gerendert wird nur auf dem Mac mit Repo und Studio-Ordner (Whisper, ffmpeg, HyperFrames, Quellvideos). Ohne Mac entsteht also kein fertiges Video, nur der Plan. Das war in Plan v3 (Kap. 3.1) schon so und ändert sich nicht.
+Im Chat (claude.ai) lässt sich der Schnittplan schreiben und mit `./studio schnitt pruefe` prüfen, weil er reiner Text ist. Gerendert wird nur auf dem Mac mit Repo und Studio-Ordner (Whisper, ffmpeg, HyperFrames, Quellvideos). Ohne Mac entsteht also kein fertiges Video, nur der Plan. Das war in Plan v3 (Kap. 3.1) schon so und ändert sich nicht.
 
 ### Der Schnittplan
 
-Aufbau und Beispiel: `prompts/beispiele/schnittplan.json`. Kurz: `quellen` (Datei, Länge, Bildrate, Ton, aus `studio schnitt sondiere`), `clips` (Sprache in Quellzeit, lückenlos hintereinander), `broll` (nur mit Katalog-Schlüssel und Begründung), `overlays` (fertig gerenderte Grafiken mit Begründung), `musik`, `woerter` (Text aus dem Skript, Timing aus Whisper, in Quellzeit).
+Aufbau und Beispiel: `prompts/beispiele/schnittplan.json`. Kurz: `quellen` (Datei, Länge, Bildrate, Ton, aus `./studio schnitt sondiere`), `clips` (Sprache in Quellzeit, lückenlos hintereinander), `broll` (nur mit Katalog-Schlüssel und Begründung), `overlays` (fertig gerenderte Grafiken mit Begründung), `musik`, `woerter` (Text aus dem Skript, Timing aus Whisper, in Quellzeit).
 
-`studio schnitt pruefe` meldet **Fehler** (Quelle fehlt, Clip über das Ende der Quelle, Grafik über das Ende des Videos, kein Katalog-Schlüssel, Stück nicht aktiv, MP4 als Grafik) und **Hinweise** nach dem Schnittprofil der Marke: Einstellung länger als 1,5 s ohne Bildwechsel, Pause über 0,25 s, Hook später als 2 s, Sprechtempo über 4,8 Wörter pro Sekunde, Video über 90 s. Die Startwerte stammen aus Bauplan v2, Kap. 3.4, sind dort als Vermutung gekennzeichnet und werden mit den Retention-Graphen kalibriert.
+`./studio schnitt pruefe` meldet **Fehler** (Quelle fehlt, Clip über das Ende der Quelle, Grafik über das Ende des Videos, kein Katalog-Schlüssel, Stück nicht aktiv, MP4 als Grafik) und **Hinweise** nach dem Schnittprofil der Marke: Einstellung länger als 1,5 s ohne Bildwechsel, Pause über 0,25 s, Hook später als 2 s, Sprechtempo über 4,8 Wörter pro Sekunde, Video über 90 s. Die Startwerte stammen aus Bauplan v2, Kap. 3.4, sind dort als Vermutung gekennzeichnet und werden mit den Retention-Graphen kalibriert.
 
 Nicht abgedeckt: Zeitlupe (50p und 60p als B-Roll laufen in der Übergabe in Echtzeit), Übergänge, Farbkorrektur, Tonmischung über den Pegel der Musik hinaus.
 
 ## Skript-Zuordnung und Planbau
 
-`studio schnitt zuordnen` macht aus dem Skript und dem Whisper-Transkript einen Schnittplan (Bauplan v2, Kap. 3.2 bis 3.4). Ohne diesen Schritt entsteht `plan.json` nur von Hand.
+`./studio schnitt zuordnen` macht aus dem Skript und dem Whisper-Transkript einen Schnittplan (Bauplan v2, Kap. 3.2 bis 3.4). Ohne diesen Schritt entsteht `plan.json` nur von Hand.
 
 ```
-studio schnitt transkribiere <Medien>/rohmaterial/…/sprache-01.mov
-studio schnitt sondiere <Medien>/rohmaterial/…/sprache-01.mov > quellen.json
-studio schnitt zuordnen --skript skript.md --transkript sprache-01=<Daten>/transkripte/sprache-01.json --quellen quellen.json \
+./studio schnitt transkribiere <Medien>/rohmaterial/…/sprache-01.mov
+./studio schnitt sondiere <Medien>/rohmaterial/…/sprache-01.mov > quellen.json
+./studio schnitt zuordnen --skript skript.md --transkript sprache-01=<Daten>/transkripte/sprache-01.json --quellen quellen.json \
   --marke alperna -o plan.json --bericht bericht.json
 ```
 
-`transkribiere` ruft die Kommandozeile von openai-whisper lokal auf (`pip install openai-whisper`; `STUDIO_WHISPER_BIN` setzt ein anderes Programm mit denselben Schaltern ein) mit `--word_timestamps True` und legt das JSON unter `<Daten>/transkripte/<Name>.json` ab. Es prüft, ob es sich lesen lässt, und nennt Segmente ohne Wortzeiten. `studio doctor` warnt, wenn Whisper fehlt. Welches Modell Schweizerdeutsch am besten trifft, entscheidet Test T2, nicht dieses Dokument: «large-v3» ist eine Annahme, `--modell` ändert sie. Gelesen werden drei Formate: openai-whisper (`segments`, mit `--word_timestamps True` auch Wörter), whisper.cpp (`-oj`) und eine einfache Liste `{"segmente": [{"von", "bis", "text"}]}`. Die Kennung vor dem `=` ist die Kennung der Videoquelle in `quellen.json`; bei genau einer Videoquelle genügt der Dateiname.
+`./studio whisper einrichten` installiert openai-whisper in eine eigene Python-Umgebung (`~/.local/share/video-studio/whisper`) und lädt das Modell; `transkribiere` ruft es lokal auf (`STUDIO_WHISPER_BIN` setzt ein anderes Programm mit denselben Schaltern ein) mit `--word_timestamps True` und legt das JSON unter `<Daten>/transkripte/<Name>.json` ab. Es prüft, ob es sich lesen lässt, und nennt Segmente ohne Wortzeiten. `./studio doctor` warnt, wenn Whisper fehlt. Welches Modell Schweizerdeutsch am besten trifft, entscheidet Test T2, nicht dieses Dokument: «large-v3» ist eine Annahme, `--modell` ändert sie. Gelesen werden drei Formate: openai-whisper (`segments`, mit `--word_timestamps True` auch Wörter), whisper.cpp (`-oj`) und eine einfache Liste `{"segmente": [{"von", "bis", "text"}]}`. Die Kennung vor dem `=` ist die Kennung der Videoquelle in `quellen.json`; bei genau einer Videoquelle genügt der Dateiname.
 
 **Was der Befehl tut**
 
@@ -132,13 +132,13 @@ Der Plan enthält danach Clips und Wörter, aber keine B-Roll, Grafiken oder Mus
 Nach der Zuordnung hat der Plan Clips und Wörter, aber keine B-Roll, keine Grafiken und keine Betonung. Die kommen aus dem Storyboard (Bauplan v2, Kap. 3.5). Der Ablauf hat zwei Befehle, dazwischen schreibt Claude in der Sitzung das Storyboard:
 
 ```
-studio schnitt auftrag --plan plan.json --katalog katalog.json --regeln regeln.json -o auftrag.md
+./studio schnitt auftrag --plan plan.json --katalog katalog.json --regeln regeln.json -o auftrag.md
    (Claude liest auftrag.md und schreibt sb.json)
-studio schnitt storyboard --plan plan.json --storyboard sb.json -o plan-storyboard.json --rendern
-studio schnitt kontaktbogen --plan plan-storyboard.json -o kontaktbogen.html
-studio schnitt vorschau --plan plan-storyboard.json
-studio schnitt pruefe --plan plan-storyboard.json
-studio schnitt resolve --plan plan-storyboard.json
+./studio schnitt storyboard --plan plan.json --storyboard sb.json -o plan-storyboard.json --rendern
+./studio schnitt kontaktbogen --plan plan-storyboard.json -o kontaktbogen.html
+./studio schnitt vorschau --plan plan-storyboard.json
+./studio schnitt pruefe --plan plan-storyboard.json
+./studio schnitt resolve --plan plan-storyboard.json
 ```
 
 **Auftrag.** Enthält das Skript mit Zeiten der Timeline (nicht der Quelldatei) und durchnummerierten Wörtern, die aktiven Stücke mit ihren Parametern (`motion index`), den Katalog ohne Sounds und ohne die Einträge, die im letzten Video der Marke liefen, die aktiven Regeln (Handwerk und die Optik der Marke), das Schnittprofil und das Format der Antwort (Anhang A1 des Bauplans). Der Katalog (Aufbau und Befehle in `docs/katalog.md`) liegt bis zur Notion-Datenbank als Liste von Katalog-Einträgen (JSON) in `<Datenordner>/katalog.json` oder wird mit `--katalog` übergeben. Das «letzte Video der Marke» ergibt sich aus dem Feld «zuletzt genutzt» der Einträge (jüngstes Projekt, das nicht das aktuelle ist).
@@ -162,16 +162,16 @@ studio schnitt resolve --plan plan-storyboard.json
 
 ## Presets
 
-Ordner `presets/`, geprüft mit `studio presets lint`. Jedes Preset trägt seine Herkunft: **entschieden** (steht im Bauplan oder im Datenblatt eines Stücks), **annahme** (Startwert) oder **unbelegt** (fremde Angabe).
+Ordner `presets/`, geprüft mit `./studio presets lint`. Jedes Preset trägt seine Herkunft: **entschieden** (steht im Bauplan oder im Datenblatt eines Stücks), **annahme** (Startwert) oder **unbelegt** (fremde Angabe).
 
 | Art | Presets | Wozu |
 |---|---|---|
-| `export` | `reel` (Bauplan v2 Kap. 3.11), `reel-blueprint`, `vorschau` | `studio schnitt export-pruefen` misst eine fertige Datei (ffprobe, ffmpeg `ebur128`) und nennt jede Abweichung. Dieselben Werte erscheinen in `LIESMICH.md` und in `ffmpegExportArgs` für den Weg ohne App |
+| `export` | `reel` (Bauplan v2 Kap. 3.11), `reel-blueprint`, `vorschau` | `./studio schnitt export-pruefen` misst eine fertige Datei (ffprobe, ffmpeg `ebur128`) und nennt jede Abweichung. Dieselben Werte erscheinen in `LIESMICH.md` und in `ffmpegExportArgs` für den Weg ohne App |
 | `audio` | `standard` (−14 LUFS, −1 dBTP), `blueprint` (−17 LUFS, −6 dBTP) | Lautheit und True Peak des fertigen Videos |
-| `untertitel` | `pop-akzent`, `ruhig-unten`, `kasten-unten` | Vorschläge für das Caption-Preset der Marke. `studio presets caption <id>` setzt die Schrift der Marke ein. Übernehmen und freigeben tut ein Mensch bei Gate 0 mit dem Probebild |
-| `grafik` | `zahl-gross`, `zahl-oben` (Stück `zahl-zaehler`), `hook-karte`, `lower-third`, `keyword-pop`, `schlusskarte`, `logo-ecke` | Position im Bild (Anker innerhalb des Sicherheitsrands), Dauer, Ein- und Ausblendung, Textgrenzen, Voreinstellung der Parameter. `studio presets overlay <id> --t 1.2 --set …` macht daraus den Eintrag fürs Storyboard und prüft ihn gegen das Datenblatt des Stücks |
+| `untertitel` | `pop-akzent`, `ruhig-unten`, `kasten-unten` | Vorschläge für das Caption-Preset der Marke. `./studio presets caption <id>` setzt die Schrift der Marke ein. Übernehmen und freigeben tut ein Mensch bei Gate 0 mit dem Probebild |
+| `grafik` | `zahl-gross`, `zahl-oben` (Stück `zahl-zaehler`), `hook-karte`, `lower-third`, `keyword-pop`, `schlusskarte`, `logo-ecke` | Position im Bild (Anker innerhalb des Sicherheitsrands), Dauer, Ein- und Ausblendung, Textgrenzen, Voreinstellung der Parameter. `./studio presets overlay <id> --t 1.2 --set …` macht daraus den Eintrag fürs Storyboard und prüft ihn gegen das Datenblatt des Stücks |
 
-**Fünf Grafik-Presets haben noch kein Stück** (Hook-Karte, Lower Third, Keyword-Pop, Schlusskarte, Logo). Sie sind Vorgaben, aus denen kein Overlay entsteht, bis das Stück existiert. Gebaut werden die Stücke ausschliesslich über die Motion-Werkstatt: Idee mit dem genauen Satz im Protokoll, Pitch, drei Looks, Wahl und Abnahme durch einen Menschen (Regel 2 des Repos). Ein Preset kann das nicht abkürzen, `studio presets lint` führt sie darum als Lücke.
+**Fünf Grafik-Presets haben noch kein Stück** (Hook-Karte, Lower Third, Keyword-Pop, Schlusskarte, Logo). Sie sind Vorgaben, aus denen kein Overlay entsteht, bis das Stück existiert. Gebaut werden die Stücke ausschliesslich über die Motion-Werkstatt: Idee mit dem genauen Satz im Protokoll, Pitch, drei Looks, Wahl und Abnahme durch einen Menschen (Regel 2 des Repos). Ein Preset kann das nicht abkürzen, `./studio presets lint` führt sie darum als Lücke.
 
 Das Markenprofil `alperna.json` ist nicht angefasst. Caption-Preset, Logo und Schlusskarte fehlen dort weiter (Gate-0-Lücken). Das Preset liefert den Vorschlag, die Entscheidung bleibt bei Andrej.
 
@@ -181,7 +181,7 @@ T1 bis T8 sind im Plan vergeben (v3, Kapitel 11). T9 ist neu.
 
 | Schritt | Erwartung | Fällt es durch |
 |---|---|---|
-| `studio schnitt resolve --plan` mit zwei echten Clips ausführen (Plan aus `schnitt sondiere` und `prompts/beispiele/schnittplan.json`) | Ordner mit `timeline.fcpxml`, `timeline.otio`, `untertitel.srt` | Fehlermeldung des Befehls lesen |
+| `./studio schnitt resolve --plan` mit zwei echten Clips ausführen (Plan aus `schnitt sondiere` und `prompts/beispiele/schnittplan.json`) | Ordner mit `timeline.fcpxml`, `timeline.otio`, `untertitel.srt` | Fehlermeldung des Befehls lesen |
 | In Resolve (kostenlos oder Studio) die FCPXML importieren | Timeline erscheint mit 25 fps, 1080×1920, Clips lückenlos, Schnitte auf dem Frame genau, B-Roll und Grafik an der richtigen Zeit | OTIO versuchen. Hilft das nicht: Resolve-Version und Meldung in `STATUS.md` festhalten |
 | Kamera-Dateien mit eingebettetem Timecode verwenden | Clips beginnen an der richtigen Stelle (nicht um die Timecode-Stunde verschoben) | Feld `start` der Quelle prüfen (`sondiere` liest den Timecode) |
 | SRT importieren | 2 bis 3 Wörter je Untertitel, Zeiten passen zur Sprache | Zeiten in `plan.json` prüfen |
@@ -191,7 +191,7 @@ Erst nach T9 gilt die Übergabe als belegt. Bis dahin ist sie gebaut, gegen Appl
 
 ## Was noch fehlt, damit ein Reel wirklich entsteht
 
-1. Ein Whisper-Lauf auf echten Dialekt-Aufnahmen (Test T2). Die Zuordnung (`studio schnitt zuordnen`) ist gebaut, aber nur mit künstlichen Transkripten geprüft.
+1. Ein Whisper-Lauf auf echten Dialekt-Aufnahmen (Test T2). Die Zuordnung (`./studio schnitt zuordnen`) ist gebaut, aber nur mit künstlichen Transkripten geprüft.
 2. Ein Probelauf mit echtem Material und echtem Resolve (T9) und dem privaten Upload (T4).
 3. Ein Storyboard, das Claude aus einem echten Auftrag mit echtem Katalog schreibt (der Katalog ist noch nicht in Notion; bis dahin eine JSON-Liste). Musik und Soundeffekte fehlen im Plan.
 3. Die fünf Stücke aus der Lückenliste der Presets, über die Motion-Werkstatt.

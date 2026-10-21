@@ -1,0 +1,44 @@
+#!/bin/sh
+# Starter für alle Befehle: ./studio <gruppe> <befehl> …   (Hilfe: ./studio hilfe)
+# Läuft aus jedem Ordner, Pfade in den Argumenten gelten ab dem Ordner, in dem du gerade bist (anders als «npm run studio --»).
+# Einrichten und Aktualisieren: ./studio update
+
+# Ort des Repos, auch wenn dieser Starter über einen Link aufgerufen wird
+ziel="$0"
+while [ -h "$ziel" ]; do
+  link="$(readlink "$ziel")"
+  case "$link" in
+    /*) ziel="$link" ;;
+    *) ziel="$(dirname "$ziel")/$link" ;;
+  esac
+done
+wurzel="$(cd "$(dirname "$ziel")" && pwd)"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "FEHLER: Node ist nicht installiert. Im Terminal: brew install node" >&2
+  exit 1
+fi
+major="$(node -p 'process.versions.node.split(".")[0]')"
+if [ "$major" -lt 22 ]; then
+  echo "FEHLER: Node $(node -v) ist zu alt, nötig ist 22 oder neuer. Im Terminal: brew upgrade node" >&2
+  exit 1
+fi
+
+if [ "$1" = "update" ]; then
+  if [ -d "$wurzel/.git" ] && command -v git >/dev/null 2>&1; then
+    vorher="$(git -C "$wurzel" rev-parse --short HEAD)"
+    git -C "$wurzel" pull --ff-only || { echo "FEHLER: git pull ging nicht. Hast du Änderungen im Ordner? Dann: cd \"$wurzel\" && git status" >&2; exit 1; }
+    nachher="$(git -C "$wurzel" rev-parse --short HEAD)"
+    echo "Stand: $vorher -> $nachher"
+  fi
+  (cd "$wurzel" && npm install --no-audit --no-fund) || exit 1
+  echo "Fertig. Prüfen mit: ./studio doctor"
+  exit 0
+fi
+
+if [ ! -x "$wurzel/node_modules/.bin/tsx" ]; then
+  echo "Erster Start: Pakete werden installiert (einmalig, dauert eine Minute) …" >&2
+  (cd "$wurzel" && npm install --no-audit --no-fund) || { echo "FEHLER: npm install ging nicht." >&2; exit 1; }
+fi
+
+exec "$wurzel/node_modules/.bin/tsx" "$wurzel/src/cli.ts" "$@"

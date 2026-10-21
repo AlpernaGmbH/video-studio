@@ -37,11 +37,11 @@ const shell = (x: string): string => (/^[A-Za-z0-9_@%+=:,./-]+$/.test(x) ? x : `
 /** Der Befehl, der eine Grafik von Hand rendert (wenn nicht mit --rendern gerendert wird). */
 export function renderBefehl(r: RenderAuftrag, abs: string, marke: string): string {
   const sets = Object.entries(r.werte).map(([k, v]) => `--set ${shell(`${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)}`);
-  return ["npm run studio -- motion render", r.effekt, "-o", shell(abs), "--dauer", String(r.dauer), "--marke", marke, ...sets].join(" ");
+  return ["./studio motion render", r.effekt, "-o", shell(abs), "--dauer", String(r.dauer), "--marke", marke, ...sets].join(" ");
 }
 
 export async function auftragBefehl(a: Args, env: Umgebung): Promise<number> {
-  const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON, Ausgabe von «schnitt zuordnen»")));
+  const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON, Ausgabe von «./studio schnitt zuordnen»")));
   const marke = ladeMarke(env, typeof a.opt["marke"] === "string" ? (a.opt["marke"] as string) : plan.projekt.marke);
   const { katalog, notiz } = ladeKatalog(a, env);
   const regeln = typeof a.opt["regeln"] === "string" ? z.array(Regel).parse(lesJson(a.opt["regeln"] as string)) : [];
@@ -56,7 +56,7 @@ export async function auftragBefehl(a: Args, env: Umgebung): Promise<number> {
 }
 
 export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> {
-  const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON, Ausgabe von «schnitt zuordnen»")));
+  const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON, Ausgabe von «./studio schnitt zuordnen»")));
   const ausDatei = pflicht(a, "o", "Zieldatei für den Plan mit Storyboard, zum Beispiel -o plan-storyboard.json");
   const roh = extrahiereJson(fs.readFileSync(pflicht(a, "storyboard", "Antwort von Claude als JSON"), "utf8"));
   const marke = ladeMarke(env, typeof a.opt["marke"] === "string" ? (a.opt["marke"] as string) : plan.projekt.marke);
@@ -99,7 +99,7 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
 
   let code = 0;
   if (r.renderListe.length) {
-    if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «studio init» ausführen");
+    if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «./studio init» ausführen");
     if (a.opt["rendern"] === true) {
       console.log("\nRendern:");
       for (const g of r.renderListe) {

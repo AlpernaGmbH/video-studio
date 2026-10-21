@@ -99,9 +99,9 @@ describe("bauAuftrag", () => {
     expect(text).not.toContain("gebaut-karte");
   });
 
-  it("listet B-Roll aus dem Katalog ohne Sounds, mit nutzbarer Länge, und nennt, wie viele fehlen", () => {
+  it("listet nur Videos aus dem Katalog (keine Fotos, keine Sounds), mit nutzbarer Länge, und nennt, wie viele fehlen", () => {
     expect(text).toMatch(/- k-0142 · video, hoch, 3,8 s nutzbar · Intern_Gossau_Laptop/);
-    expect(text).toMatch(/- k-0200 · foto/);
+    expect(text).not.toContain("k-0200");
     expect(text).not.toContain("k-0300");
     expect(text).not.toMatch(/- k-0143 ·/);
     expect(text).toContain("1 Einträge fehlen, weil sie im letzten Video der Marke liefen.");

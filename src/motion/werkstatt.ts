@@ -43,7 +43,7 @@ export function ladeMarke(env: Umgebung, schluessel: string): Markenprofil {
 
 export function findeStueck(env: Umgebung, id: string): GeladenesStueck {
   const g = ladeBibliothek(env.bibliothek).stuecke.find((s) => s.stueck.id === id);
-  if (!g) throw new Error(`Stück «${id}» nicht gefunden oder ungültig. Zuerst «studio motion lint» ausführen`);
+  if (!g) throw new Error(`Stück «${id}» nicht gefunden oder ungültig. Zuerst «./studio motion lint» ausführen`);
   return g;
 }
 
