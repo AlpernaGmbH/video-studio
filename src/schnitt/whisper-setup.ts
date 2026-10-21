@@ -82,7 +82,9 @@ export async function richteWhisperEin(o: EinrichtenOptionen = {}): Promise<{ pr
   else {
     const modell = o.modell ?? STANDARD_MODELL;
     melde(`4/4 Modell «${modell}» laden (einmalig; large-v3 ist rund 3 GB, der Fortschritt läuft durch)`);
-    r = await fuehre(py, ["-c", `import whisper; whisper.load_model(${JSON.stringify(modell)}); print("Modell geladen")`]);
+    // certifi (kommt mit Whisper) liefert die Zertifikate für den Download: Manche Python-Installationen auf dem Mac kennen sie nicht («CERTIFICATE_VERIFY_FAILED»)
+    const code = `import os\ntry:\n    import certifi\n    os.environ.setdefault("SSL_CERT_FILE", certifi.where())\nexcept Exception:\n    pass\nimport whisper\nwhisper.load_model(${JSON.stringify(modell)})\nprint("Modell geladen")`;
+    r = await fuehre(py, ["-c", code]);
     if (r.code !== 0) throw new Error(`Das Modell «${modell}» liess sich nicht laden: Platz auf dem Datenträger und Netz prüfen. Ein kleineres Modell mit --modell small`);
   }
   melde(`\nFertig. Whisper liegt in ${umgebung}. Nächster Schritt: ./studio schnitt transkribiere <aufnahme>`);

@@ -50,8 +50,10 @@ describe("richteWhisperEin", () => {
       [path.join(u, "bin", "pip"), "install", "--upgrade", "--quiet", "pip"],
       [path.join(u, "bin", "pip"), "install", "openai-whisper"],
       [path.join(u, "bin", "whisper"), "--help"],
-      [path.join(u, "bin", "python"), "-c", 'import whisper; whisper.load_model("large-v3"); print("Modell geladen")'],
+      [path.join(u, "bin", "python"), "-c", expect.stringContaining('whisper.load_model("large-v3")')],
     ]);
+    // das Modell wird mit den Zertifikaten von certifi geladen (sonst scheitert der Download auf manchen Macs)
+    expect(aufrufe[4]![2]).toContain('os.environ.setdefault("SSL_CERT_FILE", certifi.where())');
     expect(r.programm).toBe(path.join(u, "bin", "whisper"));
   });
 
