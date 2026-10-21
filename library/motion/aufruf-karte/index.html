@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.8 bis 5). Die Timeline endet hier.","default":2.8,"role":"timing"},{"id":"schluessel","type":"string","label":"Schlüsselwort","description":"Das Wort, das die Zuschauerin schreiben soll, zum Beispiel «Hebel». Höchstens 14 Zeichen. Vorschauwert ist «Hebel».","role":"content","default":"Hebel"},{"id":"aktion","type":"enum","label":"Aktion","description":"Was die Zuschauerin tun soll. «kommentieren» zeigt «Kommentiere», «nachricht» zeigt «Schreib uns», «profil» zeigt «Mehr im Profil».","role":"content","options":[{"value":"kommentieren","label":"Kommentieren"},{"value":"nachricht","label":"Nachricht schreiben"},{"value":"profil","label":"Profil besuchen"}],"default":"kommentieren"},{"id":"zusatz","type":"string","label":"Zusatzzeile","description":"Eine ruhige Zeile unter der Sprechblase, zum Beispiel «unter dem Video». Höchstens 40 Zeichen. Leer lassen für keine.","role":"content","default":"unter dem Video"},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeAkzent2","type":"color","label":"markeAkzent2","description":"Zweite Akzentfarbe der Marke","default":"#4B3FD6","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
+<head>
+<meta charset="utf-8">
+<title>Aufruf-Karte</title>
+<link rel="stylesheet" href="assets/brand.css">
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { position: relative; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  /* Sicherheitsrand (render.ts): oben 8 %, links 5 %, rechts und unten je 20 %. Inhalt nur in x 54 bis 864, y 154 bis 1536. */
+  #blk { position: absolute; left: 54px; width: 810px; top: 1010px; display: flex; flex-direction: column; align-items: center; }
+  #chip { background: var(--platte); border: 2px solid rgba(253,251,251,0.16); border-radius: 999px; padding: 10px 34px 12px; font-family: var(--markeFontTitel), sans-serif; font-weight: 600; font-size: 40px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--markeText); margin-bottom: 22px; opacity: 0; }
+  #bub { position: relative; display: inline-block; background: var(--markeAkzent1); color: var(--markeBg); border-radius: calc(var(--markeRadius) * 2); padding: 14px 70px 24px; font-family: var(--markeFontTitel), sans-serif; font-weight: 700; font-size: 170px; line-height: 1.0; text-transform: uppercase; white-space: nowrap; box-shadow: 0 20px 50px rgba(0,0,0,0.25); opacity: 0; }
+  #bub:after { content: ""; position: absolute; left: 90px; bottom: -34px; width: 0; height: 0; border-left: 26px solid transparent; border-right: 26px solid transparent; border-top: 40px solid var(--markeAkzent1); }
+  #sub { margin-top: 70px; font-family: var(--markeFontText), sans-serif; font-weight: 500; font-size: 42px; color: var(--markeText); text-shadow: 0 2px 16px var(--schatten); opacity: 0; text-align: center; text-wrap: balance; max-width: 700px; }
+  #sub:empty { display: none; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="aufruf-karte" data-start="0" data-width="1080" data-height="1920">
+  <div id="blk"><div id="chip"></div><div id="bub"></div><div id="sub"></div></div>
+</div>
+<script>
+(function () {
+  var v = window.__hyperframes.getVariables();
+  var root = document.getElementById("root");
+
+  // Marke in CSS-Variablen übernehmen
+  ["markeBg", "markeText", "markeAkzent1", "markeAkzent2", "markeFontTitel", "markeFontText", "markeRadius", "markeTempo"].forEach(function (k) {
+    if (v[k] !== undefined) root.style.setProperty("--" + k, String(v[k]));
+  });
+  function rgba(hex, a) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+  root.style.setProperty("--platte", rgba(v.markeBg, 0.94));
+  root.style.setProperty("--schatten", rgba(v.markeBg, 0.9));
+  root.style.setProperty("--glow", rgba(v.markeAkzent1, 0.5));
+  var d = Number(v.dauer);
+  var tempo = Math.min(2, Math.max(0.5, Number(v.markeTempo) || 1));
+  var k = 1 / tempo;
+  function liste(text, fallback) { try { var a = JSON.parse(String(text)); return Array.isArray(a) ? a.map(String) : fallback; } catch (e) { return fallback; } }
+  var texte = { kommentieren: "Kommentiere", nachricht: "Schreib uns", profil: "Mehr im Profil" };
+  var bub = document.getElementById("bub");
+  document.getElementById("chip").textContent = texte[v.aktion] || texte.kommentieren;
+  bub.textContent = v.schluessel || "";
+  // Schrift auf der goldenen Blase: Marken-Hintergrund oder Marken-Text, je nachdem, was mehr Kontrast gibt (die Marke bestimmt die Farben, nicht das Stück)
+  function lum(hex) { var h = String(hex).replace("#", ""); if (h.length === 3) h = h.replace(/(.)/g, "$1$1"); var n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }).reduce(function (a, c, i) { return a + c * [0.2126, 0.7152, 0.0722][i]; }, 0); }
+  function kontrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  bub.style.color = kontrast(v.markeAkzent1, v.markeBg) >= kontrast(v.markeAkzent1, v.markeText) ? v.markeBg : v.markeText;
+  document.getElementById("sub").textContent = v.zusatz || "";
+  // Schlüsselwort passt in die Breite (offsetWidth statt getBoundingClientRect: Letzteres rechnet Transformationen mit)
+  function anpassen() {
+    bub.style.fontSize = "100px";
+    var b = bub.offsetWidth || 1;
+    bub.style.fontSize = Math.max(60, Math.min(170, Math.floor(100 * 790 / b))) + "px";
+  }
+  anpassen();
+  if (document.fonts) { document.fonts.load('700 100px "' + v.markeFontTitel + '"', "Hebel").then(anpassen); document.fonts.ready.then(anpassen); }
+  var tOut = Math.max(1.0, d - 0.25 * k - 0.04);
+  var tl = gsap.timeline({ paused: true });
+  tl.fromTo("#chip", { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.3 * k, ease: "power3.out" }, 0.1 * k);
+  tl.fromTo("#bub", { scale: 0.5, opacity: 0, transformOrigin: "20% 100%" }, { scale: 1, opacity: 1, duration: 0.4 * k, ease: "back.out(1.9)" }, 0.28 * k);
+  tl.fromTo("#sub", { opacity: 0 }, { opacity: 1, duration: 0.3 * k }, 0.6 * k);
+  tl.to("#blk", { opacity: 0, y: -16, duration: 0.25 * k, ease: "power2.in" }, tOut);
+  tl.set({}, {}, d); // Die Timeline endet genau bei «dauer»
+  window.__timelines = window.__timelines || {};
+  window.__timelines["aufruf-karte"] = tl;
+})();
+</script>
+</body>
+</html>

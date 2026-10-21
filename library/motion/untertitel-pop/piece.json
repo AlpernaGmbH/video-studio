@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "untertitel-pop",
   "name": "Untertitel Wort-Pop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "geprueft",
   "welle": "wachstum",
   "herkunft": {
@@ -55,6 +55,17 @@
       "default": 76,
       "min": 48,
       "max": 120
+    },
+    {
+      "id": "halten",
+      "label": "Haltezeit",
+      "beschreibung": "Sekunden, die eine Seite nach dem letzten gesprochenen Wort stehen bleibt, wenn keine neue Seite folgt (vor einer Pause und am Ende). Bis die nächste Seite kommt, bleibt sie ohnehin stehen. Standard 0,7.",
+      "pflicht": false,
+      "rolle": "timing",
+      "typ": "number",
+      "default": 0.7,
+      "min": 0,
+      "max": 2.5
     }
   ],
   "dauer": {
@@ -109,6 +120,7 @@
     ],
     "kombinierbarMit": [],
     "hinweise": [
+      "Look B «Kino» (Wahl am 21.10.2026 durch Andrej), unverändert. Ab 0.2.0 bleiben die Seiten stehen, bis die nächste kommt, und vor einer Pause oder am Ende noch 0,7 s: Die Untertitel waren zu schnell wieder weg.",
       "Look B «Kino» (Wahl am 21.10.2026 durch Andrej): gesperrte Grossbuchstaben in Poppins 600, weiches Leuchten statt Kontur, Gold nur für das betonte Wort und die Linie.",
       "Die Schrift trägt Schatten, damit sie auch auf hellem Hintergrund lesbar bleibt (Probe: Rohmaterial mit weisser Wand, Log ohne Look).",
       "Das Overlay geht über die ganze Timeline. Es liegt auf V3 und ersetzt die SRT nicht: Die SRT bleibt für Plattformen mit eigenen Untertiteln.",

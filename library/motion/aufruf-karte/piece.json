@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "id": "aufruf-karte",
+  "name": "Aufruf-Karte",
+  "version": "0.1.0",
+  "status": "geprueft",
+  "welle": "wachstum",
+  "herkunft": {
+    "idee": "m-001"
+  },
+  "zweck": "Zeigt am Ende eines Reels den Aufruf: eine kleine Pille mit der Handlung, darunter das Schlüsselwort gross in einer goldenen Sprechblase, darunter eine ruhige Zeile.",
+  "ausloeser": {
+    "typen": [
+      "frei"
+    ],
+    "beschreibung": "Der letzte Satz ruft zu einer Handlung auf (kommentieren, eine Nachricht schreiben, das Profil besuchen), meist mit einem Schlüsselwort."
+  },
+  "parameter": [
+    {
+      "id": "schluessel",
+      "label": "Schlüsselwort",
+      "beschreibung": "Das Wort, das die Zuschauerin schreiben soll, zum Beispiel «Hebel». Höchstens 14 Zeichen. Vorschauwert ist «Hebel».",
+      "pflicht": true,
+      "rolle": "inhalt",
+      "typ": "string",
+      "default": "Hebel",
+      "maxLaenge": 14
+    },
+    {
+      "id": "aktion",
+      "label": "Aktion",
+      "beschreibung": "Was die Zuschauerin tun soll. «kommentieren» zeigt «Kommentiere», «nachricht» zeigt «Schreib uns», «profil» zeigt «Mehr im Profil».",
+      "pflicht": false,
+      "rolle": "inhalt",
+      "typ": "enum",
+      "optionen": [
+        {
+          "wert": "kommentieren",
+          "label": "Kommentieren"
+        },
+        {
+          "wert": "nachricht",
+          "label": "Nachricht schreiben"
+        },
+        {
+          "wert": "profil",
+          "label": "Profil besuchen"
+        }
+      ],
+      "default": "kommentieren"
+    },
+    {
+      "id": "zusatz",
+      "label": "Zusatzzeile",
+      "beschreibung": "Eine ruhige Zeile unter der Sprechblase, zum Beispiel «unter dem Video». Höchstens 40 Zeichen. Leer lassen für keine.",
+      "pflicht": false,
+      "rolle": "inhalt",
+      "typ": "string",
+      "default": "unter dem Video",
+      "maxLaenge": 40
+    }
+  ],
+  "dauer": {
+    "standard": 2.8,
+    "min": 1.8,
+    "max": 5
+  },
+  "ausgabe": "overlay",
+  "markenvariablen": [
+    "markeBg",
+    "markeText",
+    "markeAkzent1",
+    "markeAkzent2",
+    "markeFontTitel",
+    "markeFontText",
+    "markeRadius",
+    "markeTempo"
+  ],
+  "passtZu": [
+    "talking-head",
+    "erklaervideo",
+    "projektvideo",
+    "trendformat"
+  ],
+  "braucht": [
+    "nichts"
+  ],
+  "aufwand": "klein",
+  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Anfang und Ende leer. Pille, Sprechblase und Zusatzzeile liegen im Sicherheitsrand (x 54 bis 864, y 154 bis 1536), das Schlüsselwort passt in die Blase. Der Check von HyperFrames meldet keine Fehler.",
+  "sicherheitsrand": true,
+  "engines": [
+    "hyperframes"
+  ],
+  "einsatz": {
+    "wann": [
+      "Der letzte Satz des Reels ruft zu genau einer Handlung auf, am besten mit einem Schlüsselwort, das man schreiben kann.",
+      "Das Schlüsselwort soll sichtbar sein, nicht nur gesprochen."
+    ],
+    "wannNicht": [
+      "Es gibt keinen Aufruf oder mehr als einen: Das Markenprofil verlangt höchstens eine CTA.",
+      "Der Aufruf ist ein Link: Links lassen sich im Video nicht anklicken, dafür gehört die Zeile in die Beschreibung."
+    ],
+    "beispiele": [
+      {
+        "satz": "Wenn auch du den grössten Hebel für deine Onlinepräsenz finden willst, kommentiere «Hebel» unter dem Video und wir melden uns bei dir.",
+        "variablen": {
+          "schluessel": "Hebel",
+          "aktion": "kommentieren",
+          "zusatz": "unter dem Video",
+          "dauer": 2.8
+        }
+      },
+      {
+        "satz": "Schreib uns eine Nachricht mit dem Wort Termin.",
+        "variablen": {
+          "schluessel": "Termin",
+          "aktion": "nachricht",
+          "zusatz": "wir melden uns",
+          "dauer": 2.6
+        }
+      }
+    ],
+    "kombinierbarMit": [
+      "untertitel-pop"
+    ],
+    "hinweise": [
+      "Look C «Interface» (Wahl am 21.10.2026: Claude auf Andrejs Wunsch, Name Andrej): goldene Sprechblase mit Schwanz unten links, dunkle Pille darüber.",
+      "Das erste Beispiel stammt aus dem Skript des Reels c-9001. Das zweite ist eine Illustration ohne Aussage (kein echter Aufruf).",
+      "Höchstens ein Einsatz je Reel, am Ende. Im Reel steht der Aufruf zusammen mit den Untertiteln: Die Karte liegt höher (y 1040 bis 1500), die Untertitel darunter bleiben lesbar."
+    ]
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "id": "stichwort-liste",
+  "name": "Stichwort-Liste",
+  "version": "0.1.0",
+  "status": "geprueft",
+  "welle": "wachstum",
+  "herkunft": {
+    "idee": "m-002"
+  },
+  "zweck": "Zeigt Stichwörter, die im Satz hintereinander genannt werden, als nummerierte Liste, die sich Zeile für Zeile aufbaut. Ein Stichwort ist golden.",
+  "ausloeser": {
+    "typen": [
+      "aufzaehlung"
+    ],
+    "beschreibung": "Ein Satz nennt drei bis fünf Dinge hintereinander («Trainings, Turniere und Erfolg»), die man sich merken soll."
+  },
+  "parameter": [
+    {
+      "id": "stichwoerter",
+      "label": "Stichwörter",
+      "beschreibung": "Die Wörter der Aufzählung, drei bis fünf, in der Reihenfolge des Satzes. Jedes höchstens 24 Zeichen. Vorschauwert ist «Trainings, Turniere, Erfolg».",
+      "pflicht": true,
+      "rolle": "inhalt",
+      "typ": "textliste",
+      "minAnzahl": 3,
+      "maxAnzahl": 5,
+      "maxLaenge": 24,
+      "default": [
+        "Trainings",
+        "Turniere",
+        "Erfolg"
+      ]
+    },
+    {
+      "id": "betont",
+      "label": "Betontes Stichwort",
+      "beschreibung": "Nummer des Stichworts in Gold. 0 heisst das letzte (Standard), sonst 1 bis 5.",
+      "pflicht": false,
+      "rolle": "stil",
+      "typ": "number",
+      "default": 0,
+      "min": 0,
+      "max": 5
+    },
+    {
+      "id": "abstand",
+      "label": "Abstand",
+      "beschreibung": "Sekunden zwischen zwei Zeilen. Passend zum Sprechtempo wählen: 0,5 für zügiges Sprechen, 0,9 für ruhiges.",
+      "pflicht": false,
+      "rolle": "timing",
+      "typ": "number",
+      "default": 0.5,
+      "min": 0.2,
+      "max": 1.5
+    }
+  ],
+  "dauer": {
+    "standard": 3,
+    "min": 1.8,
+    "max": 8
+  },
+  "ausgabe": "overlay",
+  "markenvariablen": [
+    "markeBg",
+    "markeText",
+    "markeAkzent1",
+    "markeAkzent2",
+    "markeFontTitel",
+    "markeFontText",
+    "markeRadius",
+    "markeTempo"
+  ],
+  "passtZu": [
+    "talking-head",
+    "erklaervideo",
+    "projektvideo",
+    "trendformat"
+  ],
+  "braucht": [
+    "nichts"
+  ],
+  "aufwand": "klein",
+  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Anfang und Ende leer. Alle Zeilen liegen im Sicherheitsrand (x 54 bis 864, y 154 bis 1536), jede Zeile erscheint nach dem eingestellten Abstand, das betonte Stichwort ist golden. Der Check von HyperFrames meldet keine Fehler.",
+  "sicherheitsrand": true,
+  "engines": [
+    "hyperframes"
+  ],
+  "einsatz": {
+    "wann": [
+      "Ein Satz zählt drei bis fünf Dinge auf, die zusammengehören.",
+      "Die Reihenfolge der Dinge ist die des Sprechens, und jedes soll einzeln sichtbar werden."
+    ],
+    "wannNicht": [
+      "Zwei Dinge oder weniger: dafür reicht der Satz.",
+      "Mehr als fünf Dinge oder lange Sätze als Einträge: Die Liste wird zum Textblock."
+    ],
+    "beispiele": [
+      {
+        "satz": "Der BC Trogen-Speicher ist ein Hammerverein mit Trainings, Turnieren und auch Erfolg.",
+        "variablen": {
+          "stichwoerter": [
+            "Trainings",
+            "Turniere",
+            "Erfolg"
+          ],
+          "abstand": 0.6,
+          "dauer": 3.2
+        }
+      },
+      {
+        "satz": "Drei Sachen bringen deine Beiträge um.",
+        "variablen": {
+          "stichwoerter": [
+            "Kein Plan",
+            "Kein Ziel",
+            "Keine Zeit"
+          ],
+          "betont": 1,
+          "abstand": 0.7,
+          "dauer": 3.4
+        }
+      }
+    ],
+    "kombinierbarMit": [
+      "untertitel-pop"
+    ],
+    "hinweise": [
+      "Look B «Kino» (Wahl am 21.10.2026 durch Andrej): nummerierte Zeilen mit feinen Linien, Schrift mit Schatten, Gold für Nummer und betontes Wort.",
+      "Das erste Beispiel stammt aus dem Reel c-9001. Das zweite ist eine Illustration ohne Aussage: Die drei Sachen aus dem Hook c-0057 sind nicht belegt, die Stichwörter sind erfunden.",
+      "Die Liste steht links (x 70 bis 770), damit das Gesicht frei bleibt. Der Abstand gehört zum Sprechtempo."
+    ]
+  }
+}

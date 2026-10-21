@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.8 bis 6). Die Timeline endet hier.","default":2.8,"role":"timing"},{"id":"titel","type":"string","label":"Titel","description":"Die Dauer als kurze Zeile über der Linie, zum Beispiel «Nach drei Monaten». Höchstens 30 Zeichen. Vorschauwert ist «Nach drei Monaten».","role":"content","default":"Nach drei Monaten"},{"id":"abschnitte","type":"string","label":"Abschnitte","description":"Beschriftung der Abschnitte auf der Linie, von links nach rechts, zwei bis sechs, jede höchstens 12 Zeichen, zum Beispiel «Start, Monat 1, Monat 2, Monat 3». Nur Zeitabschnitte, keine erfundenen Werte. Als JSON-Liste, 2 bis 6 Texte.","role":"content","default":"[\"Start\",\"Monat 1\",\"Monat 2\",\"Monat 3\"]"},{"id":"laufzeit","type":"number","label":"Laufzeit","description":"Sekunden, die der Punkt vom Start bis zum Ende braucht. Zum Sprechtempo wählen, 1 ist Standard.","role":"timing","default":1},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeAkzent2","type":"color","label":"markeAkzent2","description":"Zweite Akzentfarbe der Marke","default":"#4B3FD6","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
+<head>
+<meta charset="utf-8">
+<title>Zeitraum-Leiste</title>
+<link rel="stylesheet" href="assets/brand.css">
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { position: relative; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  /* Sicherheitsrand (render.ts): oben 8 %, links 5 %, rechts und unten je 20 %. Inhalt nur in x 54 bis 864, y 154 bis 1536. */
+  #blk { position: absolute; left: 54px; width: 810px; top: 960px; text-align: center; }
+  #e { font-family: var(--markeFontText), sans-serif; font-weight: 500; font-size: 40px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--markeText); text-shadow: 0 2px 16px var(--schatten); margin-right: -0.4em; opacity: 0; }
+  #lin { position: relative; height: 3px; margin: 70px 40px 22px; background: rgba(253,251,251,0.5); }
+  #gold { position: absolute; left: 0; top: -1px; height: 5px; width: 100%; background: var(--markeAkzent1); transform-origin: left center; box-shadow: 0 0 18px var(--glow); }
+  .tk { position: absolute; top: -12px; width: 3px; height: 27px; background: rgba(253,251,251,0.7); }
+  #dot { position: absolute; top: -14px; left: 0; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%; background: var(--markeAkzent1); box-shadow: 0 0 34px var(--glow); }
+  #lab { position: relative; height: 44px; margin: 0 40px; font-family: var(--markeFontText), sans-serif; font-weight: 500; font-size: 26px; letter-spacing: 0.06em; color: var(--markeText); text-shadow: 0 2px 14px var(--schatten); text-transform: uppercase; opacity: 0; }
+  #lab span { position: absolute; top: 0; white-space: nowrap; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="zeitraum-leiste" data-start="0" data-width="1080" data-height="1920">
+  <div id="blk"><div id="e"></div><div id="lin"><div id="gold"></div><div id="dot"></div></div><div id="lab"></div></div>
+</div>
+<script>
+(function () {
+  var v = window.__hyperframes.getVariables();
+  var root = document.getElementById("root");
+
+  // Marke in CSS-Variablen übernehmen
+  ["markeBg", "markeText", "markeAkzent1", "markeAkzent2", "markeFontTitel", "markeFontText", "markeRadius", "markeTempo"].forEach(function (k) {
+    if (v[k] !== undefined) root.style.setProperty("--" + k, String(v[k]));
+  });
+  function rgba(hex, a) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+  root.style.setProperty("--platte", rgba(v.markeBg, 0.94));
+  root.style.setProperty("--schatten", rgba(v.markeBg, 0.9));
+  root.style.setProperty("--glow", rgba(v.markeAkzent1, 0.5));
+  var d = Number(v.dauer);
+  var tempo = Math.min(2, Math.max(0.5, Number(v.markeTempo) || 1));
+  var k = 1 / tempo;
+  function liste(text, fallback) { try { var a = JSON.parse(String(text)); return Array.isArray(a) ? a.map(String) : fallback; } catch (e) { return fallback; } }
+  document.getElementById("e").textContent = v.titel || "";
+  var marken = liste(v.abschnitte, ["Start", "Ende"]).slice(0, 6);
+  if (marken.length < 2) marken = ["Start", "Ende"];
+  var lin = document.getElementById("lin"), lab = document.getElementById("lab");
+  marken.forEach(function (m, i) {
+    var p = (i / (marken.length - 1)) * 100;
+    var t = document.createElement("div"); t.className = "tk"; t.style.left = "calc(" + p + "% - 1.5px)"; lin.appendChild(t);
+    var s = document.createElement("span");
+    s.textContent = m; s.style.left = p + "%";
+    // Die äusseren Beschriftungen bleiben innerhalb von 810 px: erste linksbündig, letzte rechtsbündig an der Marke
+    if (i === 0) s.style.transform = "translateX(-20px)"; else if (i === marken.length - 1) s.style.transform = "translateX(calc(-100% + 20px))";
+    lab.appendChild(s);
+  });
+  var lauf = Math.min(3, Math.max(0.4, Number(v.laufzeit) || 1));
+  var tOut = Math.max(1.0 + lauf, d - 0.25 * k - 0.04);
+  var tl = gsap.timeline({ paused: true });
+  tl.fromTo("#e", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 * k, ease: "power2.out" }, 0.1 * k);
+  tl.fromTo("#gold", { scaleX: 0 }, { scaleX: 1, duration: lauf, ease: "power2.inOut" }, 0.25 * k);
+  // Transform statt «left», damit die Bewegung bildweise sauber gerendert wird (offsetWidth: Layoutbreite der Linie)
+  tl.fromTo("#dot", { x: 0 }, { x: lin.offsetWidth, duration: lauf, ease: "power2.inOut" }, 0.25 * k);
+  tl.fromTo("#lab", { opacity: 0 }, { opacity: 1, duration: 0.4 * k }, 0.4 * k);
+  tl.to("#blk", { opacity: 0, y: -16, duration: 0.25 * k, ease: "power2.in" }, tOut);
+  tl.set({}, {}, d); // Die Timeline endet genau bei «dauer»
+  window.__timelines = window.__timelines || {};
+  window.__timelines["zeitraum-leiste"] = tl;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "id": "zeitraum-leiste",
+  "name": "Zeitraum-Leiste",
+  "version": "0.1.0",
+  "status": "geprueft",
+  "welle": "wachstum",
+  "herkunft": {
+    "idee": "m-003"
+  },
+  "zweck": "Zeigt, wie lange etwas dauerte: eine feine Linie mit Marken für Start und Zeitabschnitte, ein goldener Punkt wandert von links nach rechts und zieht eine Spur.",
+  "ausloeser": {
+    "typen": [
+      "zeitraum"
+    ],
+    "beschreibung": "Ein Satz nennt einen Zeitraum («nach drei Monaten», «in zwei Wochen»), in dem etwas geschah, und die Dauer soll sichtbar werden."
+  },
+  "parameter": [
+    {
+      "id": "titel",
+      "label": "Titel",
+      "beschreibung": "Die Dauer als kurze Zeile über der Linie, zum Beispiel «Nach drei Monaten». Höchstens 30 Zeichen. Vorschauwert ist «Nach drei Monaten».",
+      "pflicht": true,
+      "rolle": "inhalt",
+      "typ": "string",
+      "default": "Nach drei Monaten",
+      "maxLaenge": 30
+    },
+    {
+      "id": "abschnitte",
+      "label": "Abschnitte",
+      "beschreibung": "Beschriftung der Abschnitte auf der Linie, von links nach rechts, zwei bis sechs, jede höchstens 12 Zeichen, zum Beispiel «Start, Monat 1, Monat 2, Monat 3». Nur Zeitabschnitte, keine erfundenen Werte.",
+      "pflicht": true,
+      "rolle": "inhalt",
+      "typ": "textliste",
+      "minAnzahl": 2,
+      "maxAnzahl": 6,
+      "maxLaenge": 12,
+      "default": [
+        "Start",
+        "Monat 1",
+        "Monat 2",
+        "Monat 3"
+      ]
+    },
+    {
+      "id": "laufzeit",
+      "label": "Laufzeit",
+      "beschreibung": "Sekunden, die der Punkt vom Start bis zum Ende braucht. Zum Sprechtempo wählen, 1 ist Standard.",
+      "pflicht": false,
+      "rolle": "timing",
+      "typ": "number",
+      "default": 1,
+      "min": 0.4,
+      "max": 3
+    }
+  ],
+  "dauer": {
+    "standard": 2.8,
+    "min": 1.8,
+    "max": 6
+  },
+  "ausgabe": "overlay",
+  "markenvariablen": [
+    "markeBg",
+    "markeText",
+    "markeAkzent1",
+    "markeAkzent2",
+    "markeFontTitel",
+    "markeFontText",
+    "markeRadius",
+    "markeTempo"
+  ],
+  "passtZu": [
+    "talking-head",
+    "erklaervideo",
+    "projektvideo",
+    "trendformat"
+  ],
+  "braucht": [
+    "nichts"
+  ],
+  "aufwand": "klein",
+  "abnahme": "Render 1080×1920, 25p, mit Alpha, genau so lang wie die Dauer. Anfang und Ende leer. Titel, Linie, Marken und Beschriftung liegen im Sicherheitsrand (x 54 bis 864, y 154 bis 1536), der Punkt endet am rechten Ende der Linie. Der Check von HyperFrames meldet keine Fehler.",
+  "sicherheitsrand": true,
+  "engines": [
+    "hyperframes"
+  ],
+  "einsatz": {
+    "wann": [
+      "Der Satz nennt einen Zeitraum, und die Zahl im Satz wirkt erst durch die Dauer («nach drei Monaten über 74.000 Aufrufe»).",
+      "Der Zeitraum lässt sich in gleich lange Abschnitte teilen (Monate, Wochen), die als Marken stehen können."
+    ],
+    "wannNicht": [
+      "Es gibt Zwischenwerte, die man zeigen will (Verlauf über mehrere Messwerte): dafür fehlt ein Verlaufs-Stück, die Lücke gehört ins Ideenprotokoll.",
+      "Die Dauer ist kein Zeitraum, sondern ein Zeitpunkt («seit März»)."
+    ],
+    "beispiele": [
+      {
+        "satz": "Das Ergebnis nach drei Monaten: über 74.000 Aufrufe und über 1.500 Interaktionen in den sozialen Medien.",
+        "variablen": {
+          "titel": "Nach drei Monaten",
+          "laufzeit": 1,
+          "dauer": 2.8,
+          "abschnitte": [
+            "Start",
+            "Monat 1",
+            "Monat 2",
+            "Monat 3"
+          ]
+        }
+      },
+      {
+        "satz": "9400 Prozent mehr Website-Besucher. In zwei Wochen.",
+        "variablen": {
+          "titel": "In zwei Wochen",
+          "laufzeit": 0.8,
+          "dauer": 2.4,
+          "abschnitte": [
+            "Start",
+            "Woche 1",
+            "Woche 2"
+          ]
+        }
+      }
+    ],
+    "kombinierbarMit": [
+      "untertitel-pop"
+    ],
+    "hinweise": [
+      "Look B «Kino» (Wahl am 21.10.2026 durch Andrej): feine weisse Linie, goldene Spur und goldener Punkt mit Leuchten, gesperrte Titelzeile.",
+      "Das erste Beispiel stammt aus dem Reel c-9001, das zweite aus dem Hook c-0050 (Inhalte-Datenbank). Die Abschnitte zeigen nur Abschnitte, keine Messwerte.",
+      "Das Stück zeigt die Dauer, nicht die Zahl: Die Zahl kommt vom Zahl-Zähler oder bleibt im Satz."
+    ]
+  }
+}

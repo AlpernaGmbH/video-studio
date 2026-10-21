@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="de-CH" data-composition-variables='[{"id":"dauer","type":"number","label":"Dauer","description":"Länge des Einsatzes in Sekunden (1.8 bis 8). Die Timeline endet hier.","default":3,"role":"timing"},{"id":"stichwoerter","type":"string","label":"Stichwörter","description":"Die Wörter der Aufzählung, drei bis fünf, in der Reihenfolge des Satzes. Jedes höchstens 24 Zeichen. Vorschauwert ist «Trainings, Turniere, Erfolg». Als JSON-Liste, 3 bis 5 Texte.","role":"content","default":"[\"Trainings\",\"Turniere\",\"Erfolg\"]"},{"id":"betont","type":"number","label":"Betontes Stichwort","description":"Nummer des Stichworts in Gold. 0 heisst das letzte (Standard), sonst 1 bis 5.","role":"style","default":0},{"id":"abstand","type":"number","label":"Abstand","description":"Sekunden zwischen zwei Zeilen. Passend zum Sprechtempo wählen: 0,5 für zügiges Sprechen, 0,9 für ruhiges.","role":"timing","default":0.5},{"id":"markeBg","type":"color","label":"markeBg","description":"Hintergrundfarbe der Marke","default":"#FFFFFF","role":"style"},{"id":"markeText","type":"color","label":"markeText","description":"Textfarbe der Marke","default":"#0A0A0A","role":"style"},{"id":"markeAkzent1","type":"color","label":"markeAkzent1","description":"Erste Akzentfarbe der Marke","default":"#FFC629","role":"style"},{"id":"markeAkzent2","type":"color","label":"markeAkzent2","description":"Zweite Akzentfarbe der Marke","default":"#4B3FD6","role":"style"},{"id":"markeFontTitel","type":"font","label":"markeFontTitel","description":"Schrift für Titel und Zahlen","default":"Poppins","role":"style"},{"id":"markeFontText","type":"font","label":"markeFontText","description":"Schrift für Fliesstext","default":"Montserrat","role":"style"},{"id":"markeRadius","type":"number","label":"markeRadius","description":"Eckenradius in Pixeln","default":24,"role":"style"},{"id":"markeTempo","type":"number","label":"markeTempo","description":"Bewegungstempo, 1 ist normal, grösser ist schneller","default":1,"role":"style"}]'>
+<head>
+<meta charset="utf-8">
+<title>Stichwort-Liste</title>
+<link rel="stylesheet" href="assets/brand.css">
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #root { position: relative; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  /* Sicherheitsrand (render.ts): oben 8 %, links 5 %, rechts und unten je 20 %. Inhalt nur in x 54 bis 864, y 154 bis 1536. */
+  #blk { position: absolute; left: 70px; width: 700px; top: 800px; }
+  .z { display: flex; align-items: baseline; gap: 26px; padding: 18px 0 20px; border-bottom: 2px solid rgba(253,251,251,0.35); opacity: 0; }
+  .n { font-family: var(--markeFontText), sans-serif; font-weight: 500; font-size: 34px; letter-spacing: 0.2em; color: var(--markeAkzent1); text-shadow: 0 2px 14px var(--schatten); width: 70px; flex: none; }
+  .w { font-family: var(--markeFontTitel), sans-serif; font-weight: 600; font-size: 84px; line-height: 1.05; color: var(--markeText); letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 20px var(--schatten), 0 0 3px var(--schatten); white-space: nowrap; }
+  .z.betont .w { color: var(--markeAkzent1); text-shadow: 0 0 30px var(--glow), 0 2px 18px var(--schatten); }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="stichwort-liste" data-start="0" data-width="1080" data-height="1920">
+  <div id="blk"></div>
+</div>
+<script>
+(function () {
+  var v = window.__hyperframes.getVariables();
+  var root = document.getElementById("root");
+
+  // Marke in CSS-Variablen übernehmen
+  ["markeBg", "markeText", "markeAkzent1", "markeAkzent2", "markeFontTitel", "markeFontText", "markeRadius", "markeTempo"].forEach(function (k) {
+    if (v[k] !== undefined) root.style.setProperty("--" + k, String(v[k]));
+  });
+  function rgba(hex, a) {
+    var h = String(hex).replace("#", "");
+    if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+  root.style.setProperty("--platte", rgba(v.markeBg, 0.94));
+  root.style.setProperty("--schatten", rgba(v.markeBg, 0.9));
+  root.style.setProperty("--glow", rgba(v.markeAkzent1, 0.5));
+  var d = Number(v.dauer);
+  var tempo = Math.min(2, Math.max(0.5, Number(v.markeTempo) || 1));
+  var k = 1 / tempo;
+  function liste(text, fallback) { try { var a = JSON.parse(String(text)); return Array.isArray(a) ? a.map(String) : fallback; } catch (e) { return fallback; } }
+  var woerter = liste(v.stichwoerter, ["Eins", "Zwei", "Drei"]).slice(0, 5);
+  var betont = Math.round(Number(v.betont) || 0); if (betont < 1 || betont > woerter.length) betont = woerter.length;
+  var abstand = Math.min(1.5, Math.max(0.2, Number(v.abstand) || 0.5));
+  var blk = document.getElementById("blk");
+  var zeilen = woerter.map(function (w, i) {
+    var z = document.createElement("div"); z.className = "z" + (i + 1 === betont ? " betont" : "");
+    var n = document.createElement("span"); n.className = "n"; n.textContent = (i < 9 ? "0" : "") + (i + 1);
+    var t = document.createElement("span"); t.className = "w"; t.textContent = w;
+    z.appendChild(n); z.appendChild(t); blk.appendChild(z); return z;
+  });
+  // Lange Stichwörter schrumpfen, bis die Zeile in 700 px passt (offsetWidth statt getBoundingClientRect)
+  function anpassen() {
+    zeilen.forEach(function (z) {
+      var t = z.querySelector(".w"); var gr = 84; t.style.fontSize = gr + "px";
+      while (gr > 40 && t.offsetWidth > 700 - 96) { gr -= 4; t.style.fontSize = gr + "px"; }
+    });
+  }
+  anpassen();
+  if (document.fonts) { document.fonts.load('600 84px "' + v.markeFontTitel + '"', "Trainings").then(anpassen); document.fonts.ready.then(anpassen); }
+  var tOut = Math.max(1.2, d - 0.25 * k - 0.04);
+  var tl = gsap.timeline({ paused: true });
+  zeilen.forEach(function (z, i) { tl.fromTo(z, { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.4 * k, ease: "power3.out" }, (0.1 + i * abstand) * k); });
+  tl.to("#blk", { opacity: 0, y: -16, duration: 0.25 * k, ease: "power2.in" }, tOut);
+  tl.set({}, {}, d); // Die Timeline endet genau bei «dauer»
+  window.__timelines = window.__timelines || {};
+  window.__timelines["stichwort-liste"] = tl;
+})();
+</script>
+</body>
+</html>
