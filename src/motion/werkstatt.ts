@@ -1,10 +1,11 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { markeFuerExportFreigegeben, Markenprofil } from "../core/schemas";
 import { ladeBibliothek, type GeladenesStueck } from "./bibliothek";
 import { messeRender, parseHfCheck, pruefeRender, type Pruefung } from "./render-pruefung";
 import { batchVorbereiten, type BatchZeile } from "./batch";
-import { batchArgs, checkArgs, compareArgs, fuehreHfAus, renderArgs, snapshotArgs, variablenJson } from "./render";
+import { batchArgs, checkArgs, compareArgs, fuehreHfAus, HYPERFRAMES_VERSION, renderArgs, snapshotArgs, variablenJson } from "./render";
 import { stageStueck } from "./staging";
 import { loeseVariablen } from "./stueck";
 
@@ -112,6 +113,51 @@ export interface RenderErgebnis {
   pruefung: Pruefung;
   renderMs: number;
   warnungen: string[];
+  /** Wahr, wenn das Ergebnis aus einem früheren Render stammt (gleiche Eingabe, `zwischenspeicher`). */
+  zwischengespeichert?: boolean;
+}
+
+/** Alle Dateien eines Ordners (rekursiv, sortiert, relativ), ohne Vorschaubilder: Sie ändern den Render nicht. */
+function stueckDateien(dir: string, rel = ""): string[] {
+  const aus: string[] = [];
+  for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (e.name.startsWith(".") || (rel === "" && e.name === "vorschau")) continue;
+    const r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) aus.push(...stueckDateien(dir, r));
+    else aus.push(r);
+  }
+  return aus;
+}
+
+const stabil = (x: unknown): string => JSON.stringify(x, (_k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : v));
+
+/**
+ * Der Schlüssel eines Renders: alles, was das Ergebnis bestimmt, nämlich Stück (alle Dateien seines Ordners), Werte, Dauer, Marke, «final» und die Version von HyperFrames.
+ * Derselbe Schlüssel heisst: derselbe Render. Gespeichert wird er neben der Ausgabe (`<datei>.render.json`).
+ */
+export function renderSchluessel(env: Umgebung, id: string, opt: { werte?: Record<string, unknown>; dauer?: number; marke?: Markenprofil; final?: boolean }): string {
+  const g = findeStueck(env, id);
+  const h = createHash("sha256");
+  h.update(stabil({ id, werte: opt.werte ?? {}, dauer: opt.dauer ?? null, final: opt.final === true, marke: opt.marke ?? null, hyperframes: HYPERFRAMES_VERSION }));
+  for (const datei of stueckDateien(g.dir)) {
+    h.update(`\0${datei}\0`);
+    h.update(fs.readFileSync(path.join(g.dir, datei)));
+  }
+  return h.digest("hex");
+}
+
+export const renderMarker = (ausgabe: string): string => `${ausgabe}.render.json`;
+
+/** Das gespeicherte Ergebnis, wenn die Ausgabe noch da ist und der Schlüssel stimmt. */
+export function gespeicherterRender(ausgabe: string, schluessel: string): RenderErgebnis | undefined {
+  const marker = renderMarker(ausgabe);
+  if (!fs.existsSync(ausgabe) || !fs.existsSync(marker)) return undefined;
+  try {
+    const m = JSON.parse(fs.readFileSync(marker, "utf8")) as { schluessel?: string; ergebnis?: RenderErgebnis };
+    return m.schluessel === schluessel && m.ergebnis ? { ...m.ergebnis, datei: ausgabe, renderMs: 0, zwischengespeichert: true } : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -121,10 +167,16 @@ export interface RenderErgebnis {
 export async function rendereStueck(
   env: Umgebung,
   id: string,
-  opt: { werte?: Record<string, unknown>; dauer?: number; marke?: Markenprofil; ausgabe: string; final?: boolean },
+  opt: { werte?: Record<string, unknown>; dauer?: number; marke?: Markenprofil; ausgabe: string; final?: boolean; zwischenspeicher?: boolean },
 ): Promise<RenderErgebnis> {
   const g = findeStueck(env, id);
   const warnungen: string[] = [];
+  // Mit Zwischenspeicher: Ist die Eingabe dieselbe wie beim letzten bestandenen Render, wird nicht neu gerendert (Änderungswunsch am Storyboard: nur die geänderten Grafiken)
+  const schluessel = opt.zwischenspeicher ? renderSchluessel(env, id, opt) : undefined;
+  if (schluessel) {
+    const alt = gespeicherterRender(opt.ausgabe, schluessel);
+    if (alt) return alt;
+  }
 
   if (opt.final) {
     if (!opt.marke) throw new Error("Ein finaler Render braucht ein Markenprofil");
@@ -146,7 +198,11 @@ export async function rendereStueck(
 
   const gemessen = await messeRender(opt.ausgabe, aufl.dauer);
   const pruefung = pruefeRender({ stueck: g.stueck, dauer: aufl.dauer, probe: gemessen.probe, frames: gemessen.frames });
-  return { datei: opt.ausgabe, dauer: aufl.dauer, variablen: aufl.variablen, pruefung, renderMs: lauf.dauerMs, warnungen };
+  const ergebnis: RenderErgebnis = { datei: opt.ausgabe, dauer: aufl.dauer, variablen: aufl.variablen, pruefung, renderMs: lauf.dauerMs, warnungen };
+  // Nur ein bestandener Render wird gemerkt; ein nicht bestandener oder ein alter Marker soll nie als «unverändert» durchgehen
+  if (schluessel && pruefung.bestanden) fs.writeFileSync(renderMarker(opt.ausgabe), `${JSON.stringify({ schluessel, ergebnis })}\n`);
+  else if (schluessel) fs.rmSync(renderMarker(opt.ausgabe), { force: true });
+  return ergebnis;
 }
 
 /**

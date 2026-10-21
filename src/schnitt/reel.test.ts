@@ -277,10 +277,12 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     expect(t).toContain("Zugeordnet: 3 von 3 (100 Prozent");
     expect(t).toContain("Transkribiere 1 von 1: Sprache 01.mp4");
     expect(t).toMatch(/Nächster Schritt: Gegenlesen[\s\S]*reel gegenlesen c-0007/);
+    // die Dauer jedes Schrittes, damit sichtbar ist, wo die Zeit bleibt
+    expect(t).toMatch(/Wo die Zeit blieb:\n\s+Videos sondieren\s+\d[\s\S]*Transkription\s+\d[\s\S]*Farbe messen\s+\d[\s\S]*Stille messen\s+\d[\s\S]*Zuordnen und Plan\s+\d[\s\S]*Summe\s+\d/);
     expect(t).toMatch(/Energie nicht gemessen|Bester/); // Pegel wird mit dem echten Material gemessen, wenn mehrere Takes da sind
   }, 120_000);
 
-  it("vorbereiten: vorhandene Transkripte bleiben, --neu und ein neueres Video erzwingen Whisper", async () => {
+  it("vorbereiten: vorhandene Transkripte bleiben, --neu und geänderter Inhalt des Videos erzwingen Whisper, eine neue Änderungszeit allein nicht", async () => {
     const { aufrufe, video } = await vorbereitet();
     ausgabe.length = 0;
     await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
@@ -288,11 +290,71 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     expect(text()).toContain("Transkript vorhanden: sprache-01");
     await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--neu");
     expect(aufrufe()).toBe(2);
+    // OneDrive oder ein Kopiervorgang fasst die Datei an: neue Änderungszeit, gleicher Inhalt
     const spaeter = new Date(Date.now() + 60_000);
     fs.utimesSync(video, spaeter, spaeter);
     await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    expect(aufrufe()).toBe(2);
+    // anderer Inhalt: Das Video ist ein anderes geworden
+    fs.appendFileSync(video, Buffer.alloc(16, 7));
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
     expect(aufrufe()).toBe(3);
   }, 180_000);
+
+  it("vorbereiten: dasselbe Video in einem anderen Inhalt wird nicht noch einmal transkribiert (Zwischenspeicher), ein anderes Modell schon", async () => {
+    const { aufrufe, video } = await vorbereitet();
+    expect(aufrufe()).toBe(1);
+    zwischenablage = SKRIPT;
+    await lauf("reel", "neu", "c-0008", "--marke", "alperna", "--zwischenablage", "--nicht-oeffnen");
+    fs.mkdirSync(medien("rohmaterial", "c-0008"), { recursive: true });
+    fs.copyFileSync(video, medien("rohmaterial", "c-0008", "Sprache 01.mp4"));
+    ausgabe.length = 0;
+    expect(await lauf("reel", "vorbereiten", "c-0008", "--ohne-pegel")).toBe(0);
+    expect(aufrufe()).toBe(1);
+    expect(text()).toContain("Transkript aus dem Zwischenspeicher: sprache-01");
+    expect(fs.existsSync(studio("inhalte", "c-0008", "ergebnis", "transkripte", "sprache-01.json"))).toBe(true);
+    // ein anderes Modell ist ein anderes Transkript
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--modell", "medium");
+    expect(aufrufe()).toBe(2);
+    // zurück zum ersten Modell: wieder aus dem Zwischenspeicher
+    ausgabe.length = 0;
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--modell", "large-v3");
+    expect(aufrufe()).toBe(2);
+    expect(text()).toContain("aus dem Zwischenspeicher");
+  }, 240_000);
+
+  it("vorbereiten: ein Transkript aus der Zeit vor dem Zwischenspeicher (ohne Fingerabdruck) wird übernommen, wenn es mit dem Standardmodell nach dem Video entstand", async () => {
+    const { aufrufe } = await vorbereitet();
+    const stand = studio("inhalte", "c-0007", "ergebnis", "transkripte", "sprache-01.stand.json");
+    fs.rmSync(stand);
+    fs.rmSync(path.join(env.datenDir, "cache"), { recursive: true, force: true });
+    ausgabe.length = 0;
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    expect(aufrufe()).toBe(1);
+    expect(text()).toContain("aus einem früheren Lauf übernommen");
+    expect(JSON.parse(fs.readFileSync(stand, "utf8"))).toMatchObject({ modell: "large-v3", sprache: "de" });
+    // mit einem anderen Modell gilt das alte Transkript nicht
+    fs.rmSync(stand);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--modell", "medium");
+    expect(aufrufe()).toBe(2);
+  }, 240_000);
+
+  it("vorbereiten: ein altes Transkript, das älter ist als das Video, wird nicht übernommen; eine andere Sprache ist ein anderes Transkript", async () => {
+    const { aufrufe, video } = await vorbereitet();
+    const stand = studio("inhalte", "c-0007", "ergebnis", "transkripte", "sprache-01.stand.json");
+    fs.rmSync(stand);
+    fs.rmSync(path.join(env.datenDir, "cache"), { recursive: true, force: true });
+    const spaeter = new Date(Date.now() + 120_000);
+    fs.utimesSync(video, spaeter, spaeter);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    expect(aufrufe()).toBe(2);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--sprache", "en");
+    expect(aufrufe()).toBe(3);
+    ausgabe.length = 0;
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--sprache", "de");
+    expect(aufrufe()).toBe(3);
+    expect(text()).toContain("aus dem Zwischenspeicher");
+  }, 240_000);
 
   it("vorbereiten: --gesprochen, --name und --untertitel landen in reel.json und bleiben beim nächsten Lauf; die Untertitel folgen standardmässig dem Gehörten", async () => {
     await vorbereitet();

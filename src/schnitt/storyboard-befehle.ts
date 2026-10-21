@@ -106,9 +106,9 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
       console.log("\nRendern:");
       for (const g of r.renderListe) {
         const ziel = loesePfad(home, g.datei);
-        const res = await rendereStueck(env, g.effekt, { werte: g.werte, dauer: g.dauer, marke, ausgabe: ziel, final: a.opt["final"] === true });
+        const res = await rendereStueck(env, g.effekt, { werte: g.werte, dauer: g.dauer, marke, ausgabe: ziel, final: a.opt["final"] === true, zwischenspeicher: a.opt["neu-rendern"] !== true });
         for (const w of res.warnungen) console.log(`  Hinweis: ${w}`);
-        console.log(`  ${g.name}: ${res.pruefung.bestanden ? "bestanden" : "NICHT bestanden"}, ${res.dauer} s, ${(res.renderMs / 1000).toFixed(1)} s Renderzeit → ${g.datei}`);
+        console.log(`  ${g.name}: ${res.pruefung.bestanden ? "bestanden" : "NICHT bestanden"}, ${res.dauer} s, ${res.zwischengespeichert ? "unverändert, nicht neu gerendert" : `${(res.renderMs / 1000).toFixed(1)} s Renderzeit`} → ${g.datei}`);
         if (!res.pruefung.bestanden) {
           code = 1;
           for (const b of res.pruefung.befunde) console.log(`    ${b.stufe === "fehler" ? "FEHLER" : "Hinweis"} ${b.code}: ${b.text}`);

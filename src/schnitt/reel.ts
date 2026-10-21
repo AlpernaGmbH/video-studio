@@ -17,6 +17,8 @@ import { leseSchnittplan } from "./plan";
 import { bestimmeFarbe, lutOrdner, schreibeLuts } from "./farbe-ablauf";
 import type { Farbart, Farbmessung } from "./farbe";
 import { ordneTonZu, parseVersatzOption } from "./ton-ablauf";
+import { stoppuhr, type Stoppuhr } from "./stoppuhr";
+import { cacheDatei, fingerabdruck } from "./transkript-cache";
 import { listeTonDateien, schneideTonFenster } from "./ton-sync";
 import { pruefeSchnittplan } from "./pruefung";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
@@ -318,6 +320,10 @@ interface Grundlage {
 /** Was ein Stück Tonaufnahme beschreibt: aus welcher Datei, mit welchem Versatz. Ändert sich das, sind Stück, Transkript und Stille veraltet. */
 interface TonStand {
   ton: { quelle: string; versatz: number; groesse: number; mtimeMs: number } | null;
+  /** Nur bei Transkripten: Fingerabdruck der Datei, die Whisper hörte, Modell und Sprache. */
+  fp?: string;
+  modell?: string;
+  sprache?: string;
 }
 const leseStand = (datei: string): TonStand => {
   try {
@@ -335,7 +341,7 @@ const schreibeStand = (datei: string, stand: TonStand): void => {
 const versatzFelder = (gr: Grundlage): { versatz?: ReelDatei["versatz"] } => (gr.versatz.size ? { versatz: Object.fromEntries(gr.versatz) } : {});
 
 /** Sondiert die Videos des Aufnahmenordners, legt getrennte Tonaufnahmen darüber und transkribiert (vorhandene Transkripte bleiben, solange weder Video noch Ton neuer sind). */
-async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>, home: StudioHome, p: ReelPfade, alt: ReelDatei | undefined): Promise<Grundlage> {
+async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>, home: StudioHome, p: ReelPfade, alt: ReelDatei | undefined, uhr: Stoppuhr = stoppuhr()): Promise<Grundlage> {
   const markeKey = str(a, "marke") ?? alt?.marke ?? einzigeMarke(env);
   ladeMarke(env, markeKey);
   const aufnahmenDir = path.resolve(str(a, "aufnahmen") ?? alt?.aufnahmen ?? p.aufnahmen);
@@ -363,12 +369,14 @@ async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standa
     }
     return SchnittQuelle.parse({ id: quellenId(datei, vergeben), pfad: rel, ...s });
   };
-  for (const datei of dateien) {
-    const abs = path.join(aufnahmenDir, datei);
-    const q = await sondiereDatei(abs, datei);
-    quellen.push(q);
-    pfade.set(q.id, abs);
-  }
+  await uhr.messe("Videos sondieren", async () => {
+    for (const datei of dateien) {
+      const abs = path.join(aufnahmenDir, datei);
+      const q = await sondiereDatei(abs, datei);
+      quellen.push(q);
+      pfade.set(q.id, abs);
+    }
+  });
   const videos = quellen.filter((q) => q.art === "video");
   if (!videos.length) throw new Error(`Keine der Dateien in ${aufnahmenDir} hat ein Bild`);
 
@@ -388,7 +396,7 @@ async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standa
       toene.push({ quelle: q, datei: abs });
     }
   }
-  if (toene.length) {
+  if (toene.length) await uhr.messe("Ton abgleichen", async () => {
     console.log(`${toene.length} ${toene.length === 1 ? "Tonaufnahme" : "Tonaufnahmen"} im Ordner (${toene.map((t) => path.basename(t.datei)).join(", ")}): Lege sie über die Videos, das dauert einige Sekunden je Datei`);
     const r = await ordneTonZu({
       videos: videos.map((v) => ({ id: v.id, datei: pfade.get(v.id)! })),
@@ -406,45 +414,69 @@ async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standa
       quellen.push(t.quelle);
       pfade.set(t.quelle.id, t.datei);
     }
-  } else if (manuell.size) console.log("Es sind Versätze für getrennten Ton gemerkt, aber im Ordner liegt keine Tonaufnahme: Es zählt die Tonspur der Kamera");
+  });
+  else if (manuell.size) console.log("Es sind Versätze für getrennten Ton gemerkt, aber im Ordner liegt keine Tonaufnahme: Es zählt die Tonspur der Kamera");
 
   fs.mkdirSync(p.transkripte, { recursive: true });
   const transkripte: Grundlage["transkripte"] = [];
   const fenster = new Map<string, string>();
   const quelleNachId = new Map(quellen.map((q) => [q.id, q]));
+  const cacheDir = path.join(env.datenDir, "cache", "transkripte");
   let nr = 0;
-  for (const q of videos) {
-    nr++;
-    const ziel = path.join(p.transkripte, `${q.id}.json`);
-    const standDatei = path.join(p.transkripte, `${q.id}.stand.json`);
-    const abs = pfade.get(q.id)!;
-    let eingang = abs;
-    let soll: TonStand = { ton: null };
-    let beschreibung = "";
-    if (q.ton) {
-      const audio = quelleNachId.get(q.ton.quelle)!;
-      const audioAbs = pfade.get(audio.id)!;
-      const st = fs.statSync(audioAbs);
-      soll = { ton: { quelle: audio.id, versatz: q.ton.versatz, groesse: st.size, mtimeMs: Math.round(st.mtimeMs) } };
-      // Das Stück der Aufnahme, das zum Video gehört: Whisper, Stille und Pegel rechnen damit in der Zeit des Videos
-      eingang = path.join(p.ton, `${q.id}.wav`);
-      const fensterStand = path.join(p.ton, `${q.id}.stand.json`);
-      if (!fs.existsSync(eingang) || JSON.stringify(leseStand(fensterStand)) !== JSON.stringify(soll)) {
-        await schneideTonFenster(audioAbs, q.ton.versatz, q.dauer, eingang);
-        schreibeStand(fensterStand, soll);
+  await uhr.messe("Transkription", async () => {
+    for (const q of videos) {
+      nr++;
+      const ziel = path.join(p.transkripte, `${q.id}.json`);
+      const standDatei = path.join(p.transkripte, `${q.id}.stand.json`);
+      const abs = pfade.get(q.id)!;
+      let eingang = abs;
+      let soll: TonStand = { ton: null };
+      let beschreibung = "";
+      if (q.ton) {
+        const audio = quelleNachId.get(q.ton.quelle)!;
+        const audioAbs = pfade.get(audio.id)!;
+        const st = fs.statSync(audioAbs);
+        soll = { ton: { quelle: audio.id, versatz: q.ton.versatz, groesse: st.size, mtimeMs: Math.round(st.mtimeMs) } };
+        // Das Stück der Aufnahme, das zum Video gehört: Whisper, Stille und Pegel rechnen damit in der Zeit des Videos
+        eingang = path.join(p.ton, `${q.id}.wav`);
+        const fensterStand = path.join(p.ton, `${q.id}.stand.json`);
+        if (!fs.existsSync(eingang) || JSON.stringify(leseStand(fensterStand)) !== JSON.stringify(soll)) {
+          await schneideTonFenster(audioAbs, q.ton.versatz, q.dauer, eingang);
+          schreibeStand(fensterStand, soll);
+        }
+        fenster.set(q.id, eingang);
+        beschreibung = `, Ton von ${path.basename(audioAbs)} mit Versatz ${q.ton.versatz >= 0 ? "+" : "−"}${Math.abs(q.ton.versatz).toFixed(2).replace(".", ",")} s`;
       }
-      fenster.set(q.id, eingang);
-      beschreibung = `, Ton von ${path.basename(audioAbs)} mit Versatz ${q.ton.versatz >= 0 ? "+" : "−"}${Math.abs(q.ton.versatz).toFixed(2).replace(".", ",")} s`;
+      // Ein Transkript gilt, solange die Datei, die Whisper hörte (Inhalt, nicht Änderungszeit), das Modell und die Sprache dieselben sind
+      const stand: TonStand = { ...soll, fp: fingerabdruck(eingang), modell, sprache };
+      const ist = leseStand(standDatei);
+      const gleich = fs.existsSync(ziel) && ist.fp === stand.fp && ist.modell === modell && ist.sprache === sprache && JSON.stringify(ist.ton) === JSON.stringify(soll.ton);
+      // Transkripte aus der Zeit vor dem Zwischenspeicher haben keinen Fingerabdruck: gelten, wenn sie mit dem Standardmodell nach dem Video entstanden
+      const aelter = !gleich && fs.existsSync(ziel) && ist.fp === undefined && modell === STANDARD_MODELL && fs.statSync(abs).mtimeMs <= fs.statSync(ziel).mtimeMs && JSON.stringify(ist.ton) === JSON.stringify(soll.ton);
+      const zwischen = cacheDatei(cacheDir, { fp: stand.fp!, modell, sprache });
+      const transkribiereJetzt = async (): Promise<void> => {
+        console.log(`\nTranskribiere ${nr} von ${videos.length}: ${path.basename(abs)}${beschreibung} (Modell ${modell}, das dauert je nach Länge einige Minuten)`);
+        const r = await g.transkribiere({ eingang, ziel, modell, sprache });
+        schreibeStand(standDatei, stand);
+        fs.mkdirSync(cacheDir, { recursive: true });
+        fs.copyFileSync(ziel, zwischen);
+        console.log(`  ${r.segmente} Segmente über ${f1(r.spanne)} s, ${r.mitWortzeiten} mit Wortzeiten`);
+      };
+      if (a.opt["neu"] === true) await transkribiereJetzt();
+      else if (gleich) console.log(`Transkript vorhanden: ${q.id} (mit --neu neu erstellen)`);
+      else if (aelter) {
+        schreibeStand(standDatei, stand);
+        fs.mkdirSync(cacheDir, { recursive: true });
+        fs.copyFileSync(ziel, zwischen);
+        console.log(`Transkript vorhanden: ${q.id} (aus einem früheren Lauf übernommen, mit --neu neu erstellen)`);
+      } else if (fs.existsSync(zwischen)) {
+        fs.copyFileSync(zwischen, ziel);
+        schreibeStand(standDatei, stand);
+        console.log(`Transkript aus dem Zwischenspeicher: ${q.id} (dieselbe Datei, dasselbe Modell, nicht noch einmal transkribiert)`);
+      } else await transkribiereJetzt();
+      transkripte.push({ quelle: q.id, segmente: leseTranskript(JSON.parse(fs.readFileSync(ziel, "utf8"))) });
     }
-    const veraltet = !fs.existsSync(ziel) || fs.statSync(abs).mtimeMs > fs.statSync(ziel).mtimeMs || JSON.stringify(leseStand(standDatei)) !== JSON.stringify(soll);
-    if (a.opt["neu"] === true || veraltet) {
-      console.log(`\nTranskribiere ${nr} von ${videos.length}: ${path.basename(abs)}${beschreibung} (Modell ${modell}, das dauert je nach Länge einige Minuten)`);
-      const r = await g.transkribiere({ eingang, ziel, modell, sprache });
-      schreibeStand(standDatei, soll);
-      console.log(`  ${r.segmente} Segmente über ${f1(r.spanne)} s, ${r.mitWortzeiten} mit Wortzeiten`);
-    } else console.log(`Transkript vorhanden: ${q.id} (mit --neu neu erstellen)`);
-    transkripte.push({ quelle: q.id, segmente: leseTranskript(JSON.parse(fs.readFileSync(ziel, "utf8"))) });
-  }
+  });
   return { markeKey, aufnahmenDir, quellen, pfade, fenster, transkripte, modell, sprache, versatz: manuell };
 }
 
@@ -495,7 +527,8 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const untertitel = (str(a, "untertitel") as "gehoert" | "skript" | undefined) ?? alt?.untertitel ?? "gehoert";
   if (untertitel !== "gehoert" && untertitel !== "skript") throw new Error("--untertitel erwartet «gehoert» oder «skript»");
   const name = str(a, "name") ?? alt?.name ?? skriptTitel(skriptText, id);
-  const gr = await holeGrundlage(a, env, g, home, p, alt);
+  const uhr = stoppuhr();
+  const gr = await holeGrundlage(a, env, g, home, p, alt, uhr);
   const { quellen, transkripte } = gr;
 
   // Farbe: flaches Material (Log) bekommt einen Look, normales einen Angleich
@@ -506,7 +539,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   let farbeGemessen = false;
   if (a.opt["ohne-farbe"] === true) console.log("Farbe nicht gemessen (--ohne-farbe): keine LUT, das Material bleibt unverändert");
   else {
-    const fr = await bestimmeFarbe({ videos: quellen.filter((q) => q.art === "video").map((q) => ({ id: q.id, datei: gr.pfade.get(q.id)!, dauer: q.dauer })), ...(farbVorgabe ? { vorgabe: farbVorgabe } : {}) });
+    const fr = await uhr.messe("Farbe messen", () => bestimmeFarbe({ videos: quellen.filter((q) => q.art === "video").map((q) => ({ id: q.id, datei: gr.pfade.get(q.id)!, dauer: q.dauer })), ...(farbVorgabe ? { vorgabe: farbVorgabe } : {}) }));
     for (const m of fr.meldungen) console.log(m);
     for (const [id, f] of fr.farbart) quellen.find((q) => q.id === id)!.farbe = f;
     messungen = fr.messungen;
@@ -518,31 +551,35 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   let stilleNotiz = "";
   if (a.opt["ohne-stille"] === true) stilleNotiz = "Stille nicht gemessen (--ohne-stille): Die Schnitte folgen den Wortzeiten von Whisper";
   else {
-    for (const q of quellen.filter((x) => x.art === "video" && (x.hatAudio || x.ton))) {
-      try {
-        // Mit getrenntem Ton gilt die Stille der Tonaufnahme (im Stück, das zum Video gehört), nicht die der Kamera
-        stille.set(q.id, await findeStille(gr.fenster.get(q.id) ?? gr.pfade.get(q.id)!, { dauer: q.dauer }));
-      } catch (e) {
-        stilleNotiz = `Stille nicht gemessen: ${(e as Error).message}`;
+    await uhr.messe("Stille messen", async () => {
+      for (const q of quellen.filter((x) => x.art === "video" && (x.hatAudio || x.ton))) {
+        try {
+          // Mit getrenntem Ton gilt die Stille der Tonaufnahme (im Stück, das zum Video gehört), nicht die der Kamera
+          stille.set(q.id, await findeStille(gr.fenster.get(q.id) ?? gr.pfade.get(q.id)!, { dauer: q.dauer }));
+        } catch (e) {
+          stilleNotiz = `Stille nicht gemessen: ${(e as Error).message}`;
+        }
       }
-    }
+    });
   }
 
   // Zuordnung und Plan
-  const ergebnis = await fuehreZuordnungAus({
-    marke,
-    skriptText,
-    skriptQuelle: skriptDatei,
-    quellen,
-    transkripte,
-    name,
-    inhalt: id,
-    gesprochen,
-    untertitel,
-    stille,
-    home,
-    ohnePegel: a.opt["ohne-pegel"] === true,
-  });
+  const ergebnis = await uhr.messe("Zuordnen und Plan", () =>
+    fuehreZuordnungAus({
+      marke,
+      skriptText,
+      skriptQuelle: skriptDatei,
+      quellen,
+      transkripte,
+      name,
+      inhalt: id,
+      gesprochen,
+      untertitel,
+      stille,
+      home,
+      ohnePegel: a.opt["ohne-pegel"] === true,
+    }),
+  );
   fs.mkdirSync(p.ergebnis, { recursive: true });
   fs.writeFileSync(p.quellen, `${JSON.stringify(quellen, null, 2)}\n`);
   const planText = `${JSON.stringify(ergebnis.plan, null, 2)}\n`;
@@ -582,6 +619,8 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const dauer = platziere(ergebnis.plan);
   console.log(`\nPlan: ${p.plan} (${ergebnis.plan.clips.length} Clips, ${f1(dauer.gesamtFrames / ergebnis.plan.projekt.fps)} s)`);
   console.log(`Zum Gegenlesen: ${p.gegenlesen}`);
+  const zeiten = uhr.zeilen();
+  if (zeiten.length) console.log(`\nWo die Zeit blieb:\n${zeiten.join("\n")}`);
   console.log(`\nNächster Schritt: Gegenlesen. ${p.gegenlesen} vollständig lesen (Skript gegen Gehörtes, Regie, Abbrüche, Verhörer), Ergebnis nach ${p.gegenlesenAntwort} schreiben, dann:\n  ./studio reel gegenlesen ${id}`);
   return 0;
 }

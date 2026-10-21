@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import type { Args } from "../args";
 import { STANDARD_MODELL, whisperUmgebung } from "./whisper";
+import { benchmarkZeilen, messeWhisper } from "./whisper-benchmark";
 
 /**
  * `./studio whisper einrichten`: Whisper in eine eigene Python-Umgebung installieren (`~/.local/share/video-studio/whisper`) und das Modell laden.
@@ -15,6 +16,9 @@ export const WHISPER_HILFE = `Whisper (lokal, kostenlos)
   whisper einrichten [--modell large-v3] [--ohne-modell]
                                       Whisper in eine eigene Python-Umgebung installieren und das Modell laden (large-v3: rund 3 GB, einmalig; «small»: 0,5 GB, ungenauer).
                                       Braucht Python 3 und ffmpeg. Danach findet «./studio schnitt transkribiere» es selbst.
+  whisper benchmark <datei> [--modelle large-v3,large-v3-turbo] [--ab 0] [--sekunden 60] [--referenz text.txt] [--sprache de] [--ausgabe ergebnis.json]
+                                      Dasselbe Stück der Aufnahme mit jedem Modell transkribieren und messen: Zeit, Faktor zur Echtzeit und Abweichung vom Referenztext (von dir korrigiert)
+                                      oder vom ersten Modell. Damit wird entschieden, welches Modell schnell und gut genug ist (Test T2b). Jedes Modell muss installiert sein (wird sonst geladen).
 `;
 
 export interface Lauf {
@@ -106,6 +110,32 @@ export async function whisperBefehl(sub: string, a: Args): Promise<number> {
       const modell = a.opt["ohne-modell"] === true ? false : typeof a.opt["modell"] === "string" ? (a.opt["modell"] as string) : undefined;
       await richteWhisperEin({ modell });
       return 0;
+    }
+    case "benchmark": {
+      const datei = a.pos[2];
+      if (!datei) throw new Error("Aufruf: whisper benchmark <datei> [--modelle large-v3,large-v3-turbo] [--sekunden 60]");
+      const modelle = (typeof a.opt["modelle"] === "string" ? (a.opt["modelle"] as string) : `${STANDARD_MODELL},large-v3-turbo`).split(",").map((x) => x.trim()).filter(Boolean);
+      const zahl = (name: string): number | undefined => (typeof a.opt[name] === "string" ? Number(a.opt[name]) : undefined);
+      const ab = zahl("ab");
+      const sekunden = zahl("sekunden");
+      if ((ab !== undefined && !Number.isFinite(ab)) || (sekunden !== undefined && !Number.isFinite(sekunden))) throw new Error("--ab und --sekunden erwarten Zahlen");
+      const referenz = typeof a.opt["referenz"] === "string" ? path.resolve(a.opt["referenz"] as string) : undefined;
+      if (referenz && !fs.existsSync(referenz)) throw new Error(`Die Referenz fehlt: ${referenz}`);
+      console.log(`Messe ${modelle.join(", ")} an ${sekunden ?? 60} s von ${path.basename(datei)} (das dauert: Jedes Modell läuft einmal ganz durch)\n`);
+      const r = await messeWhisper({
+        datei: path.resolve(datei),
+        modelle,
+        ...(ab !== undefined ? { ab } : {}),
+        ...(sekunden !== undefined ? { sekunden } : {}),
+        ...(referenz ? { referenzText: fs.readFileSync(referenz, "utf8") } : {}),
+        ...(typeof a.opt["sprache"] === "string" ? { sprache: a.opt["sprache"] as string } : {}),
+      });
+      for (const z of benchmarkZeilen(r)) console.log(z);
+      if (typeof a.opt["ausgabe"] === "string") {
+        fs.writeFileSync(path.resolve(a.opt["ausgabe"] as string), `${JSON.stringify(r, null, 2)}\n`);
+        console.log(`\nGespeichert: ${path.resolve(a.opt["ausgabe"] as string)}`);
+      }
+      return r.laeufe.some((l) => l.fehler) ? 1 : 0;
     }
     default:
       console.error(`Unbekannter Befehl «whisper ${sub}»\n`);
