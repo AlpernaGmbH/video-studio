@@ -20,7 +20,14 @@ Auf dem Mac gibt es den Ablauf mit festen Ordnern, benutze ihn, statt die Einzel
 2. `./studio reel vorbereiten <ID>`: Whisper, Zuordnung, Plan, `ergebnis/auftrag.md`. Lies die Ausgabe vollständig und gib FEHLT, GELB, Abweichungen und die Zuordnungsquote weiter (Regeln in Schritt 4 unten).
 3. Aus `auftrag.md` das Storyboard schreiben (Schritt 6 unten), als **einen** JSON-Codeblock, den der Mensch kopiert; dann `./studio reel storyboard <ID> --zwischenablage` (Stücke, die nicht aktiv sind, nur mit `--entwurf`).
 4. Kontaktbogen und Vorschau zeigen lassen, Änderungen per Satz einarbeiten (neue Antwort, derselbe Befehl), erst nach dem Ja des Menschen `./studio reel uebergabe <ID>`.
-`./studio reel status` sagt je Inhalt, was der nächste Schritt ist. Läuft die Sitzung nicht auf dem Mac, gib dem Menschen genau diese Befehle, ohne Teilarbeit zu verlangen.
+`./studio reel status` sagt je Inhalt, was der nächste Schritt ist.
+
+**Läuft die Sitzung auf dem Mac (Claude Code oder Cowork im Ordner `video-studio`), tippt der Mensch keinen Befehl und kopiert nichts.** Er sagt zum Beispiel «Editier mir das Video, das Rohmaterial liegt in …». Dann gilt:
+- Du führst die Befehle selbst aus. Das Skript legst du als Datei ab (Notion-Inhalt lesen, in eine Datei schreiben) und gibst `--skript <datei>` an, nie `--zwischenablage`.
+- `reel vorbereiten` immer mit `--nicht-kopieren` (sonst überschreibt es die Zwischenablage des Menschen).
+- Das Storyboard schreibst du selbst nach `inhalte/<ID>/ergebnis/storyboard.json` und rufst `./studio reel storyboard <ID>` ohne `--zwischenablage` auf (es nimmt die Datei). Der Mensch sieht Kontaktbogen und Vorschau, sagt Ja oder einen Änderungswunsch; erst dann `reel uebergabe`.
+- DaVinci Resolve bedienst du nicht und hast es nie geöffnet. Das Ergebnis ist ein Ordner mit Timeline-Dateien (`resolve/`), den der Mensch in Resolve importiert. Sag das beim Übergeben, damit niemand einen fertigen Schnitt erwartet.
+Läuft die Sitzung nicht auf dem Mac (Chat, Cloud), geht es nur über die Zwischenablage wie oben, und der Mensch muss im Terminal die Befehle ausführen, die du ihm gibst.
 
 ## Ablauf (Einzelschritte)
 
