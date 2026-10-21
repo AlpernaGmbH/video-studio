@@ -100,6 +100,8 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       const ziel = typeof a.opt["o"] === "string" ? (a.opt["o"] as string) : path.join(env.datenDir, "transkripte", `${name}.json`);
       const r = await transkribiere({ eingang, ziel, modell: typeof a.opt["modell"] === "string" ? (a.opt["modell"] as string) : STANDARD_MODELL, sprache: typeof a.opt["sprache"] === "string" ? (a.opt["sprache"] as string) : "de" });
       console.log(`${r.datei}: ${r.segmente} Segmente über ${r.spanne.toFixed(1).replace(".", ",")} s, ${r.mitWortzeiten} mit Wortzeiten, ${r.ueberLimit} über ${4} s (werden geteilt)`);
+      const gehoert = leseTranskript(lesJson(r.datei)).map((x) => x.text.trim()).join(" ");
+      console.log(`\nGehörter Text (zum Gegenlesen):\n${gehoert}\n`);
       if (r.mitWortzeiten < r.segmente) console.log(`Hinweis: ${r.segmente - r.mitWortzeiten} Segmente ohne Wortzeiten. Sie werden nach Zeichenzahl verteilt, Pausen im Satz und Füllwörter lassen sich dort nicht schneiden (--word_timestamps True).`);
       console.log(`Nächster Schritt: «./studio schnitt zuordnen --transkript <quelle>=${r.datei} …»`);
       return 0;

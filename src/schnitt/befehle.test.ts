@@ -408,6 +408,7 @@ fs.writeFileSync(path.join(out, name), JSON.stringify({ segments: [{ start: 0, e
     const text = ausgabe.join("\n");
     expect(text).toContain(`${ziel}: 2 Segmente über 9,0 s, 1 mit Wortzeiten, 1 über 4 s (werden geteilt)`);
     expect(text).toContain("1 Segmente ohne Wortzeiten");
+    expect(text).toMatch(/Gehörter Text \(zum Gegenlesen\):\nHallo zusammen Das ist ein langes Segment/);
     expect(text).toContain("schnitt zuordnen --transkript");
     const args = JSON.parse(fs.readFileSync(merk, "utf8")) as string[];
     expect(args).toEqual([aufnahme, "--model", "large-v3", "--language", "de", "--word_timestamps", "True", "--output_format", "json", "--output_dir", expect.any(String)]);
