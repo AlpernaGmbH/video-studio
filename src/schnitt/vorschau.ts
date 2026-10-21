@@ -28,6 +28,11 @@ export interface VorschauOptionen {
   untertitel?: string;
   breite?: number;
   hoehe?: number;
+  /**
+   * Fertiges Video statt Vorschau: volle Auflösung des Projekts, Bitrate und Ton nach dem Export-Preset, Farbmatrix bt709, Limiter unter dem True-Peak-Ziel.
+   * Ohne dieses Feld bleibt es die kleine, stark komprimierte Vorschau.
+   */
+  export?: { videoKbit: number; audioKbit: number; spitzeDbtp: number };
 }
 
 const gerade = (x: number): number => Math.max(2, Math.round(x / 2) * 2);
@@ -38,8 +43,8 @@ const filterPfad = (p: string): string => p.replace(/\\/g, "/").replace(/:/g, "\
 /** Die Argumente für ffmpeg (rein, ohne Dateizugriff). */
 export function vorschauArgs(o: VorschauOptionen): string[] {
   const { plan } = o;
-  const W = o.breite ?? VORSCHAU_BREITE;
-  const H = o.hoehe ?? VORSCHAU_HOEHE;
+  const W = o.breite ?? (o.export ? plan.projekt.breite : VORSCHAU_BREITE);
+  const H = o.hoehe ?? (o.export ? plan.projekt.hoehe : VORSCHAU_HOEHE);
   const fps = plan.projekt.fps;
   const bruch = fpsBruch(fps);
   const fpsText = `${bruch.n}/${bruch.d}`;
@@ -104,7 +109,8 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     filter.push(`[${aktuell}]subtitles='${filterPfad(o.untertitel)}':force_style='Alignment=2,MarginV=60,FontSize=16,Outline=2'[vtitel]`);
     aktuell = "vtitel";
   }
-  filter.push(`[${aktuell}]format=yuv420p[vout]`);
+  // Export: Die Umrechnung von RGB (nach der LUT) nach YUV nennt die Matrix ausdrücklich, sonst nimmt ffmpeg bt601 und die Farben weichen beim Abspielen als bt709 ab
+  filter.push(o.export ? `[${aktuell}]scale=out_color_matrix=bt709:out_range=tv:flags=accurate_rnd+full_chroma_int,format=yuv420p,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv[vout]` : `[${aktuell}]format=yuv420p[vout]`);
 
   // A2: Musik
   let ton = "abasis";
@@ -120,9 +126,18 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
       ton = "amix";
     }
   }
-  filter.push(`[${ton}]alimiter=limit=0.95[aout]`);
+  // Der Limiter arbeitet auf Abtastwerten, der True Peak liegt etwas darüber: 0,6 dB Abstand zum Ziel
+  const grenze = o.export ? Math.pow(10, (o.export.spitzeDbtp - 0.6) / 20).toFixed(4) : "0.95";
+  filter.push(`[${ton}]alimiter=limit=${grenze}${o.export ? ":level=false" : ""}[aout]`);
 
-  return ["-loglevel", "error", "-y", ...eingaben, "-filter_complex", filter.join(";"), "-map", "[vout]", "-map", "[aout]", "-r", fpsText, "-c:v", "libx264", "-preset", "veryfast", "-crf", "27", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", o.ausgabe];
+  const kodierung = o.export
+    ? [
+        "-c:v", "libx264", "-preset", "slow", "-profile:v", "high", "-b:v", `${o.export.videoKbit}k`, "-maxrate", `${o.export.videoKbit}k`, "-bufsize", `${o.export.videoKbit * 2}k`, "-g", String(fps * 2),
+        "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+        "-c:a", "aac", "-b:a", `${o.export.audioKbit}k`, "-ar", "48000", "-ac", "2",
+      ]
+    : ["-c:v", "libx264", "-preset", "veryfast", "-crf", "27", "-c:a", "aac", "-b:a", "128k"];
+  return ["-loglevel", "error", "-y", ...eingaben, "-filter_complex", filter.join(";"), "-map", "[vout]", "-map", "[aout]", "-r", fpsText, ...kodierung, "-movflags", "+faststart", o.ausgabe];
 }
 
 export async function erzeugeVorschau(o: VorschauOptionen): Promise<{ datei: string; dauer: number }> {

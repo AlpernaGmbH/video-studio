@@ -51,6 +51,10 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
   schnitt vorschau --plan plan.json [-o vorschau.mp4] [--ohne-untertitel]
                                       Vorschau-Video (540x960, 25p) mit Clips, Zoom, B-Roll, Grafiken, Musik und eingebrannten Untertiteln. Eine Näherung zum Ansehen, kein Export.
                                       Standard: <Studio>/inhalte/<Inhalt-ID>/ergebnis/vorschau.mp4, eine vorhandene Datei wird nie überschrieben (vorschau-v2.mp4).
+  schnitt rendere --plan plan.json [-o export.mp4] [--preset reel] [--audio standard]
+                                      Das fertige Video ohne Resolve: volle Auflösung, Look, verbesserter Ton, Musik, Grafiken, Bitrate und Ton nach dem Export-Preset (Standard «reel», 1080x1920, 25p,
+                                      H.264, bt709), danach gemessen und gegen die Presets geprüft. Braucht das freigegebene Gate 0 der Marke. Die Untertitel kommen aus dem Caption-Overlay im Plan.
+                                      Standard: <Studio>/inhalte/<Inhalt-ID>/ergebnis/export.mp4, eine vorhandene Datei wird nie überschrieben (export-v2.mp4).
   schnitt look [-o datei.cube]        Die 3D-LUT der Marke Alperna («Alperna Kino»): Panasonic V-Log nach Rec.709, dazu der Look (kühl, kontraststark, leicht entsättigt).
                                       Standard: <Medien>/renders/look/alperna-kino.cube. Ins Storyboard: "look": {"lut": "renders/look/alperna-kino.cube", "name": "Alperna Kino"}.
   schnitt bett --plan plan.json [--storyboard sb.json] [-o ordner] [--musik-lufs -25]
@@ -202,6 +206,40 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       }
       console.log(vorschauHinweis(plan));
       return 0;
+    }
+    case "rendere": {
+      const home = studioHome();
+      if (!home) throw new Error("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «./studio init» ausführen");
+      const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
+      const gate = markeFuerExportFreigegeben(ladeMarke(env, plan.projekt.marke));
+      if (!gate.ok) throw new Error(`Export nicht möglich: ${gate.grund}`);
+      const lib = ladePresets(presetDir);
+      const exp = findePreset(lib, "export", opt(a, "preset", "reel"));
+      const aud = findePreset(lib, "audio", opt(a, "audio", "standard"));
+      const loese = (rel: string): string => loesePfad(home, rel);
+      const fehlt = fehlendeDateien(plan, loese);
+      if (fehlt.length) throw new Error(`Für den Export fehlen Dateien auf diesem Rechner (Grafiken: zuerst «./studio schnitt storyboard … --rendern»):\n- ${fehlt.join("\n- ")}`);
+      let ziel: string;
+      if (typeof a.opt["o"] === "string") ziel = path.resolve(a.opt["o"] as string);
+      else {
+        const basis = path.join(home.pfad, "inhalte", plan.projekt.inhalt ?? "ohne-inhalt", "ergebnis");
+        ziel = path.join(basis, "export.mp4");
+        for (let n = 2; fs.existsSync(ziel); n++) ziel = path.join(basis, `export-v${n}.mp4`);
+      }
+      if (fs.existsSync(ziel)) throw new Error(`Die Datei gibt es schon und wird nicht überschrieben: ${ziel}`);
+      fs.mkdirSync(path.dirname(ziel), { recursive: true });
+      const r = await erzeugeVorschau({
+        plan,
+        loese: (rel) => loese(rel),
+        ausgabe: ziel,
+        export: { videoKbit: Math.round(((exp.bitrateMbit.min + exp.bitrateMbit.max) / 2) * 1000), audioKbit: exp.audioKbit.max, spitzeDbtp: aud.spitzeDbtp },
+      });
+      const m = await messeDatei(ziel);
+      const abw = [...pruefeExport(m, exp), ...pruefeAudio(m, aud)];
+      console.log(`${r.datei}\n${(fs.statSync(ziel).size / 1024 / 1024).toFixed(1).replace(".", ",")} MB, ${r.dauer.toFixed(1).replace(".", ",")} s`);
+      console.log(JSON.stringify({ messung: m, preset: exp.id, audio: aud.id, abweichungen: abw }, null, 2));
+      console.log("Gerechnet aus dem Schnittplan mit ffmpeg, nicht aus Resolve: kein Feinschnitt von Hand, keine Übergänge, die Federbewegung des Zoom-Punch fehlt. Ob Bild und Ton gefallen, beurteilt ein Mensch.");
+      return abw.length ? 1 : 0;
     }
     case "kontaktbogen": {
       const home = studioHome();

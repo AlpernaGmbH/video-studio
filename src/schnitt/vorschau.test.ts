@@ -108,6 +108,38 @@ describe("vorschauArgs", () => {
   });
 });
 
+describe("vorschauArgs im Export-Modus", () => {
+  const exp = { videoKbit: 9000, audioKbit: 192, spitzeDbtp: -1 };
+  const args = (e?: typeof exp) => vorschauArgs({ plan: plan(), loese, ausgabe: "/o/aus.mp4", export: e });
+  const wert = (a: string[], flag: string) => a[a.indexOf(flag) + 1];
+
+  it("nimmt die Grösse des Projekts statt der Vorschau-Grösse und kodiert nach dem Preset (H.264 High, Bitrate, AAC, bt709)", () => {
+    const a = args(exp);
+    const graph = wert(a, "-filter_complex")!;
+    expect(graph).toContain("scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920");
+    expect(graph).not.toContain(`scale=${VORSCHAU_BREITE}:${VORSCHAU_HOEHE}`);
+    expect(graph).toContain("out_color_matrix=bt709");
+    expect(graph).toContain("setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709");
+    expect(wert(a, "-profile:v")).toBe("high");
+    expect(wert(a, "-b:v")).toBe("9000k");
+    expect(wert(a, "-maxrate")).toBe("9000k");
+    expect(wert(a, "-bufsize")).toBe("18000k");
+    expect(wert(a, "-b:a")).toBe("192k");
+    expect(wert(a, "-colorspace")).toBe("bt709");
+    expect(a).not.toContain("-crf");
+  });
+  it("der Limiter liegt 0,6 dB unter dem True-Peak-Ziel", () => {
+    const graph = wert(args(exp), "-filter_complex")!;
+    expect(graph).toContain(`alimiter=limit=${Math.pow(10, -1.6 / 20).toFixed(4)}`);
+  });
+  it("ohne Export-Feld bleibt es die kleine Vorschau", () => {
+    const a = args();
+    expect(wert(a, "-crf")).toBe("27");
+    expect(wert(a, "-filter_complex")).toContain(`scale=${VORSCHAU_BREITE}:${VORSCHAU_HOEHE}`);
+    expect(a).not.toContain("-colorspace");
+  });
+});
+
 describe("vorschauHinweis", () => {
   it("nennt ohne Look und Musik «kein Look» und «roher Ton»", () => {
     const t = vorschauHinweis({});
@@ -177,6 +209,24 @@ describe.skipIf(!hatFfmpeg)("Vorschau mit echtem ffmpeg", () => {
     ff("-f", "lavfi", "-i", "color=c=white@0.7:s=1080x1920:r=25:d=1,format=yuva420p", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", path.join(dir, "grafik.webm"));
   };
   const lo = (rel: string) => path.join(dir, path.basename(rel));
+
+  it("Export: 1080×1920, H.264 High, bt709 getaggt, 25p, mit Ton, Farbe bleibt (rot bleibt rot)", async () => {
+    material();
+    const aus = path.join(dir, "export.mp4");
+    await erzeugeVorschau({ plan: plan(), loese: lo, ausgabe: aus, export: { videoKbit: 9000, audioKbit: 192, spitzeDbtp: -1 } });
+    const pr = probe(aus);
+    const v = pr.streams.find((s: any) => s.codec_type === "video");
+    const a = pr.streams.find((s: any) => s.codec_type === "audio");
+    expect([v.width, v.height, v.avg_frame_rate, v.codec_name, v.profile, v.pix_fmt]).toEqual([1080, 1920, "25/1", "h264", "High", "yuv420p"]);
+    expect([v.color_space, v.color_transfer, v.color_primaries]).toEqual(["bt709", "bt709", "bt709"]);
+    expect([a.codec_name, a.sample_rate, a.channels]).toEqual(["aac", "48000", 2]);
+    // Mit bt709 getaggt und mit bt709 gerechnet: Der rote Clip bleibt rot, auch wenn man ihn als bt709 zurückrechnet
+    const r = spawnSync("ffmpeg", ["-loglevel", "error", "-ss", "0.5", "-i", aus, "-frames:v", "1", "-vf", "crop=100:100:500:900,scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+    const rgb = [...r.stdout];
+    expect(rgb[0]).toBeGreaterThan(220);
+    expect(rgb[1]).toBeLessThan(40);
+    expect(rgb[2]).toBeLessThan(40);
+  }, 120_000);
 
   it("der Look verändert das Bild: eine LUT, die Rot und Blau tauscht, macht aus dem roten Clip einen blauen", async () => {
     material();
