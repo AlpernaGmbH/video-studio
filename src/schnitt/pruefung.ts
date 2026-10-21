@@ -1,7 +1,7 @@
 import type { KatalogEintrag, Schnittprofil } from "../core/schemas";
 import type { Stueck } from "../motion/stueck";
 import { fpsBruch, inFrames } from "./raster";
-import { PlanFehler, platziere, quelleNach, sekunden, type Schnittplan } from "./plan";
+import { externerTon, PlanFehler, platziere, quelleNach, sekunden, type Schnittplan } from "./plan";
 import { woerterAufTimeline } from "./untertitel";
 
 /**
@@ -71,7 +71,16 @@ export function pruefeSchnittplan(plan: Schnittplan, ctx: PruefKontext = {}): Be
     }
   }
 
+  // Getrennter Ton: Die Tonaufnahme muss es geben und eine Audioquelle sein
+  for (const q of plan.quellen) {
+    if (!q.ton) continue;
+    const a = quellen.get(q.ton.quelle);
+    if (!a) fehler("ton-quelle-fehlt", `Quelle «${q.id}»: Die Tonaufnahme «${q.ton.quelle}» ist nicht definiert`);
+    else if (a.art !== "audio") fehler("ton-quelle-art", `Quelle «${q.id}»: «${q.ton.quelle}» ist keine Audioquelle`);
+  }
+
   // Clips
+  const ohneTon = new Map<string, number>();
   for (const c of plan.clips) {
     const q = quellen.get(c.quelle);
     if (!q) {
@@ -80,7 +89,18 @@ export function pruefeSchnittplan(plan: Schnittplan, ctx: PruefKontext = {}): Be
     }
     if (q.art !== "video") fehler("quelle-art", `Clip «${c.id}»: «${c.quelle}» ist keine Videoquelle`);
     else if (c.bis > q.dauer + eineFrame) fehler("clip-ueber-ende", `Clip «${c.id}» endet bei ${s1(c.bis)} s, die Quelle «${q.id}» ist nur ${s1(q.dauer)} s lang`);
+    else {
+      const ton = externerTon(q, quellen);
+      if (ton) {
+        // Der Versatz legt fest, wo in der Tonaufnahme der Clip liegt: Zeit in der Aufnahme = Zeit im Video + Versatz
+        const von = c.von + ton.versatz;
+        const bis = c.bis + ton.versatz;
+        if (von < -eineFrame) fehler("ton-vor-beginn", `Clip «${c.id}»: Die Tonaufnahme «${ton.audio.id}» beginnt erst ${s1(-ton.versatz - c.von)} s nach dem Clipanfang (Versatz ${s1(ton.versatz)} s)`);
+        else if (bis > ton.audio.dauer + eineFrame) fehler("ton-nach-ende", `Clip «${c.id}»: Die Tonaufnahme «${ton.audio.id}» (${s1(ton.audio.dauer)} s) endet vor dem Clipende (bei ${s1(bis)} s, Versatz ${s1(ton.versatz)} s)`);
+      } else if (!q.hatAudio) ohneTon.set(q.id, (ohneTon.get(q.id) ?? 0) + 1);
+    }
   }
+  for (const [id, n] of ohneTon) hinweis("clip-ohne-ton", `Quelle «${id}» hat keine Tonspur und keinen getrennten Ton: ${n === 1 ? "Ein Clip bleibt" : `${n} Clips bleiben`} stumm`);
   if (b.some((x) => x.stufe === "fehler")) return b;
 
   const zeit = platziere(plan);

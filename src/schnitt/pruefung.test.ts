@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pruefeSchnittplan, REEL_MAX_SEKUNDEN, SPRECHTEMPO_MAX, verlangeGueltig } from "./pruefung";
-import { beispielPlan } from "./testdaten";
+import { beispielPlan, beispielPlanMitTon } from "./testdaten";
 import { Markenprofil, type KatalogEintrag } from "../core/schemas";
 import { PlanFehler } from "./plan";
 import fs from "node:fs";
@@ -159,5 +159,60 @@ describe("pruefeSchnittplan: Schnittprofil (Bauplan v2, 3.4)", () => {
   it("ohne Profil gibt es nur die strukturellen Prüfungen", () => {
     const plan = beispielPlan({ clips: [{ id: "k01", quelle: "sprache", von: 0, bis: 9 }], broll: [], overlays: [], woerter: [] });
     expect(codes(pruefeSchnittplan(plan))).not.toContain("einstellung-zu-lang");
+  });
+});
+
+describe("pruefeSchnittplan: getrennter Ton", () => {
+  it("ein Plan mit passender Tonaufnahme hat keinen Fehler", () => {
+    expect(pruefeSchnittplan(beispielPlanMitTon(5.5)).filter((b) => b.stufe === "fehler")).toEqual([]);
+  });
+
+  it("eine Tonaufnahme, die im Plan fehlt, ist ein Fehler", () => {
+    const p = beispielPlanMitTon(5.5);
+    p.quellen = p.quellen.filter((q) => q.id !== "ton-1");
+    expect(codes(pruefeSchnittplan(p))).toContain("ton-quelle-fehlt");
+  });
+
+  it("eine Tonquelle, die ein Video ist, ist ein Fehler", () => {
+    const p = beispielPlanMitTon(5.5);
+    p.quellen.find((q) => q.id === "sprache")!.ton = { quelle: "empfang", versatz: 0 };
+    expect(codes(pruefeSchnittplan(p))).toContain("ton-quelle-art");
+  });
+
+  it("beginnt die Aufnahme nach dem Clipanfang (negativer Versatz zu gross), ist das ein Fehler mit der Zeit, die fehlt", () => {
+    // Clip k01 beginnt bei 2 s im Video; bei Versatz −3 läge er bei −1 s der Aufnahme
+    const b = pruefeSchnittplan(beispielPlanMitTon(-3)).filter((x) => x.code === "ton-vor-beginn");
+    expect(b).toHaveLength(1);
+    expect(b[0]!.stufe).toBe("fehler");
+    expect(b[0]!.text).toContain("k01");
+  });
+
+  it("endet die Aufnahme vor dem Clipende, ist das ein Fehler", () => {
+    // Clip k03 endet bei 12,6 s; mit Versatz 50 liegt das Ende bei 62,6 s, die Aufnahme ist 60 s lang
+    const b = pruefeSchnittplan(beispielPlanMitTon(50)).filter((x) => x.code === "ton-nach-ende");
+    expect(b.map((x) => x.text).join(" ")).toContain("k03");
+  });
+
+  it("der Beginn bei genau 0 s der Aufnahme ist erlaubt (Versatz = −Clipanfang)", () => {
+    expect(codes(pruefeSchnittplan(beispielPlanMitTon(-2)))).not.toContain("ton-vor-beginn");
+  });
+
+  it("eine Videoquelle ohne Tonspur und ohne getrennten Ton meldet einen Hinweis, einmal je Quelle", () => {
+    const p = beispielPlan();
+    p.quellen.find((q) => q.id === "sprache")!.hatAudio = false;
+    const b = pruefeSchnittplan(p).filter((x) => x.code === "clip-ohne-ton");
+    expect(b).toHaveLength(1);
+    expect(b[0]!.stufe).toBe("hinweis");
+    expect(b[0]!.text).toContain("3 Clips");
+  });
+
+  it("eine Quelle mit Kameraton meldet keinen Hinweis auf fehlenden Ton", () => {
+    expect(codes(pruefeSchnittplan(beispielPlan()))).not.toContain("clip-ohne-ton");
+  });
+
+  it("eine stumme Kamera mit getrenntem Ton meldet keinen Hinweis auf fehlenden Ton", () => {
+    const p = beispielPlanMitTon(5.5);
+    p.quellen.find((q) => q.id === "sprache")!.hatAudio = false;
+    expect(codes(pruefeSchnittplan(p))).not.toContain("clip-ohne-ton");
   });
 });

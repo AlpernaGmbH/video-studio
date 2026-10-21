@@ -36,6 +36,22 @@ export function beispielPlan(ueberschreibe: Partial<Record<string, unknown>> = {
   });
 }
 
+/**
+ * Der Beispielplan mit getrenntem Ton: Die Quelle «sprache» hat eine stumme Kameraspur (die Kamera hörte nichts Brauchbares), die Sprache liegt in der Tonaufnahme «ton-1»
+ * (60 s, Mono). Der Recorder lief `versatz` Sekunden vor der Kamera: Zeit in der Aufnahme = Zeit im Video + versatz.
+ */
+export function beispielPlanMitTon(versatz = 5.5, ueberschreibe: Partial<Record<string, unknown>> = {}): Schnittplan {
+  const basis = beispielPlan();
+  return leseSchnittplan({
+    ...basis,
+    quellen: [
+      ...basis.quellen.map((q) => (q.id === "sprache" ? { ...q, ton: { quelle: "ton-1", versatz } } : q)),
+      { id: "ton-1", pfad: "rohmaterial/praxis-hofer/ton-01.wav", art: "audio", dauer: 60, hatAudio: true, audioKanaele: 1, audioRate: 48000 },
+    ],
+    ...ueberschreibe,
+  });
+}
+
 /** Absolute Pfade für Tests: alles liegt unter /studio. Overlays aus dem Render erhalten die Endung .mov. */
 export const testLoeser = (rel: string, art: "quelle" | "overlay"): string => `/studio/${art === "overlay" ? rel.replace(/\.webm$/i, ".mov") : rel}`;
 

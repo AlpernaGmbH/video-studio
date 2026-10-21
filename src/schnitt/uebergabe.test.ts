@@ -7,7 +7,7 @@ import { Markenprofil } from "../core/schemas";
 import { findePreset, ladePresets } from "../presets/lader";
 import type { StudioHome } from "../setup";
 import { erzeugeUebergabe, freierOrdner, loesePfad, webmZuProRes } from "./uebergabe";
-import { beispielPlan } from "./testdaten";
+import { beispielPlan, beispielPlanMitTon } from "./testdaten";
 
 const presets = ladePresets(path.resolve(__dirname, "../../presets"));
 const exportPreset = findePreset(presets, "export", "reel");
@@ -171,4 +171,46 @@ describe.skipIf(!hatFfmpeg)("Umwandlung mit echtem ffmpeg", () => {
     expect(alpha(10)).toBeGreaterThan(240);
     expect(alpha(150)).toBeLessThan(15);
   }, 60_000);
+});
+
+describe("erzeugeUebergabe mit getrenntem Ton", () => {
+  const mitTon = () => {
+    const w = werkstatt();
+    w.plan = beispielPlanMitTon(5.5, { overlays: w.plan.overlays });
+    const p = loesePfad(w.home, "rohmaterial/praxis-hofer/ton-01.wav");
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, "x");
+    return w;
+  };
+
+  it("die Timeline trägt die Tonaufnahme als Audio-Clips und die Anleitung nennt Versatz und Ort", () => {
+    const w = mitTon();
+    const r = lauf(w);
+    const fcpxml = fs.readFileSync(path.join(r.ordner, "timeline.fcpxml"), "utf8");
+    expect(fcpxml).toContain("ton-01.wav");
+    expect(fcpxml).toContain('name="ton-k01"');
+    const liesmich = fs.readFileSync(path.join(r.ordner, "LIESMICH.md"), "utf8");
+    expect(liesmich).toContain("## Ton von der Tonaufnahme");
+    expect(liesmich).toContain("- sprache: ton-1, Versatz +5,50 s");
+    expect(liesmich).toContain("--versatz");
+  });
+
+  it("ohne getrennten Ton fehlt der Abschnitt", () => {
+    const w = werkstatt();
+    const r = lauf(w);
+    expect(fs.readFileSync(path.join(r.ordner, "LIESMICH.md"), "utf8")).not.toContain("## Ton von der Tonaufnahme");
+  });
+
+  it("die Datei der Tonaufnahme fehlt auf diesem Rechner: die Übergabe bricht ab und nennt sie", () => {
+    const w = mitTon();
+    fs.rmSync(loesePfad(w.home, "rohmaterial/praxis-hofer/ton-01.wav"));
+    expect(() => lauf(w)).toThrow(/ton-01\.wav/);
+  });
+
+  it("ein Ton, der den Clip nicht deckt, ist ein Fehler, und die Übergabe schreibt nichts", () => {
+    const w = mitTon();
+    w.plan = beispielPlanMitTon(-3, { overlays: w.plan.overlays });
+    expect(() => lauf(w)).toThrow(/ton-vor-beginn/);
+    expect(fs.existsSync(path.join(w.root, "aus"))).toBe(false);
+  });
 });

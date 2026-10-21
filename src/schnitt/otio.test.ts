@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { schreibeOtio } from "./otio";
-import { beispielPlan, testLoeser } from "./testdaten";
+import { beispielPlan, beispielPlanMitTon, testLoeser } from "./testdaten";
 
 interface Zeit { value: number; rate: number }
 interface Bereich { start_time: Zeit; duration: Zeit }
@@ -78,5 +78,34 @@ describe("OTIO", () => {
   it("ohne Musik gibt es keine Spur A2", () => {
     const { spuren } = lies(beispielPlan({ musik: undefined }));
     expect(spuren.has("A2")).toBe(false);
+  });
+});
+
+describe("OTIO mit getrenntem Ton", () => {
+  const lesen = () => lies(beispielPlanMitTon(5.5));
+
+  it("A1 trägt die Tonaufnahme statt der Kameraspur, an der um den Versatz verschobenen Stelle, in der Abtastrate der Aufnahme", () => {
+    const { spuren } = lesen();
+    const a1 = spuren.get("A1")!.children;
+    const [k01, k02, k03] = a1;
+    expect(a1).toHaveLength(3);
+    for (const [k, von, dauer] of [[k01, 2, 2.04], [k02, 6.2, 1.8], [k03, 11, 1.6]] as const) {
+      expect(k!.media_reference!.target_url).toBe("file:///studio/rohmaterial/praxis-hofer/ton-01.wav");
+      expect(k!.source_range.start_time.rate).toBe(48000);
+      expect(sek(k!.source_range.start_time)).toBeCloseTo(von + 5.5, 6);
+      expect(sek(k!.source_range.duration)).toBeCloseTo(dauer, 6);
+      expect(k!.metadata.studio).toMatchObject({ ton: { quelle: "ton-1", versatz: 5.5 } });
+    }
+  });
+
+  it("V1 behält die Videodatei und die Längen von A1 stimmen mit denen von V1 überein", () => {
+    const { spuren } = lesen();
+    const v1 = spuren.get("V1")!.children;
+    expect(v1[0]!.media_reference!.target_url).toContain("sprache-01.mov");
+    expect(spuren.get("A1")!.children.map((c) => sek(c.source_range.duration))).toEqual(v1.map((c) => sek(c.source_range.duration)));
+  });
+
+  it("die Musik bleibt auf A2", () => {
+    expect(lesen().spuren.get("A2")!.children.some((c) => c.name === "musik")).toBe(true);
   });
 });

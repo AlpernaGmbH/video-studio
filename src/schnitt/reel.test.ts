@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseArgs } from "../args";
 import { rendereStueck, umgebung, type Umgebung } from "../motion/werkstatt";
 import { leseSchnittplan } from "./plan";
+import { pruefeSchnittplan } from "./pruefung";
+import { findeStille } from "./stille";
 import { listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, transkriptMarkdown, type ReelGeraete, type ReelZustand } from "./reel";
 import { testSatz } from "./testdaten";
 import type { Segment } from "./transkript";
@@ -13,6 +15,11 @@ import type { Segment } from "./transkript";
 vi.mock("../motion/werkstatt", async (orig) => {
   const m = await orig<typeof import("../motion/werkstatt")>();
   return { ...m, rendereStueck: vi.fn(m.rendereStueck) };
+});
+
+vi.mock("./stille", async (orig) => {
+  const m = await orig<typeof import("./stille")>();
+  return { ...m, findeStille: vi.fn(m.findeStille) };
 });
 
 const hatFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
@@ -134,15 +141,16 @@ const text = (): string => ausgabe.join("\n");
 const ff = (...a: string[]): void => void expect(spawnSync("ffmpeg", ["-loglevel", "error", "-y", ...a]).status, a.join(" ")).toBe(0);
 
 /** Ersatz-Whisper als Skript: legt das vorbereitete Transkript unter dem Namen der Aufnahme ab und zählt seine Aufrufe. */
-function ersatzWhisper(json: unknown): { aufrufe: () => number } {
+function ersatzWhisper(json: unknown): { aufrufe: () => number; eingaben: () => string[] } {
   const quelle = path.join(tmp, "transkript-vorlage.json");
   const zaehler = path.join(tmp, "aufrufe.txt");
+  const eingaben = path.join(tmp, "eingaben.txt");
   const bin = path.join(tmp, "whisper-ersatz");
   fs.writeFileSync(quelle, JSON.stringify(json));
-  fs.writeFileSync(bin, `#!/usr/bin/env node\nconst fs = require("node:fs"), path = require("node:path");\nconst a = process.argv.slice(2);\nfs.appendFileSync(${JSON.stringify(zaehler)}, "x");\nfs.copyFileSync(${JSON.stringify(quelle)}, path.join(a[a.indexOf("--output_dir") + 1], path.basename(a[0], path.extname(a[0])) + ".json"));\n`);
+  fs.writeFileSync(bin, `#!/usr/bin/env node\nconst fs = require("node:fs"), path = require("node:path");\nconst a = process.argv.slice(2);\nfs.appendFileSync(${JSON.stringify(zaehler)}, "x");\nfs.appendFileSync(${JSON.stringify(eingaben)}, a[0] + "\\n");\nfs.copyFileSync(${JSON.stringify(quelle)}, path.join(a[a.indexOf("--output_dir") + 1], path.basename(a[0], path.extname(a[0])) + ".json"));\n`);
   fs.chmodSync(bin, 0o755);
   vi.stubEnv("STUDIO_WHISPER_BIN", bin);
-  return { aufrufe: () => (fs.existsSync(zaehler) ? fs.readFileSync(zaehler, "utf8").length : 0) };
+  return { aufrufe: () => (fs.existsSync(zaehler) ? fs.readFileSync(zaehler, "utf8").length : 0), eingaben: () => (fs.existsSync(eingaben) ? fs.readFileSync(eingaben, "utf8").split("\n").filter(Boolean) : []) };
 }
 
 const legeVideoAn = (name = "Sprache 01.mp4", dauer = 45): string => {
@@ -561,4 +569,157 @@ describe("reel", () => {
     expect(await lauf("reel", "quatsch")).toBe(2);
     expect(text()).toContain("reel vorbereiten <ID>");
   });
+});
+
+describe.skipIf(!hatFfmpeg)("reel vorbereiten mit getrenntem Ton", () => {
+  /** Ein «Sprach»signal: Rauschen mit unregelmässigen Pausen (60 s). Kamera und Recorder hören dasselbe, jede mit anderem Klang. */
+  const welt = (): string => {
+    const w = path.join(tmp, "welt.wav");
+    ff("-f", "lavfi", "-i", "aevalsrc='(random(0)*2-1)*(between(mod(t,2.3),0,0.7)+between(mod(t,3.7),1,1.6)+0.2*between(mod(t,5.9),2,3))':s=16000:d=60", w);
+    return w;
+  };
+  const fremd = (): string => {
+    const w = path.join(tmp, "fremd.wav");
+    ff("-f", "lavfi", "-i", "aevalsrc='(random(0)*2-1)*(between(mod(t,1.9),0,0.4)+between(mod(t,4.3),2,3.3))':s=16000:d=60", w);
+    return w;
+  };
+  const kamera = (dauer = 45, mitTon = true): string => {
+    fs.mkdirSync(medien("rohmaterial", "c-0007"), { recursive: true });
+    const ziel = medien("rohmaterial", "c-0007", "Sprache 01.mp4");
+    if (mitTon) ff("-f", "lavfi", "-i", `testsrc2=size=320x568:rate=25:duration=${dauer}`, "-i", welt(), "-t", String(dauer), "-af", "lowpass=f=2500,volume=0.3", "-shortest", ziel);
+    else ff("-f", "lavfi", "-i", `testsrc2=size=320x568:rate=25:duration=${dauer}`, ziel);
+    return ziel;
+  };
+  /** Der Recorder lief `vorlauf` Sekunden vor der Kamera. */
+  const recorder = (vorlauf: number, name = "Recorder 01.wav"): string => {
+    const ziel = medien("rohmaterial", "c-0007", name);
+    if (!fs.existsSync(path.join(tmp, "welt.wav"))) welt();
+    ff("-i", path.join(tmp, "welt.wav"), "-af", `adelay=${vorlauf * 1000}|${vorlauf * 1000},volume=1.5`, "-t", "60", ziel);
+    return ziel;
+  };
+  const start = async (): Promise<ReturnType<typeof ersatzWhisper>> => {
+    zwischenablage = SKRIPT;
+    await lauf("reel", "neu", "c-0007", "--marke", "alperna", "--zwischenablage", "--nicht-oeffnen");
+    return ersatzWhisper(whisperJson(testSatz(1, Z1), testSatz(10, Z2), testSatz(20, Z3)));
+  };
+  const planLesen = () => leseSchnittplan(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"), "utf8")));
+
+  it("legt die Tonaufnahme im Ordner über das Video: Versatz gemessen, Stück der Aufnahme geschnitten, Whisper hört darauf, der Plan trägt Ton und Versatz und ist gültig", async () => {
+    const w = await start();
+    kamera();
+    recorder(4);
+    vi.mocked(findeStille).mockClear();
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    const plan = planLesen();
+    const q = plan.quellen.find((x) => x.id === "sprache-01")!;
+    expect(q.ton!.quelle).toBe("recorder-01");
+    expect(q.ton!.versatz).toBeCloseTo(4, 1);
+    expect(plan.quellen.find((x) => x.id === "recorder-01")).toMatchObject({ art: "audio", pfad: "rohmaterial/c-0007/Recorder 01.wav" });
+    expect(text()).toMatch(/Ton: sprache-01 ← recorder-01, Versatz \+4,00 s \(gemessen, Sicherheit (hoch|mittel)/);
+    // Whisper hat das Stück der Aufnahme gehört, nicht die Kameraspur
+    expect(w.eingaben()).toEqual([studio("inhalte", "c-0007", "ergebnis", "ton", "sprache-01.wav")]);
+    const probe = JSON.parse(spawnSync("ffprobe", ["-v", "error", "-print_format", "json", "-show_streams", studio("inhalte", "c-0007", "ergebnis", "ton", "sprache-01.wav")]).stdout.toString());
+    expect(Number(probe.streams[0].duration)).toBeCloseTo(45, 0);
+    expect(text()).toContain("Ton von Recorder 01.wav mit Versatz +4,00 s");
+    // Die Stille wird am Stück der Aufnahme gemessen (Zeit des Videos), nicht an der Kameraspur
+    expect(vi.mocked(findeStille).mock.calls.map((c) => c[0])).toEqual([studio("inhalte", "c-0007", "ergebnis", "ton", "sprache-01.wav")]);
+    expect(pruefeSchnittplan(plan).filter((b) => b.stufe === "fehler")).toEqual([]);
+    // Die Aufnahme ist keine Videoquelle: kein Clip kommt von ihr
+    expect(plan.clips.every((c) => c.quelle === "sprache-01")).toBe(true);
+    // gemessene Versätze werden nicht in reel.json gemerkt (nur die von Hand)
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8")).versatz).toBeUndefined();
+  }, 180_000);
+
+  it("--ohne-ton-sync lässt den Ton der Kamera gelten: kein Ton im Plan, Whisper hört das Video", async () => {
+    const w = await start();
+    kamera();
+    recorder(4);
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--ohne-ton-sync")).toBe(0);
+    const plan = planLesen();
+    expect(plan.quellen.map((x) => x.id)).toEqual(["sprache-01"]);
+    expect(plan.quellen[0]!.ton).toBeUndefined();
+    expect(w.eingaben()).toEqual([medien("rohmaterial", "c-0007", "Sprache 01.mp4")]);
+    expect(text()).toContain("--ohne-ton-sync");
+  }, 180_000);
+
+  it("eine fremde Aufnahme wird nicht benutzt und der Weg zur Handeingabe wird genannt", async () => {
+    await start();
+    kamera();
+    fremd();
+    fs.copyFileSync(path.join(tmp, "fremd.wav"), medien("rohmaterial", "c-0007", "Fremd.wav"));
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(planLesen().quellen.map((x) => x.id)).toEqual(["sprache-01"]);
+    expect(text()).toMatch(/Ton unsicher, nicht benutzt: sprache-01|Kein Ton gefunden für sprache-01/);
+    expect(text()).toContain("--versatz sprache-01=<Sekunden>");
+  }, 180_000);
+
+  it("--versatz von Hand gilt auch ohne Übereinstimmung, wird in reel.json gemerkt und beim nächsten Lauf wieder benutzt", async () => {
+    const w = await start();
+    kamera();
+    fremd();
+    fs.copyFileSync(path.join(tmp, "fremd.wav"), medien("rohmaterial", "c-0007", "Fremd.wav"));
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--versatz", "7.25")).toBe(0);
+    expect(planLesen().quellen.find((x) => x.id === "sprache-01")!.ton).toEqual({ quelle: "fremd", versatz: 7.25 });
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8")).versatz).toEqual({ "sprache-01": { versatz: 7.25 } });
+    expect(text()).toContain("Versatz +7,25 s (von Hand)");
+    // nächster Lauf ohne Schalter: derselbe Versatz, das Transkript bleibt (gleicher Stand), Whisper läuft nicht nochmal
+    ausgabe.length = 0;
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(planLesen().quellen.find((x) => x.id === "sprache-01")!.ton!.versatz).toBe(7.25);
+    expect(w.aufrufe()).toBe(1);
+    expect(text()).toContain("Transkript vorhanden: sprache-01");
+    // ein anderer Versatz ändert den Stand: Stück neu schneiden und Whisper neu laufen lassen
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--versatz", "sprache-01=8");
+    expect(w.aufrufe()).toBe(2);
+    expect(planLesen().quellen.find((x) => x.id === "sprache-01")!.ton!.versatz).toBe(8);
+    // das Stück der Aufnahme ist neu geschnitten: sein Stand nennt den neuen Versatz
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "ton", "sprache-01.stand.json"), "utf8")).ton.versatz).toBe(8);
+    // ohne Ton-Abgleich: wieder die Kamera, und das Transkript ist neu zu machen, weil es vom Stück der Aufnahme stammte
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--ohne-ton-sync");
+    expect(w.aufrufe()).toBe(3);
+    expect(planLesen().quellen.map((x) => x.id)).toEqual(["sprache-01"]);
+  }, 300_000);
+
+  it("eine Kamera ganz ohne Tonspur geht nur mit Versatz von Hand, und die Stille wird trotzdem an der Aufnahme gemessen", async () => {
+    await start();
+    kamera(45, false);
+    recorder(4);
+    vi.mocked(findeStille).mockClear();
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(planLesen().quellen.find((x) => x.id === "sprache-01")!.ton).toBeUndefined();
+    expect(text()).toContain("Kein Ton gefunden für sprache-01");
+    expect(vi.mocked(findeStille)).not.toHaveBeenCalled();
+    ausgabe.length = 0;
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--versatz", "4")).toBe(0);
+    expect(planLesen().quellen.find((x) => x.id === "sprache-01")!.ton).toEqual({ quelle: "recorder-01", versatz: 4 });
+    expect(vi.mocked(findeStille).mock.calls.map((c) => c[0])).toEqual([studio("inhalte", "c-0007", "ergebnis", "ton", "sprache-01.wav")]);
+    expect(pruefeSchnittplan(planLesen()).map((b) => b.code)).not.toContain("clip-ohne-ton");
+  }, 180_000);
+
+  it("ein Versatz, der den Clip vor den Beginn der Aufnahme legt, scheitert in der Prüfung und steht im Bericht als Fehler", async () => {
+    await start();
+    kamera();
+    recorder(4);
+    // Versatz −5: Der erste Clip beginnt bei etwa 1 s im Video, das wäre −4 s in der Aufnahme
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--versatz", "-5")).toBe(0);
+    expect(text()).toMatch(/FEHLER\s+ton-vor-beginn/);
+  }, 180_000);
+
+  it("--versatz mit falscher Schreibweise oder unbekanntem Video bricht vorher ab", async () => {
+    await start();
+    kamera();
+    recorder(4);
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--versatz", "fünf")).rejects.toThrow(/nicht lesbar/);
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--versatz", "gibt-es-nicht=3")).rejects.toThrow(/keine Videoquelle/);
+  }, 120_000);
+
+  it("reel transkript legt den Ton ebenfalls über das Video und schreibt die Quellen mit Ton", async () => {
+    await start();
+    kamera();
+    recorder(4);
+    expect(await lauf("reel", "transkript", "c-0007")).toBe(0);
+    const quellen = JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "quellen.json"), "utf8"));
+    expect(quellen.find((x: { id: string }) => x.id === "sprache-01").ton.quelle).toBe("recorder-01");
+    expect(quellen.map((x: { id: string }) => x.id)).toEqual(["sprache-01", "recorder-01"]);
+  }, 180_000);
 });

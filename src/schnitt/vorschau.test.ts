@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { messePegel } from "./energie";
 import { leseSchnittplan, type Schnittplan } from "./plan";
 import { erzeugeVorschau, fehlendeDateien, kannUntertitel, vorschauArgs, VORSCHAU_BREITE, VORSCHAU_HOEHE } from "./vorschau";
 
@@ -42,6 +43,43 @@ describe("vorschauArgs", () => {
     expect(g).toContain(`scale=${VORSCHAU_BREITE}:${VORSCHAU_HOEHE}:force_original_aspect_ratio=increase,crop=${VORSCHAU_BREITE}:${VORSCHAU_HOEHE},setsar=1,setpts`);
     expect(g).toContain("scale=594:1056,crop=540:960");
     expect(g.match(/scale=594:1056/g)).toHaveLength(1);
+  });
+
+  describe("getrennter Ton", () => {
+    const mitTon = (versatz: number) =>
+      plan({
+        quellen: [
+          { id: "sprache", pfad: "rohmaterial/farben.mp4", art: "video", dauer: 4, fps: 25, breite: 320, hoehe: 568, hatAudio: true, ton: { quelle: "aufnahme", versatz } },
+          { id: "aufnahme", pfad: "rohmaterial/ton.wav", art: "audio", dauer: 30, hatAudio: true, audioKanaele: 1 },
+        ],
+      });
+
+    it("öffnet je Clip zusätzlich die Tonaufnahme an der um den Versatz verschobenen Stelle und nimmt den Ton von dort statt von der Kamera", () => {
+      const a = args(mitTon(5.5));
+      expect(a.join(" ")).toContain("-ss 5.5 -t 1.08 -i /m/quelle/rohmaterial/ton.wav");
+      expect(a.join(" ")).toContain("-ss 7.5 -t 1.08 -i /m/quelle/rohmaterial/ton.wav");
+      // Eingänge: 0 Video k01, 1 Ton k01, 2 Video k02, 3 Ton k02
+      const g = graph(a);
+      expect(g).toContain("[1:a]aformat");
+      expect(g).toContain("[3:a]aformat");
+      expect(g).not.toContain("[0:a]");
+      expect(g).not.toContain("[2:a]");
+    });
+
+    it("ein Clip vor dem Beginn der Tonaufnahme ist ein Fehler, kein stilles Verschieben", () => {
+      expect(() => args(mitTon(-0.5))).toThrow(/vor dem Beginn der Tonaufnahme/);
+    });
+
+    it("fehlendeDateien nennt auch die Tonaufnahme", () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vorschau-ton-"));
+      try {
+        fs.writeFileSync(path.join(dir, "farben.mp4"), "x");
+        const fehlt = fehlendeDateien(mitTon(5.5), (rel) => path.join(dir, path.basename(rel)));
+        expect(fehlt.map((x) => path.basename(x))).toEqual(["ton.wav"]);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   it("ersetzt fehlenden Ton einer Quelle durch Stille in der Länge des Clips", () => {
@@ -178,6 +216,25 @@ describe.skipIf(!hatFfmpeg)("Vorschau mit echtem ffmpeg", () => {
     const [r5, g5] = bildBei(aus, 1.8);
     expect(r5!).toBeLessThan(60); // danach wieder reines Blau
     expect(g5!).toBeLessThan(60);
+  }, 120_000);
+
+  it("nimmt den Ton von der Tonaufnahme an der Stelle des Versatzes, nicht von der Kamera", async () => {
+    // Kamera: 4 s Bild, Dauerton 440 Hz. Aufnahme: 10 s Stille mit einem Piepton (1 kHz) von 7,0 bis 7,5 s.
+    ff(...farbe("red", "320x568", 4), "-f", "lavfi", "-i", "sine=frequency=440:duration=4", "-shortest", path.join(dir, "kamera.mp4"));
+    ff("-f", "lavfi", "-i", "aevalsrc=if(between(t\\,7\\,7.5)\\,0.5*sin(2*PI*1000*t)\\,0):s=48000:d=10", "-ac", "1", path.join(dir, "aufnahme.wav"));
+    // Der Clip zeigt Kamerazeit 1,5 bis 2,5 s. Mit Versatz 5,5 sind das 7,0 bis 8,0 s der Aufnahme: Der Piepton liegt in der ersten halben Sekunde des Clips.
+    const p = plan({
+      quellen: [
+        { id: "sprache", pfad: "rohmaterial/kamera.mp4", art: "video", dauer: 4, fps: 25, breite: 320, hoehe: 568, hatAudio: true, ton: { quelle: "aufnahme", versatz: 5.5 } },
+        { id: "aufnahme", pfad: "rohmaterial/aufnahme.wav", art: "audio", dauer: 10, hatAudio: true, audioKanaele: 1 },
+      ],
+      clips: [{ id: "k01", quelle: "sprache", von: 1.5, bis: 2.5 }],
+    });
+    const aus = path.join(dir, "v.mp4");
+    await erzeugeVorschau({ plan: p, loese: lo, ausgabe: aus });
+    const pegel = (von: number, bis: number) => messePegel(aus, von, bis);
+    expect((await pegel(0.05, 0.45))!).toBeGreaterThan(-20); // der Piepton
+    expect((await pegel(0.6, 0.95)) ?? -200).toBeLessThan(-60); // danach Stille (der Kameraton von 440 Hz wäre hier zu hören)
   }, 120_000);
 
   it("beginnt die B-Roll bei den besten Sekunden der Datei: erst magenta, dann ab 1 s cyan", async () => {

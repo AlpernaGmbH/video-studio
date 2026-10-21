@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { leseSchnittplan, PlanFehler, platziere } from "./plan";
-import { beispielPlan } from "./testdaten";
+import { externerTon, leseSchnittplan, PlanFehler, platziere, quelleNach } from "./plan";
+import { beispielPlan, beispielPlanMitTon } from "./testdaten";
 
 describe("Schnittplan lesen", () => {
   it("füllt Voreinstellungen (Zoom 1, 25 fps) und nimmt Pfade als NFC", () => {
@@ -63,5 +63,32 @@ describe("platziere", () => {
   it("eine unbekannte Quelle ist ein Fehler, kein stilles Weglassen", () => {
     const p = beispielPlan({ clips: [{ id: "k01", quelle: "gibts-nicht", von: 0, bis: 1 }] });
     expect(() => platziere(p)).toThrow(/gibts-nicht/);
+  });
+});
+
+describe("getrennter Ton im Plan", () => {
+  it("externerTon liefert Tonaufnahme und Versatz, wenn die Quelle einen getrennten Ton hat", () => {
+    const p = beispielPlanMitTon(5.5);
+    const q = quelleNach(p);
+    const t = externerTon(q.get("sprache")!, q)!;
+    expect(t.audio.id).toBe("ton-1");
+    expect(t.versatz).toBe(5.5);
+  });
+
+  it("externerTon liefert nichts ohne «ton», bei fehlender Quelle oder bei einer Videoquelle als Ton", () => {
+    const p = beispielPlanMitTon(5.5);
+    const q = quelleNach(p);
+    expect(externerTon(q.get("empfang")!, q)).toBeUndefined();
+    p.quellen.find((x) => x.id === "sprache")!.ton = { quelle: "gibt-es-nicht", versatz: 1 };
+    expect(externerTon(quelleNach(p).get("sprache")!, quelleNach(p))).toBeUndefined();
+    p.quellen.find((x) => x.id === "sprache")!.ton = { quelle: "empfang", versatz: 1 };
+    expect(externerTon(quelleNach(p).get("sprache")!, quelleNach(p))).toBeUndefined();
+  });
+
+  it("nur eine Videoquelle darf einen getrennten Ton haben", () => {
+    const roh = { version: 1, projekt: { name: "x", marke: "alperna" }, clips: [{ id: "c1", quelle: "a", von: 0, bis: 1 }] };
+    const video = { id: "a", pfad: "rohmaterial/a.mov", art: "video", dauer: 5, fps: 25, breite: 1080, hoehe: 1920 };
+    expect(() => leseSchnittplan({ ...roh, quellen: [{ ...video, ton: { quelle: "b", versatz: 2 } }] })).not.toThrow();
+    expect(() => leseSchnittplan({ ...roh, quellen: [video, { id: "b", pfad: "rohmaterial/b.wav", art: "audio", dauer: 5, hatAudio: true, ton: { quelle: "a", versatz: 2 } }] })).toThrow(/getrennten Ton/);
   });
 });

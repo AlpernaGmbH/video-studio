@@ -30,6 +30,11 @@ export const SchnittQuelle = z
     hatAudio: z.boolean().default(false),
     audioKanaele: z.number().int().min(1).max(8).default(2),
     audioRate: z.number().int().positive().default(48000),
+    /**
+     * Getrennter Ton (Plan v4): Der Ton dieser Videoquelle liegt in einer eigenen Audioquelle (externes Mikrofon, Recorder). Dann kommt die Sprache von dort,
+     * die Kameraspur bleibt stumm. Versatz: Zeit in der Tonaufnahme = Zeit im Video + versatz (in Sekunden, `ton-sync.ts`).
+     */
+    ton: z.object({ quelle: KennId, versatz: z.number() }).optional(),
   })
   .superRefine((q, ctx) => {
     if (q.art === "video") {
@@ -38,6 +43,7 @@ export const SchnittQuelle = z
       }
     }
     if (q.art === "audio" && !q.hatAudio) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["hatAudio"], message: "Eine Audioquelle hat Audio" });
+    if (q.ton && q.art !== "video") ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["ton"], message: "Nur eine Videoquelle hat einen getrennten Ton" });
   });
 export type SchnittQuelle = z.infer<typeof SchnittQuelle>;
 
@@ -155,6 +161,13 @@ export interface Zeitleiste {
 }
 
 export const quelleNach = (plan: Schnittplan): Map<string, SchnittQuelle> => new Map(plan.quellen.map((q) => [q.id, q]));
+
+/** Der getrennte Ton einer Videoquelle (Audioquelle und Versatz), wenn sie einen hat und die Audioquelle im Plan steht. Sonst `undefined`: Dann zählt die Tonspur der Kamera. */
+export function externerTon(q: SchnittQuelle, quellen: ReadonlyMap<string, SchnittQuelle>): { audio: SchnittQuelle; versatz: number } | undefined {
+  if (!q.ton) return undefined;
+  const audio = quellen.get(q.ton.quelle);
+  return audio && audio.art === "audio" ? { audio, versatz: q.ton.versatz } : undefined;
+}
 
 /**
  * Legt die Clips von V1 hintereinander und rundet jede Grenze auf ganze Frames der Timeline. Die Längen werden einzeln gerundet und

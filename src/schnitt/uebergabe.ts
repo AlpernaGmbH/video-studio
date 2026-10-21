@@ -8,7 +8,7 @@ import type { AudioPreset, ExportPreset } from "../presets/schema";
 import { GROSSE_UNTERORDNER, medienOrdner, type StudioHome } from "../setup";
 import { schreibeFcpxml, type PfadLoeser } from "./fcpxml";
 import { schreibeOtio } from "./otio";
-import { platziere, sekunden, type Schnittplan } from "./plan";
+import { externerTon, platziere, sekunden, type Schnittplan } from "./plan";
 import { pruefeSchnittplan, verlangeGueltig, type Befund } from "./pruefung";
 import { gruppiere, schreibeSrt, woerterAufTimeline, woerterMitHerkunft } from "./untertitel";
 
@@ -163,6 +163,24 @@ ${w.map((x) => `- ${s1(x.von)} s: ${x.text}`).join("\n")}
 `;
 }
 
+/** Abschnitt für `LIESMICH.md`: Quellen mit getrenntem Ton, mit Versatz und dem Ort in der Timeline. Leer, wenn es keinen gibt. */
+function tonAbschnitt(plan: Schnittplan): string {
+  const quellen = new Map(plan.quellen.map((q) => [q.id, q]));
+  const benutzt = new Set(plan.clips.map((c) => c.quelle));
+  const mit = plan.quellen.filter((q) => q.ton && benutzt.has(q.id) && externerTon(q, quellen));
+  if (!mit.length) return "";
+  return `## Ton von der Tonaufnahme
+
+Bei diesen Videos kommt die Sprache von der Tonaufnahme, nicht von der Kamera. Die Kameraspur ist in der Timeline stumm:
+
+${mit.map((q) => `- ${q.id}: ${q.ton!.quelle}, Versatz ${q.ton!.versatz >= 0 ? "+" : "−"}${Math.abs(q.ton!.versatz).toFixed(2).replace(".", ",")} s (Zeit in der Aufnahme = Zeit im Video + Versatz)`).join("\n")}
+
+In der FCPXML hängt die Sprache als Audio-Clip \`ton-<Clip>\` unter jedem Clip (Lane −1), die Musik liegt eine Spur tiefer. **[Vermutung]** Resolve zeigt das als A2 und A3, A1 bleibt leer. In der OTIO liegt die Sprache auf A1.
+Der Versatz ist aus der Lautstärkekurve gemessen (auf 10 Millisekunden), ein Bild bei 25p sind 40. Prüfe den Gleichlauf an einer Stelle mit gut sichtbarem Mund (p, b, m) und schiebe bei Bedarf den Ton von Hand. Passt der Versatz bei allen Clips gleich nicht, sag Claude die Zahl: Der Plan nimmt sie mit \`--versatz\` und merkt sie sich.
+
+`;
+}
+
 export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; dateien: string[] }): string {
   const { plan, export: e, audio } = a;
   const hinweise = a.befunde.filter((b) => b.stufe === "hinweis");
@@ -210,7 +228,7 @@ Danach die fertige Datei prüfen lassen:
 ./studio schnitt export-pruefen <datei.mp4> --preset ${e.id} --audio ${audio.id}
 \`\`\`
 
-${betonteWoerter(plan)}## Stellen, die Claude beim Schnitt auffielen
+${betonteWoerter(plan)}${tonAbschnitt(plan)}## Stellen, die Claude beim Schnitt auffielen
 
 ${hinweise.length ? hinweise.map((h) => `- ${h.text}`).join("\n") : "Keine."}
 `;

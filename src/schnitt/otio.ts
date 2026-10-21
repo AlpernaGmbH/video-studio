@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { alsZahl, fpsBruch, inFrames } from "./raster";
-import { platziere, quelleNach, sekunden, type Schnittplan, type SchnittQuelle } from "./plan";
+import { externerTon, platziere, quelleNach, sekunden, type Schnittplan, type SchnittQuelle } from "./plan";
 import type { PfadLoeser } from "./fcpxml";
 
 /**
@@ -8,6 +8,7 @@ import type { PfadLoeser } from "./fcpxml";
  * Wir schreiben Clip.1 und ExternalReference.1: Diese Schemaversionen lesen alle OTIO-Versionen, neuere wandeln sie selbst um.
  *
  * Spuren: V1 und A1 die Sprache, V2 B-Roll, V3 Grafiken, A2 Musik. Lücken sind echte `Gap`-Elemente.
+ * Hat eine Videoquelle einen getrennten Ton, nimmt A1 für ihre Clips die Tonaufnahme (Versatz: Zeit in der Aufnahme = Zeit im Video + Versatz).
  */
 
 /** OTIO rechnet mit Dezimalraten. NTSC bleibt exakt (30000/1001), sonst driftet die Timeline. */
@@ -60,7 +61,12 @@ export function schreibeOtio(plan: Schnittplan, loese: PfadLoeser): string {
     const dauerQuelle = inFrames(sekunden(p.frames, fps), q.fps!);
     const meta = { studio: { clip: p.clip.id, zeile: p.clip.zeile ?? null, zoom: p.clip.zoom, notiz: p.clip.notiz } };
     v1.push(clip(p.clip.id, quellRef(q), roh(q, p.clip.von), dauerQuelle, rateVon(q.fps!), meta));
-    if (q.hatAudio) a1.push(clip(p.clip.id, quellRef(q), roh(q, p.clip.von), dauerQuelle, rateVon(q.fps!), meta));
+    const ton = externerTon(q, quellen);
+    if (ton) {
+      // Beginn auf dem Raster des Videos (wie in der FCPXML), dann in die Zeit der Tonaufnahme
+      const start = inFrames(ton.audio.start + alsZahl(p.quellStart) + ton.versatz, ton.audio.audioRate);
+      a1.push(clip(p.clip.id, quellRef(ton.audio), start, inFrames(sekunden(p.frames, fps), ton.audio.audioRate), ton.audio.audioRate, { studio: { ...meta.studio, ton: { quelle: ton.audio.id, versatz: ton.versatz } } }));
+    } else if (q.hatAudio) a1.push(clip(p.clip.id, quellRef(q), roh(q, p.clip.von), dauerQuelle, rateVon(q.fps!), meta));
     else a1.push(gap(p.frames, rateVon(fps)));
   }
 

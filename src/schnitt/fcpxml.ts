@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
-import { addiere, fcpZeit, frameZeit, inFrames, type Bruch } from "./raster";
-import { platziere, quelleNach, type PlatzierterClip, type Schnittplan, type SchnittQuelle } from "./plan";
+import { addiere, alsZahl, fcpZeit, frameZeit, inFrames, type Bruch } from "./raster";
+import { externerTon, platziere, quelleNach, type PlatzierterClip, type Schnittplan, type SchnittQuelle } from "./plan";
 
 /**
  * FCPXML 1.8 aus dem Schnittplan. DaVinci Resolve liest FCPXML als Timeline (Datei, Importieren, Timeline). 1.8 statt 1.9 oder 1.10, weil ab 1.9 die Pfade
@@ -8,7 +8,8 @@ import { platziere, quelleNach, type PlatzierterClip, type Schnittplan, type Sch
  * fcpxml.test.ts), nicht mit Resolve selbst (Test T9 im Dokument editing-blueprint.md).
  *
  * Aufbau: V1/A1 sind die Clips im `spine`. Alles andere hängt als verbundener Clip (`lane`) an dem Spine-Clip, in dem es beginnt:
- * Lane 1 B-Roll, Lane 2 Grafiken, Lane −1 Musik. Der `offset` eines verbundenen Clips zählt in der Zeit des Elternclips,
+ * Lane 1 B-Roll, Lane 2 Grafiken, Lane −1 Musik. Hat eine Videoquelle einen getrennten Ton (`quelle.ton`), ist ihr Asset stumm und die Sprache hängt als Audio-Clip
+ * der Tonaufnahme auf Lane −1; die Musik rückt dann auf Lane −2. Der `offset` eines verbundenen Clips zählt in der Zeit des Elternclips,
  * also ab dessen `start` (Beginn in der Quelle), nicht ab dem Beginn der Timeline.
  */
 
@@ -67,11 +68,14 @@ export function schreibeFcpxml(plan: Schnittplan, loese: PfadLoeser): string {
     }
     return id;
   };
+  /** Eine Videoquelle mit getrenntem Ton ist im Export stumm: Die Sprache kommt von der Tonaufnahme. */
+  const kameraTon = (q: SchnittQuelle): boolean => q.hatAudio && !externerTon(q, quellen);
   const quellAsset = (q: SchnittQuelle): string =>
     assetFuer(`q:${q.id}`, (id) => {
       const abs = loese(q.pfad, "quelle");
       if (q.art === "video") {
         const f = formatFuer(q.fps!, q.breite!, q.hoehe!);
+        const mitTon = kameraTon(q);
         return el(
           "asset",
           {
@@ -81,10 +85,10 @@ export function schreibeFcpxml(plan: Schnittplan, loese: PfadLoeser): string {
             duration: fcpZeit(frameZeit(inFrames(q.dauer, q.fps!), q.fps!)),
             hasVideo: "1",
             format: f,
-            hasAudio: q.hatAudio ? "1" : undefined,
-            audioSources: q.hatAudio ? "1" : undefined,
-            audioChannels: q.hatAudio ? String(q.audioKanaele) : undefined,
-            audioRate: q.hatAudio ? String(q.audioRate) : undefined,
+            hasAudio: mitTon ? "1" : undefined,
+            audioSources: mitTon ? "1" : undefined,
+            audioChannels: mitTon ? String(q.audioKanaele) : undefined,
+            audioRate: mitTon ? String(q.audioRate) : undefined,
             src: pathToFileURL(abs).href,
           },
           [],
@@ -156,6 +160,36 @@ export function schreibeFcpxml(plan: Schnittplan, loese: PfadLoeser): string {
     });
   });
 
+  // Sprache von der Tonaufnahme: ein Audio-Clip je Spine-Clip, am Anfang des Clips eingehängt, Länge und Lage frame-genau wie der Clip
+  const sprachLane = -1;
+  const hatExternenTon = zeit.clips.some((p) => externerTon(p.quelle, quellen));
+  for (const p of zeit.clips) {
+    const ton = externerTon(p.quelle, quellen);
+    if (!ton) continue;
+    const { audio, versatz } = ton;
+    const ref = quellAsset(audio);
+    const startSek = audio.start + alsZahl(p.quellStart) + versatz;
+    verbunden.push({
+      lane: sprachLane,
+      frame: p.startFrame,
+      xml: (eltern) =>
+        el(
+          "asset-clip",
+          {
+            ref,
+            lane: String(sprachLane),
+            offset: fcpZeit(imEltern(eltern, p.startFrame)),
+            name: `ton-${p.clip.id}`,
+            start: fcpZeit({ n: Math.round(startSek * audio.audioRate), d: audio.audioRate }),
+            duration: fcpZeit(frameZeit(p.frames, fps)),
+            audioRole: "dialogue",
+          },
+          [],
+          4,
+        ),
+    });
+  }
+
   if (plan.musik) {
     const m = plan.musik;
     const q = quellen.get(m.quelle);
@@ -164,13 +198,14 @@ export function schreibeFcpxml(plan: Schnittplan, loese: PfadLoeser): string {
       const frame = inFrames(m.t, fps);
       const bis = m.dauer !== undefined ? inFrames(m.t + m.dauer, fps) : zeit.gesamtFrames;
       const frames = Math.max(1, Math.min(bis, zeit.gesamtFrames) - frame);
+      const musikLane = hatExternenTon ? -2 : -1;
       verbunden.push({
-        lane: -1,
+        lane: musikLane,
         frame,
         xml: (eltern) =>
           el(
             "asset-clip",
-            { ref, lane: "-1", offset: fcpZeit(imEltern(eltern, frame)), name: "musik", start: fcpZeit({ n: Math.round((q.start + m.von) * q.audioRate), d: q.audioRate }), duration: fcpZeit(frameZeit(frames, fps)), audioRole: "music" },
+            { ref, lane: String(musikLane), offset: fcpZeit(imEltern(eltern, frame)), name: "musik", start: fcpZeit({ n: Math.round((q.start + m.von) * q.audioRate), d: q.audioRate }), duration: fcpZeit(frameZeit(frames, fps)), audioRole: "music" },
             [el("adjust-volume", { amount: `${m.pegelDb}dB` }, [], 5)],
             4,
           ),
@@ -195,7 +230,7 @@ export function schreibeFcpxml(plan: Schnittplan, loese: PfadLoeser): string {
         duration: fcpZeit(frameZeit(p.frames, fps)),
         format: formatFuer(p.quelle.fps!, p.quelle.breite!, p.quelle.hoehe!),
         tcFormat: "NDF",
-        audioRole: p.quelle.hatAudio ? "dialogue" : undefined,
+        audioRole: kameraTon(p.quelle) ? "dialogue" : undefined,
       },
       kinder,
       5,

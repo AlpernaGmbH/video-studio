@@ -12,6 +12,8 @@ import { findeStille, type Stille } from "./stille";
 import { schnittBefehl } from "./befehle";
 import { SchnittQuelle, platziere } from "./plan";
 import { leseSchnittplan } from "./plan";
+import { ordneTonZu, parseVersatzOption } from "./ton-ablauf";
+import { listeTonDateien, schneideTonFenster } from "./ton-sync";
 import { pruefeSchnittplan } from "./pruefung";
 import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { leseTranskript } from "./transkript";
@@ -29,11 +31,12 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
   reel neu <ID> [--marke key] [--name "Titel"] [--zwischenablage | --skript datei] [--ueberschreiben] [--nicht-oeffnen]
                                       Legt <Studio>/inhalte/<ID>/ und <Medien>/rohmaterial/<ID>/ an, schreibt das Skript (aus der Zwischenablage oder einer Datei)
                                       nach inhalte/<ID>/skript.md und öffnet den Aufnahmen-Ordner. Danach die Videos dort hineinkopieren. <ID> ist die Kennung aus «Inhalte» (c-0007).
-  reel transkript <ID> [--marke key] [--aufnahmen ordner] [--modell large-v3] [--neu]
+  reel transkript <ID> [--marke key] [--aufnahmen ordner] [--modell large-v3] [--neu] [--ohne-ton-sync] [--versatz …]
                                       Ohne Skript, oder wenn es nicht stimmt: transkribiert die Videos und schreibt ergebnis/transkript.md (nummerierte Sätze mit Zeiten).
                                       Claude wählt daraus die Sätze und schreibt sie wörtlich in skript.md.
-  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
-                                      Sondiert die Videos, transkribiert mit Whisper (vorhandene Transkripte bleiben, --neu erzwingt), misst die Stille der Tonspur, ordnet das Skript zu
+  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--ohne-ton-sync] [--versatz 5.3 | clip=5.3;clip2=-2:aufnahme] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
+                                      Sondiert die Videos, legt getrennte Tonaufnahmen (wav, m4a, mp3 im selben Ordner) über die Videos (Versatz aus der Lautstärkekurve, oder von Hand mit --versatz;
+                                      ein Versatz von Hand wird gemerkt), transkribiert mit Whisper (vorhandene Transkripte bleiben, --neu erzwingt), misst die Stille der Tonspur, ordnet das Skript zu
                                       und baut den Schnittplan. Schreibt ergebnis/gegenlesen.md. Die Untertitel nehmen das Gehörte.
   reel gegenlesen <ID> [--zwischenablage | --datei antwort.json] [--nicht-kopieren] [--regeln regeln.json] [--katalog katalog.json]
                                       Claude hat gegenlesen.md gelesen und ergebnis/gegenlesen.json geschrieben (Regie, Abbrüche, Verhörer). Der Befehl wendet es auf den Plan an
@@ -64,6 +67,8 @@ export interface ReelPfade {
   aufnahmen: string;
   reel: string;
   transkripte: string;
+  /** Die Stücke der Tonaufnahmen, die zu je einem Video gehören (Zeit 0 = Zeit 0 des Videos). */
+  ton: string;
   quellen: string;
   plan: string;
   bericht: string;
@@ -90,6 +95,7 @@ export function reelPfade(home: StudioHome, id: string): ReelPfade {
     aufnahmen: path.join(medienOrdner(home), "rohmaterial", id),
     reel: path.join(inhalt, "reel.json"),
     transkripte: path.join(ergebnis, "transkripte"),
+    ton: path.join(ergebnis, "ton"),
     quellen: path.join(ergebnis, "quellen.json"),
     plan: path.join(ergebnis, "plan.json"),
     bericht: path.join(ergebnis, "bericht.json"),
@@ -171,6 +177,8 @@ const ReelDatei = z.object({
   modell: z.string().optional(),
   sprache: z.string().optional(),
   untertitel: z.enum(["gehoert", "skript"]).optional(),
+  /** Von Hand angegebene Versätze des getrennten Tons je Videoquelle (Sekunden: Zeit in der Aufnahme = Zeit im Video + Versatz). `ton` nennt die Aufnahme, wenn es mehrere gibt. */
+  versatz: z.record(z.string(), z.object({ versatz: z.number(), ton: z.string().optional() })).optional(),
 });
 type ReelDatei = z.infer<typeof ReelDatei>;
 
@@ -282,12 +290,35 @@ interface Grundlage {
   aufnahmenDir: string;
   quellen: SchnittQuelle[];
   pfade: Map<string, string>;
+  /** Video-Quelle → Stück der Tonaufnahme in der Zeit des Videos (nur bei getrenntem Ton). */
+  fenster: Map<string, string>;
   transkripte: { quelle: string; segmente: ReturnType<typeof leseTranskript> }[];
   modell: string;
   sprache: string;
+  /** Von Hand angegebene Versätze (gemerkt in reel.json). */
+  versatz: Map<string, { versatz: number; ton?: string }>;
 }
 
-/** Sondiert die Videos des Aufnahmenordners und transkribiert sie (vorhandene Transkripte bleiben, solange das Video nicht neuer ist). */
+/** Was ein Stück Tonaufnahme beschreibt: aus welcher Datei, mit welchem Versatz. Ändert sich das, sind Stück, Transkript und Stille veraltet. */
+interface TonStand {
+  ton: { quelle: string; versatz: number; groesse: number; mtimeMs: number } | null;
+}
+const leseStand = (datei: string): TonStand => {
+  try {
+    return JSON.parse(fs.readFileSync(datei, "utf8")) as TonStand;
+  } catch {
+    return { ton: null };
+  }
+};
+const schreibeStand = (datei: string, stand: TonStand): void => {
+  fs.mkdirSync(path.dirname(datei), { recursive: true });
+  fs.writeFileSync(datei, `${JSON.stringify(stand)}\n`);
+};
+
+/** Die von Hand angegebenen Versätze für `reel.json` (leer, wenn es keine gibt). */
+const versatzFelder = (gr: Grundlage): { versatz?: ReelDatei["versatz"] } => (gr.versatz.size ? { versatz: Object.fromEntries(gr.versatz) } : {});
+
+/** Sondiert die Videos des Aufnahmenordners, legt getrennte Tonaufnahmen darüber und transkribiert (vorhandene Transkripte bleiben, solange weder Video noch Ton neuer sind). */
 async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>, home: StudioHome, p: ReelPfade, alt: ReelDatei | undefined): Promise<Grundlage> {
   const markeKey = str(a, "marke") ?? alt?.marke ?? einzigeMarke(env);
   ladeMarke(env, markeKey);
@@ -305,8 +336,7 @@ async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standa
   const vergeben = new Set<string>();
   const quellen: SchnittQuelle[] = [];
   const pfade = new Map<string, string>();
-  for (const datei of dateien) {
-    const abs = path.join(aufnahmenDir, datei);
+  const sondiereDatei = async (abs: string, datei: string): Promise<SchnittQuelle> => {
     const rel = relativierePfad(home, abs);
     if (!rel) throw new Error(`${abs} liegt ausserhalb von Studio- und Medien-Ordner. Die Datei nach ${p.aufnahmen} verschieben`);
     let s: Awaited<ReturnType<typeof sondiere>>;
@@ -315,29 +345,91 @@ async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standa
     } catch (e) {
       throw new Error(`${datei}: ${(e as Error).message}\nLiegt die Datei in OneDrive nur online? Im Finder Rechtsklick, «Immer auf diesem Gerät behalten»`);
     }
-    const qid = quellenId(datei, vergeben);
-    quellen.push(SchnittQuelle.parse({ id: qid, pfad: rel, ...s }));
-    pfade.set(qid, abs);
+    return SchnittQuelle.parse({ id: quellenId(datei, vergeben), pfad: rel, ...s });
+  };
+  for (const datei of dateien) {
+    const abs = path.join(aufnahmenDir, datei);
+    const q = await sondiereDatei(abs, datei);
+    quellen.push(q);
+    pfade.set(q.id, abs);
   }
   const videos = quellen.filter((q) => q.art === "video");
   if (!videos.length) throw new Error(`Keine der Dateien in ${aufnahmenDir} hat ein Bild`);
 
+  // Getrennter Ton: Tonaufnahmen im selben Ordner werden über die Videos gelegt
+  let manuell = new Map(Object.entries(alt?.versatz ?? {}));
+  if (str(a, "versatz")) manuell = new Map([...manuell, ...parseVersatzOption(str(a, "versatz")!, videos.map((v) => v.id))]);
+  const toene: { quelle: SchnittQuelle; datei: string }[] = [];
+  if (a.opt["ohne-ton-sync"] === true) console.log("Getrennter Ton ausgelassen (--ohne-ton-sync): Es zählt die Tonspur der Kamera");
+  else {
+    for (const datei of listeTonDateien(aufnahmenDir)) {
+      const abs = path.join(aufnahmenDir, datei);
+      const q = await sondiereDatei(abs, datei);
+      if (q.art !== "audio") {
+        console.log(`${datei}: kein reiner Ton (hat ein Bild), wird nicht als Tonaufnahme benutzt`);
+        continue;
+      }
+      toene.push({ quelle: q, datei: abs });
+    }
+  }
+  if (toene.length) {
+    console.log(`${toene.length} ${toene.length === 1 ? "Tonaufnahme" : "Tonaufnahmen"} im Ordner (${toene.map((t) => path.basename(t.datei)).join(", ")}): Lege sie über die Videos, das dauert einige Sekunden je Datei`);
+    const r = await ordneTonZu({
+      videos: videos.map((v) => ({ id: v.id, datei: pfade.get(v.id)! })),
+      toene: toene.map((t) => ({ id: t.quelle.id, datei: t.datei })),
+      ...(manuell.size ? { manuell } : {}),
+    });
+    for (const m of r.meldungen) console.log(m);
+    const benutzt = new Set<string>();
+    for (const [video, paar] of r.paare) {
+      quellen.find((q) => q.id === video)!.ton = { quelle: paar.ton, versatz: paar.versatz };
+      benutzt.add(paar.ton);
+    }
+    for (const t of toene) {
+      if (!benutzt.has(t.quelle.id)) continue;
+      quellen.push(t.quelle);
+      pfade.set(t.quelle.id, t.datei);
+    }
+  } else if (manuell.size) console.log("Es sind Versätze für getrennten Ton gemerkt, aber im Ordner liegt keine Tonaufnahme: Es zählt die Tonspur der Kamera");
+
   fs.mkdirSync(p.transkripte, { recursive: true });
   const transkripte: Grundlage["transkripte"] = [];
+  const fenster = new Map<string, string>();
+  const quelleNachId = new Map(quellen.map((q) => [q.id, q]));
   let nr = 0;
   for (const q of videos) {
     nr++;
     const ziel = path.join(p.transkripte, `${q.id}.json`);
+    const standDatei = path.join(p.transkripte, `${q.id}.stand.json`);
     const abs = pfade.get(q.id)!;
-    const veraltet = !fs.existsSync(ziel) || fs.statSync(abs).mtimeMs > fs.statSync(ziel).mtimeMs;
+    let eingang = abs;
+    let soll: TonStand = { ton: null };
+    let beschreibung = "";
+    if (q.ton) {
+      const audio = quelleNachId.get(q.ton.quelle)!;
+      const audioAbs = pfade.get(audio.id)!;
+      const st = fs.statSync(audioAbs);
+      soll = { ton: { quelle: audio.id, versatz: q.ton.versatz, groesse: st.size, mtimeMs: Math.round(st.mtimeMs) } };
+      // Das Stück der Aufnahme, das zum Video gehört: Whisper, Stille und Pegel rechnen damit in der Zeit des Videos
+      eingang = path.join(p.ton, `${q.id}.wav`);
+      const fensterStand = path.join(p.ton, `${q.id}.stand.json`);
+      if (!fs.existsSync(eingang) || JSON.stringify(leseStand(fensterStand)) !== JSON.stringify(soll)) {
+        await schneideTonFenster(audioAbs, q.ton.versatz, q.dauer, eingang);
+        schreibeStand(fensterStand, soll);
+      }
+      fenster.set(q.id, eingang);
+      beschreibung = `, Ton von ${path.basename(audioAbs)} mit Versatz ${q.ton.versatz >= 0 ? "+" : "−"}${Math.abs(q.ton.versatz).toFixed(2).replace(".", ",")} s`;
+    }
+    const veraltet = !fs.existsSync(ziel) || fs.statSync(abs).mtimeMs > fs.statSync(ziel).mtimeMs || JSON.stringify(leseStand(standDatei)) !== JSON.stringify(soll);
     if (a.opt["neu"] === true || veraltet) {
-      console.log(`\nTranskribiere ${nr} von ${videos.length}: ${path.basename(abs)} (Modell ${modell}, das dauert je nach Länge einige Minuten)`);
-      const r = await g.transkribiere({ eingang: abs, ziel, modell, sprache });
+      console.log(`\nTranskribiere ${nr} von ${videos.length}: ${path.basename(abs)}${beschreibung} (Modell ${modell}, das dauert je nach Länge einige Minuten)`);
+      const r = await g.transkribiere({ eingang, ziel, modell, sprache });
+      schreibeStand(standDatei, soll);
       console.log(`  ${r.segmente} Segmente über ${f1(r.spanne)} s, ${r.mitWortzeiten} mit Wortzeiten`);
     } else console.log(`Transkript vorhanden: ${q.id} (mit --neu neu erstellen)`);
     transkripte.push({ quelle: q.id, segmente: leseTranskript(JSON.parse(fs.readFileSync(ziel, "utf8"))) });
   }
-  return { markeKey, aufnahmenDir, quellen, pfade, transkripte, modell, sprache };
+  return { markeKey, aufnahmenDir, quellen, pfade, fenster, transkripte, modell, sprache, versatz: manuell };
 }
 
 /* ---------- reel transkript (ohne Skript) ---------- */
@@ -364,7 +456,7 @@ async function transkript(a: Args, env: Umgebung, g: ReturnType<typeof standardG
   fs.mkdirSync(p.ergebnis, { recursive: true });
   fs.writeFileSync(p.quellen, `${JSON.stringify(gr.quellen, null, 2)}\n`);
   fs.writeFileSync(p.transkriptText, `${transkriptMarkdown(name, gr.transkripte)}\n`);
-  schreibeReel(p, { ...(alt ?? { schema: 1 as const, id }), id, marke: gr.markeKey, ...(str(a, "name") ? { name } : {}) });
+  schreibeReel(p, { ...(alt ?? { schema: 1 as const, id }), id, marke: gr.markeKey, ...(str(a, "name") ? { name } : {}), ...versatzFelder(gr) });
   console.log(`\nTranskript zum Lesen: ${p.transkriptText}\nNächster Schritt: Sätze wählen und in ${p.skript} schreiben (wörtlich, ein Satz je Zeile), dann «./studio reel vorbereiten ${id}»`);
   return 0;
 }
@@ -395,9 +487,10 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   let stilleNotiz = "";
   if (a.opt["ohne-stille"] === true) stilleNotiz = "Stille nicht gemessen (--ohne-stille): Die Schnitte folgen den Wortzeiten von Whisper";
   else {
-    for (const q of quellen.filter((x) => x.art === "video" && x.hatAudio)) {
+    for (const q of quellen.filter((x) => x.art === "video" && (x.hatAudio || x.ton))) {
       try {
-        stille.set(q.id, await findeStille(gr.pfade.get(q.id)!, { dauer: q.dauer }));
+        // Mit getrenntem Ton gilt die Stille der Tonaufnahme (im Stück, das zum Video gehört), nicht die der Kamera
+        stille.set(q.id, await findeStille(gr.fenster.get(q.id) ?? gr.pfade.get(q.id)!, { dauer: q.dauer }));
       } catch (e) {
         stilleNotiz = `Stille nicht gemessen: ${(e as Error).message}`;
       }
@@ -440,6 +533,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     ...(untertitel !== "gehoert" ? { untertitel } : {}),
     ...(str(a, "modell") ?? alt?.modell ? { modell: gr.modell } : {}),
     ...(str(a, "sprache") ?? alt?.sprache ? { sprache: gr.sprache } : {}),
+    ...versatzFelder(gr),
   });
 
   console.log("");

@@ -4,7 +4,7 @@ import type { StudioHome } from "../setup";
 import { messePegel, ordneZuMitPegel } from "./energie";
 import { bauePlan, type Markierung } from "./planbau";
 import type { Stille } from "./stille";
-import type { Schnittplan, SchnittQuelle } from "./plan";
+import { externerTon, type Schnittplan, type SchnittQuelle } from "./plan";
 import type { Segment } from "./transkript";
 import { loesePfad } from "./uebergabe";
 import { ordneZu, skriptZeilen, type Zuordnung } from "./zuordnung";
@@ -51,10 +51,21 @@ export async function fuehreZuordnungAus(e: ZuordnenEingabe): Promise<ZuordnenEr
   else if (!e.home) pegelNotiz = "Energie nicht gemessen: Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet";
   else {
     const home = e.home;
-    const dateien = new Map(videos.map((q) => [q.id, loesePfad(home, q.pfad)]));
-    const fehlt = e.transkripte.map((t) => dateien.get(t.quelle)!).filter((d) => !fs.existsSync(d));
+    // Mit getrenntem Ton misst der Pegel die Tonaufnahme an der um den Versatz verschobenen Stelle, nicht die Kameraspur
+    const nachId = new Map(e.quellen.map((q) => [q.id, q]));
+    const messquelle = new Map(
+      videos.map((q) => {
+        const ton = externerTon(q, nachId);
+        return [q.id, { datei: loesePfad(home, (ton?.audio ?? q).pfad), versatz: ton?.versatz ?? 0 }] as const;
+      }),
+    );
+    const fehlt = e.transkripte.map((t) => messquelle.get(t.quelle)!.datei).filter((d) => !fs.existsSync(d));
     if (fehlt.length) pegelNotiz = `Energie nicht gemessen: Datei fehlt auf diesem Rechner (${fehlt[0]})`;
-    else messe = (q, von, bis) => messePegel(dateien.get(q)!, von, bis);
+    else
+      messe = (q, von, bis) => {
+        const m = messquelle.get(q)!;
+        return messePegel(m.datei, Math.max(0, von + m.versatz), Math.max(0, bis + m.versatz));
+      };
   }
   const zuordnung = messe ? await ordneZuMitPegel(zeilen, e.transkripte, messe) : ordneZu(zeilen, e.transkripte);
 

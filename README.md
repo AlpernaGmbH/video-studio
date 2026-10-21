@@ -56,6 +56,7 @@ Feste Ordner: Skript und Ergebnisse unter `Studio/inhalte/<ID>/`, die Videos unt
 ./studio reel status                                        # wo steht welcher Inhalt, was ist der nächste Schritt
 ```
 
+Liegen im Aufnahmen-Ordner auch Tonaufnahmen (wav, m4a, mp3, aif, flac), legt `vorbereiten` sie über die Videos: Es misst den Versatz an der Lautstärkekurve von Kameraton und Aufnahme (auf 10 Millisekunden), schneidet das passende Stück der Aufnahme, lässt Whisper darauf hören und legt sie in Plan, FCPXML, OTIO und Vorschau unter die Sprache. Was sich nicht sicher zuordnen lässt, wird gemeldet und nicht benutzt; dann geht der Versatz von Hand (`--versatz 5.3`), und er wird gemerkt. `--ohne-ton-sync` schaltet das ab.
 `vorbereiten` lässt vorhandene Transkripte stehen (neuere Videos oder `--neu` transkribieren erneut), misst die Stille der Tonspur, damit Schnitte nicht in Silben fallen, und merkt sich Marke und Titel in `reel.json`. Die Untertitel zeigen das Gehörte, denn das Skript stimmt nicht immer. Ohne gültiges Gegenlesen läuft `reel storyboard` nicht.
 Zooms gibt es nur im Storyboard, nur auf betonten Wörtern und höchstens so viele je Minute, wie das Schnittprofil der Marke sagt. Ein neues Storyboard ersetzt das alte, das vorige bleibt als `storyboard-vorher.json`.
 Solange kein Stück «aktiv» ist, gibt es keine Grafiken ohne `--entwurf` (Regel 3). Die Einzelschritte bleiben als `./studio schnitt …` erreichbar.

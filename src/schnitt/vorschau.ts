@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { lauf } from "../presets/messen";
 import { alsZahl, fpsBruch, inFrames } from "./raster";
-import { platziere, quelleNach, sekunden, type Schnittplan } from "./plan";
+import { externerTon, platziere, quelleNach, sekunden, type Schnittplan } from "./plan";
 
 /**
  * Vorschau-Video aus dem Schnittplan (Plan v3, Editor 1: «Vorschau-Video 540p»): Clips mit Zoom, B-Roll, Grafiken, Musik und auf Wunsch Untertitel zu einer MP4, damit ein Mensch
@@ -58,7 +58,14 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     const i = eingang(["-ss", zahl(alsZahl(p.quellStart)), "-t", zahl(dauer + 2 / fps), "-i", o.loese(q.pfad, "quelle")]);
     const zoom = p.clip.zoom !== 1 ? `,scale=${gerade(W * p.clip.zoom)}:${gerade(H * p.clip.zoom)},crop=${W}:${H}` : "";
     filter.push(`${deckend(i, zoom)},setpts=PTS-STARTPTS,trim=end_frame=${p.frames},setpts=PTS-STARTPTS[v${k}]`);
-    if (q.hatAudio) filter.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=duration=${zahl(dauer)},asetpts=PTS-STARTPTS[a${k}]`);
+    const ton = externerTon(q, quellen);
+    if (ton) {
+      // Sprache von der Tonaufnahme: Zeit in der Aufnahme = Zeit im Video + Versatz
+      const von = ton.audio.start + alsZahl(p.quellStart) + ton.versatz;
+      if (von < -1 / fps) throw new Error(`Clip «${p.clip.id}» liegt vor dem Beginn der Tonaufnahme «${ton.audio.id}» (Versatz ${ton.versatz} s)`);
+      const j = eingang(["-ss", zahl(Math.max(0, von)), "-t", zahl(dauer + 2 / fps), "-i", o.loese(ton.audio.pfad, "quelle")]);
+      filter.push(`[${j}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=duration=${zahl(dauer)},asetpts=PTS-STARTPTS[a${k}]`);
+    } else if (q.hatAudio) filter.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=duration=${zahl(dauer)},asetpts=PTS-STARTPTS[a${k}]`);
     else filter.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${zahl(dauer)},asetpts=PTS-STARTPTS[a${k}]`);
     teile.push(`[v${k}][a${k}]`);
   });
@@ -126,6 +133,10 @@ export async function erzeugeVorschau(o: VorschauOptionen): Promise<{ datei: str
 export function fehlendeDateien(plan: Schnittplan, loese: VorschauOptionen["loese"]): string[] {
   const quellen = quelleNach(plan);
   const benutzt = new Set<string>([...plan.clips.map((c) => c.quelle), ...plan.broll.map((b) => b.quelle), ...(plan.musik ? [plan.musik.quelle] : [])]);
+  for (const c of plan.clips) {
+    const t = quellen.get(c.quelle)?.ton;
+    if (t) benutzt.add(t.quelle);
+  }
   const pfade = [...benutzt].map((id) => quellen.get(id)).filter((q): q is NonNullable<typeof q> => !!q).map((q) => loese(q.pfad, "quelle"));
   pfade.push(...plan.overlays.map((o) => loese(o.datei, "overlay")));
   return [...new Set(pfade)].filter((p) => !fs.existsSync(p));

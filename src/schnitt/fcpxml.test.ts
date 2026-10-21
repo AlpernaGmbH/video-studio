@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { schreibeFcpxml } from "./fcpxml";
 import { platziere } from "./plan";
-import { beispielPlan, testLoeser } from "./testdaten";
+import { beispielPlan, beispielPlanMitTon, testLoeser } from "./testdaten";
 import { finde, findeAlle, liesXml, zeitZuSekunden } from "./testxml";
 
 const xml = (plan = beispielPlan()) => schreibeFcpxml(plan, testLoeser);
@@ -135,5 +135,60 @@ describe("FCPXML 1.8", () => {
     const plan = beispielPlan({ broll: [], overlays: [], musik: undefined });
     const w = liesXml(xml(plan));
     for (const c of finde(findeAlle(w, "spine")[0]!, "asset-clip")) expect(finde(c, "asset-clip")).toHaveLength(0);
+  });
+});
+
+describe("FCPXML mit getrenntem Ton", () => {
+  const plan = () => beispielPlanMitTon(5.5);
+  const w = () => liesXml(xml(plan()));
+
+  it("das Video-Asset der Quelle ist stumm, die Tonaufnahme ist ein eigenes Audio-Asset mit ihrer Datei", () => {
+    const assets = findeAlle(w(), "asset");
+    const sprache = assets.find((a) => a.attr["name"] === "sprache")!;
+    expect(sprache.attr["hasVideo"]).toBe("1");
+    expect(sprache.attr["hasAudio"]).toBeUndefined();
+    const ton = assets.find((a) => a.attr["name"] === "ton-1")!;
+    expect(ton.attr["hasAudio"]).toBe("1");
+    expect(ton.attr["hasVideo"]).toBeUndefined();
+    expect(ton.attr["src"]).toBe("file:///studio/rohmaterial/praxis-hofer/ton-01.wav");
+    expect(ton.attr["audioChannels"]).toBe("1");
+  });
+
+  it("jeder Clip der Sprache trägt einen Audio-Clip der Tonaufnahme auf Lane −1, um den Versatz verschoben und so lang wie der Clip", () => {
+    const [k01, k02, k03] = finde(findeAlle(w(), "spine")[0]!, "asset-clip");
+    for (const [k, von] of [[k01, 2], [k02, 6.2], [k03, 11]] as const) {
+      expect(k!.attr["audioRole"]).toBeUndefined();
+      const ton = finde(k!, "asset-clip").find((c) => c.attr["lane"] === "-1")!;
+      expect(ton.attr["name"]).toBe(`ton-${k!.attr["name"]}`);
+      expect(ton.attr["audioRole"]).toBe("dialogue");
+      expect(zeitZuSekunden(ton.attr["start"]!)).toBeCloseTo(von + 5.5, 6);
+      expect(zeitZuSekunden(ton.attr["duration"]!)).toBeCloseTo(zeitZuSekunden(k!.attr["duration"]!), 9);
+      // hängt am Anfang des Elternclips: Offset = Beginn des Elternclips in dessen Quelle
+      expect(zeitZuSekunden(ton.attr["offset"]!)).toBeCloseTo(zeitZuSekunden(k!.attr["start"]!), 9);
+    }
+  });
+
+  it("die Musik rückt auf Lane −2, damit die Sprache Lane −1 hat", () => {
+    const [k01] = finde(findeAlle(w(), "spine")[0]!, "asset-clip");
+    const lanes = finde(k01!, "asset-clip").map((c) => c.attr["lane"]);
+    expect(lanes).toContain("-2");
+    expect(lanes.filter((l) => l === "-1")).toHaveLength(1);
+    expect(finde(k01!, "asset-clip").find((c) => c.attr["lane"] === "-2")!.attr["name"]).toBe("musik");
+  });
+
+  it("ohne getrennten Ton hat die Quelle ihren eigenen Ton und die Musik bleibt auf Lane −1", () => {
+    const [k01] = finde(findeAlle(liesXml(xml()), "spine")[0]!, "asset-clip");
+    expect(k01!.attr["audioRole"]).toBe("dialogue");
+    expect(finde(k01!, "asset-clip").map((c) => c.attr["lane"]).sort()).toEqual(["-1", "1"]);
+    expect(findeAlle(liesXml(xml()), "asset").find((a) => a.attr["name"] === "sprache")!.attr["hasAudio"]).toBe("1");
+  });
+
+  it("zeigt die Tonaufnahme nur einmal als Asset, auch wenn mehrere Clips sie benutzen", () => {
+    expect(findeAlle(w(), "asset").filter((a) => a.attr["name"] === "ton-1")).toHaveLength(1);
+  });
+
+  it("ist wohlgeformt und alle Verweise zeigen auf vorhandene Assets", () => {
+    const assets = new Set(findeAlle(w(), "asset").map((a) => a.attr["id"]));
+    for (const c of findeAlle(w(), "asset-clip")) expect(assets.has(c.attr["ref"]!)).toBe(true);
   });
 });
