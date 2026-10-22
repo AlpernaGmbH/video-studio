@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { weiter } from "./idee";
+import { Idee, weiter } from "./idee";
 import { pitchText, quellenzeile } from "./pitch";
 import { ideeNeu, JETZT, pitch, SATZ_LAEUFERIN, SYSTEM } from "../testing/fixtures";
 
@@ -34,6 +34,23 @@ describe("pitchText", () => {
 
   it("ohne Pitch gibt es keinen Text", () => {
     expect(() => pitchText(ideeNeu())).toThrow("noch keinen Pitch");
+  });
+
+  it("ohne Familie steht nichts von einer Familie im Text", () => {
+    expect(t).not.toContain("Familie");
+  });
+
+  it("mit Familie sagt der Pitch, dass der Look einmal je Familie gewählt wird und jedes Stück einzeln abgenommen wird", () => {
+    const mit = Idee.parse({ ...i, familie: "mockups" });
+    const text = pitchText(mit, { name: "Handy-Mockups" });
+    expect(text).toContain("**Familie:** Handy-Mockups");
+    expect(text).toContain("Du wählst den Look einmal für die ganze Familie «Handy-Mockups».");
+    expect(text).toContain("Jedes Stück nimmst du trotzdem einzeln ab.");
+    expect(text).toContain("Hat ein Mensch für die Familie «Handy-Mockups» schon einen Look gewählt, entsteht das Stück in diesem Look.");
+    expect(text).not.toContain("Zuerst kommen drei Looks als Standbilder zur Wahl.");
+    expect(text).not.toMatch(/!|jetzt|garantiert|nur noch/i);
+    // ohne Anzeigename steht der Schlüssel da
+    expect(pitchText(mit)).toContain("**Familie:** mockups");
   });
 });
 

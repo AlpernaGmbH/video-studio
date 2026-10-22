@@ -53,6 +53,10 @@ describe("renderSchluessel und gespeicherterRender (Zwischenspeicher der Grafike
     fs.mkdirSync(path.join(dir, "vorschau"), { recursive: true });
     fs.writeFileSync(path.join(dir, "vorschau", "neu.png"), "x");
     expect(schluessel()).toBe(basis);
+    // Der Look-Ordner (Prosa und Referenzbild der Familie) ändert kein Bild; der Look selbst steht in piece.json und zählt dort.
+    fs.mkdirSync(path.join(dir, "look"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "look", "look.md"), "Notiz");
+    expect(schluessel()).toBe(basis);
     fs.appendFileSync(path.join(dir, "index.html"), "\n<!-- geändert -->\n");
     const nachHtml = schluessel();
     expect(nachHtml).not.toBe(basis);

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { KOMPOSITION, STUECK_DATEI, setzeDeklaration } from "./bibliothek";
+import { KOMPOSITION, LOOK_BRIEF_DATEI, LOOK_ORDNER, LOOK_REFERENZ_DATEI, STUECK_DATEI, setzeDeklaration } from "./bibliothek";
+import { lookBriefText, type StueckFamilie } from "./familie";
 import { MARKEN_VARIABLEN, SIGNAL_TYPEN, Stueck, erzeugeDeklaration, type SignalTyp } from "./stueck";
 
 /**
@@ -16,6 +17,11 @@ export interface GeruestOptionen {
   typen: SignalTyp[];
   idee?: string;
   welle?: 1 | 2 | 3 | "wachstum";
+  /**
+   * Die Familie des Stücks mit dem Look, den ein Mensch für sie gewählt hat (Regel 2). Das Gerüst legt `look/look.md` und, wenn das Standbild
+   * da ist, `look/referenz.png` bei: Wer das Stück baut, hält sich an diesen Look und erfindet keinen eigenen.
+   */
+  familie?: { name: string; look: StueckFamilie; referenzBild?: string };
 }
 
 export class GeruestFehler extends Error {}
@@ -48,6 +54,7 @@ export function datenblattGeruest(o: GeruestOptionen) {
     status: "entwurf",
     welle: o.welle ?? "wachstum",
     herkunft: o.idee ? { idee: o.idee } : {},
+    ...(o.familie ? { familie: o.familie.look } : {}),
     zweck: "TODO: Ein Satz, was das Stück zeigt.",
     ausloeser: { typen: o.typen, beschreibung: "TODO: Woran man im Skript erkennt, dass dieses Stück passt." },
     parameter: startParameter(o.typen),
@@ -135,5 +142,10 @@ export function legeStueckAn(libRoot: string, o: GeruestOptionen): string {
   fs.writeFileSync(path.join(dir, STUECK_DATEI), JSON.stringify(stueck, null, 2) + "\n");
   fs.writeFileSync(path.join(dir, KOMPOSITION), setzeDeklaration(kompositionGeruest(o.id, o.name), erzeugeDeklaration(stueck)));
   fs.writeFileSync(path.join(dir, "assets", ".gitkeep"), "");
+  if (o.familie) {
+    fs.mkdirSync(path.join(dir, LOOK_ORDNER), { recursive: true });
+    fs.writeFileSync(path.join(dir, LOOK_ORDNER, LOOK_BRIEF_DATEI), lookBriefText({ id: o.familie.look.id, name: o.familie.name }, o.familie.look));
+    if (o.familie.referenzBild && fs.existsSync(o.familie.referenzBild)) fs.copyFileSync(o.familie.referenzBild, path.join(dir, LOOK_ORDNER, LOOK_REFERENZ_DATEI));
+  }
   return dir;
 }

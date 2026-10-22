@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { Akteur, Iso, Slug } from "../core/schemas";
 import { RelPathSchema } from "../core/paths";
+import { IdeeId, LookBrief, LookId, type FamilienStand } from "./familie";
 import { Signal, ZAHLWOERTER } from "./signale";
+
+export { LookBrief, LookId };
 
 /**
  * Eine Idee ist eine Lücke in der Motion-Bibliothek, mit dem genauen Satz, der sie ausgelöst hat,
@@ -9,6 +12,8 @@ import { Signal, ZAHLWOERTER } from "./signale";
  * unten erzwingt die Regeln der Wachstumsschleife:
  *   - Claude pitcht, ein Mensch gibt frei oder lehnt ab (mit Grund).
  *   - Nach der Freigabe wird noch nichts gebaut: zuerst drei Looks als Standbilder, ein Mensch wählt.
+ *     Seit 22.10.2026 gilt das je Familie (`familie.ts`): Hat ein Mensch für die Familie der Idee schon gewählt, erbt die Idee den Look
+ *     (`freigegeben → look_gewaehlt`, auch durch das System). Sonst zeigt genau eine Idee je Familie die Runde, die anderen warten.
  *   - Erst danach Bau, dann Selbstprüfung (höchstens zwei Korrekturrunden), dann Abnahme durch einen Menschen.
  *   - Höchstens zwei Stücke gleichzeitig im Bau, höchstens fünf offene Pitches (Aufmerksamkeit ist der Engpass).
  */
@@ -77,27 +82,33 @@ export const Pitch = z.object({
 });
 export type Pitch = z.infer<typeof Pitch>;
 
-export const LookId = z.enum(["a", "b", "c"]);
-export const LookBrief = z.object({
-  id: LookId,
-  name: z.string().min(2),
-  leitidee: z.string().min(15),
-  typografie: z.string().min(5),
-  farbeinsatz: z.string().min(5),
-  bewegung: z.string().min(5),
+/**
+ * Ein geerbter Look: Die Idee zeigt keine eigene Runde, sondern übernimmt den Look, den ein Mensch für die Familie gewählt hat.
+ * `von` und `am` sind die des Menschen bei der Wahl, nicht die der Idee. Die Standbilder liegen im Ordner der Idee `vonIdee`.
+ */
+export const Erbe = z.object({
+  familie: Slug,
+  vonIdee: IdeeId,
+  von: z.string().min(1),
+  am: Iso,
+  fassung: z.number().int().min(1),
 });
+export type Erbe = z.infer<typeof Erbe>;
 
 export const Looks = z
   .object({
     runde: z.number().int().min(1),
     briefs: z.array(LookBrief).length(3),
-    /** Standbilder, relativ zum Ideen-Ordner. Genau eines pro Look. */
+    /** Standbilder, relativ zum Ideen-Ordner (bei einem geerbten Look: zum Ordner von `erbe.vonIdee`). Genau eines pro Look. */
     bilder: z.array(z.object({ id: LookId, pfad: RelPathSchema })).length(3),
     gewaehlt: LookId.optional(),
     notizen: z.array(z.string().min(1)).default([]),
+    erbe: Erbe.optional(),
   })
   .superRefine((l, ctx) => {
     const add = (message: string, path: (string | number)[] = []) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+    if (l.erbe && !l.gewaehlt) add("Ein geerbter Look muss gewählt sein", ["gewaehlt"]);
+    if (l.erbe && !istMensch({ typ: "mensch", name: l.erbe.von })) add("Ein geerbter Look stammt von einem Menschen, nicht von einem System", ["erbe", "von"]);
     if (new Set(l.briefs.map((b) => b.id)).size !== 3) add("Die drei Looks müssen a, b und c heissen", ["briefs"]);
     if (new Set(l.bilder.map((b) => b.id)).size !== 3) add("Zu jedem Look gehört genau ein Standbild", ["bilder"]);
     const norm = (s: string) => s.trim().toLowerCase();
@@ -155,6 +166,8 @@ export const Idee = z
     status: z.enum(IDEE_STATI),
     titel: z.string().min(3),
     beschreibung: z.string().min(15),
+    /** Die Familie des Stücks (Schlüssel aus `library/motion/_familien.json`). Der Look wird je Familie gewählt. Sie ändert sich nach dem Pitch nicht mehr. */
+    familie: Slug.optional(),
     quelle: Quelle,
     signale: z.array(Signal).default([]),
     warumNichtsPasst: WarumNichtsPasst,
@@ -174,6 +187,7 @@ export const Idee = z
     if (nichtAbgelehnt && s >= STATI_AB("freigegeben") && i.entscheidung?.art !== "freigegeben") add(`Status «${i.status}» braucht eine Freigabe`, ["entscheidung"]);
     if (nichtAbgelehnt && s >= STATI_AB("looks") && !i.looks) add(`Status «${i.status}» braucht Looks`, ["looks"]);
     if (nichtAbgelehnt && s >= STATI_AB("look_gewaehlt") && !i.looks?.gewaehlt) add(`Status «${i.status}» braucht einen gewählten Look`, ["looks", "gewaehlt"]);
+    if (i.looks?.erbe && i.looks.erbe.familie !== i.familie) add("Der geerbte Look gehört zu einer anderen Familie als die Idee", ["looks", "erbe", "familie"]);
     if (nichtAbgelehnt && s >= STATI_AB("in_bau") && !i.bau) add(`Status «${i.status}» braucht Bau-Angaben`, ["bau"]);
     if (i.status === "in_bibliothek" && !i.abnahme) add("Status «in_bibliothek» braucht eine Abnahme (wer, wann)", ["abnahme"]);
     if (i.status === "abgelehnt" && !(i.entscheidung?.art === "abgelehnt" && i.entscheidung.grund)) add("Eine abgelehnte Idee braucht einen Grund", ["entscheidung"]);
@@ -183,7 +197,7 @@ export type Idee = z.infer<typeof Idee>;
 
 /* ---------- Anlegen ---------- */
 
-export type IdeeEntwurf = Pick<Idee, "titel" | "beschreibung" | "quelle" | "warumNichtsPasst"> & { signale?: Idee["signale"] };
+export type IdeeEntwurf = Pick<Idee, "titel" | "beschreibung" | "quelle" | "warumNichtsPasst"> & { signale?: Idee["signale"]; familie?: string };
 
 export function neueIdee(entwurf: IdeeEntwurf, id: string, akteur: Akteur, jetzt: string): Idee {
   return Idee.parse({
@@ -191,6 +205,7 @@ export function neueIdee(entwurf: IdeeEntwurf, id: string, akteur: Akteur, jetzt
     status: "idee",
     titel: entwurf.titel,
     beschreibung: entwurf.beschreibung,
+    familie: entwurf.familie,
     quelle: entwurf.quelle,
     signale: entwurf.signale ?? [],
     warumNichtsPasst: entwurf.warumNichtsPasst,
@@ -212,6 +227,15 @@ const ERLAUBT: Record<IdeeStatus, readonly IdeeStatus[]> = {
   in_bibliothek: [],
   abgelehnt: [],
 };
+
+/**
+ * Die Übergänge einer Idee. Nur eine Idee mit Familie darf von «freigegeben» direkt nach «look_gewaehlt»: Sie übernimmt den Look,
+ * den ein Mensch für die Familie gewählt hat (ob schon einer da ist, prüft `weiter`). Ohne Familie bleibt es dabei: erst Looks, dann Wahl.
+ */
+function erlaubtVon(idee: Idee): readonly IdeeStatus[] {
+  if (idee.status === "freigegeben" && idee.familie) return [...ERLAUBT.freigegeben, "look_gewaehlt"];
+  return ERLAUBT[idee.status];
+}
 
 /** Übergänge, die nur ein Mensch auslösen darf (Freigaben, Wahlen, Abnahme, Ablehnung nach dem Pitch). */
 function nurMensch(von: IdeeStatus, nach: IdeeStatus): boolean {
@@ -254,6 +278,16 @@ export interface WeiterKontext {
   maxOffenePitches?: number;
   /** Vom Aufrufer geprüft: Das Stück existiert, ist gültig und konnte aktiviert werden. */
   stueckAktiviert?: boolean;
+  /**
+   * Der Stand der Familie der Idee (nur gesetzt, wenn die Idee eine Familie hat). `bekannt: false` heisst: Die Familie steht nicht
+   * (mehr) in `_familien.json`. Ohne Angabe gilt die Familie als bekannt und ohne Stand (kein Look, keine offene Runde).
+   */
+  familie?: { bekannt?: boolean; stand?: FamilienStand };
+  /**
+   * Was der Aufrufer über das Stück weiss, das gebaut wird (nur wenn es in der Bibliothek schon liegt). Bei einer Idee mit Familie muss es
+   * den Look der Familie tragen: sonst liesse sich Regel 2 umgehen, indem man das Gerüst ohne Familie anlegt.
+   */
+  stueckFamilie?: { id?: string; fassung?: number };
 }
 
 export type WeiterErgebnis = { ok: true; idee: Idee } | { ok: false; fehler: string[] };
@@ -261,9 +295,10 @@ export type WeiterErgebnis = { ok: true; idee: Idee } | { ok: false; fehler: str
 export function weiter(idee: Idee, nach: IdeeStatus, ctx: WeiterKontext): WeiterErgebnis {
   const fehler: string[] = [];
   const von = idee.status;
+  const erlaubt = erlaubtVon(idee);
 
-  if (!ERLAUBT[von].includes(nach)) {
-    return { ok: false, fehler: [`Übergang «${von}» → «${nach}» ist nicht vorgesehen. Erlaubt von «${von}»: ${ERLAUBT[von].join(", ") || "nichts (Endstatus)"}`] };
+  if (!erlaubt.includes(nach)) {
+    return { ok: false, fehler: [`Übergang «${von}» → «${nach}» ist nicht vorgesehen. Erlaubt von «${von}»: ${erlaubt.join(", ") || "nichts (Endstatus)"}`] };
   }
   if (nurMensch(von, nach) && !istMensch(ctx.akteur)) {
     fehler.push(`«${von}» → «${nach}» darf nur ein Mensch auslösen (Akteur: ${ctx.akteur.typ} «${ctx.akteur.name}»)`);
@@ -288,12 +323,34 @@ export function weiter(idee: Idee, nach: IdeeStatus, ctx: WeiterKontext): Weiter
       break;
     case "freigegeben>looks": {
       const l = Looks.safeParse(d.looks);
+      fehler.push(...familieBlockiertRunde(idee, ctx));
       if (!l.success) fehler.push(...l.error.issues.map((i) => `Looks: ${i.path.join(".")}: ${i.message}`));
+      else if (l.data.erbe) fehler.push("Looks: Eine Runde zeigt eigene Looks. Ein geerbter Look entsteht nur durch den Übergang nach «look_gewaehlt»");
       else {
         const vorher = idee.looks?.runde ?? 0;
         if (l.data.runde !== vorher + 1) fehler.push(`Looks: Runde muss ${vorher + 1} sein, ist ${l.data.runde}`);
         if (l.data.gewaehlt) fehler.push("Looks: Ein Look darf noch nicht gewählt sein");
         kopie.looks = { ...l.data, notizen: [...(idee.looks?.notizen ?? []), ...l.data.notizen] };
+      }
+      break;
+    }
+    case "freigegeben>look_gewaehlt": {
+      // Nur mit Familie (erlaubtVon): Die Idee übernimmt den Look, den ein Mensch für die Familie gewählt hat.
+      const fam = idee.familie!;
+      const stand = ctx.familie?.stand;
+      if (ctx.familie?.bekannt === false) fehler.push(`Die Familie «${fam}» steht nicht in library/motion/_familien.json`);
+      else if (!stand?.look) fehler.push(`Die Familie «${fam}» hat noch keinen gewählten Look. Ein Mensch wählt ihn in der Look-Runde der Familie${stand?.offeneRunde ? ` (läuft in ${stand.offeneRunde.idee})` : ""}`);
+      else if (!istMensch({ typ: "mensch", name: stand.look.von })) fehler.push(`Der Look der Familie «${fam}» stammt nicht von einem Menschen («${stand.look.von}») und wird nicht übernommen`);
+      else {
+        const f = stand.look;
+        kopie.looks = {
+          runde: f.runde,
+          briefs: structuredClone(f.briefs),
+          bilder: structuredClone(f.bilder),
+          gewaehlt: f.gewaehlt,
+          notizen: [...f.notizen],
+          erbe: { familie: fam, vonIdee: f.vonIdee, von: f.von, am: f.am, fassung: f.fassung },
+        };
       }
       break;
     }
@@ -310,6 +367,12 @@ export function weiter(idee: Idee, nach: IdeeStatus, ctx: WeiterKontext): Weiter
     case "look_gewaehlt>in_bau": {
       const limit = ctx.wipLimit ?? WIP_LIMIT_STANDARD;
       if ((ctx.imBau ?? 0) >= limit) fehler.push(`${limit} Stücke sind schon im Bau. Erst eines abschliessen (zu viele halbfertige Stücke sind ein Risiko des Bauplans)`);
+      if (idee.familie && ctx.stueckFamilie) {
+        const f = ctx.stueckFamilie;
+        const soll = idee.looks?.erbe?.fassung;
+        if (f.id !== idee.familie) fehler.push(`Das Stück «${d.stueck}» trägt nicht den Look der Familie «${idee.familie}» (Familie im Datenblatt: ${f.id ?? "keine"}). Es entsteht mit «motion neu ${d.stueck} … --idee ${idee.id}»`);
+        else if (soll !== undefined && f.fassung !== soll) fehler.push(`Das Stück «${d.stueck}» trägt Fassung ${f.fassung} des Looks, die Idee hat Fassung ${soll} geerbt`);
+      }
       if (!d.stueck) fehler.push("Es fehlt der Schlüssel des Stücks, das gebaut wird");
       else {
         const s = Slug.safeParse(d.stueck);
@@ -353,6 +416,20 @@ export function weiter(idee: Idee, nach: IdeeStatus, ctx: WeiterKontext): Weiter
   const geprueft = Idee.safeParse(kopie);
   if (!geprueft.success) return { ok: false, fehler: geprueft.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) };
   return { ok: true, idee: geprueft.data };
+}
+
+/**
+ * Eine Look-Runde je Familie: Hat die Familie schon einen gewählten Look, übernimmt die Idee ihn, statt eine zweite Runde zu zeigen.
+ * Läuft die Runde in einer anderen Idee, wartet diese Idee. Die eigene offene Runde darf fortgesetzt werden (Runde 2 nach «keiner passt»).
+ */
+function familieBlockiertRunde(idee: Idee, ctx: WeiterKontext): string[] {
+  const fam = idee.familie;
+  if (!fam) return [];
+  if (ctx.familie?.bekannt === false) return [`Die Familie «${fam}» steht nicht in library/motion/_familien.json`];
+  const stand = ctx.familie?.stand;
+  if (stand?.look) return [`Die Familie «${fam}» hat schon einen gewählten Look (von ${stand.look.von}). Die Idee übernimmt ihn: «ideen weiter ${idee.id} look_gewaehlt»`];
+  if (stand?.offeneRunde && stand.offeneRunde.idee !== idee.id) return [`Die Familie «${fam}» wartet auf die Look-Wahl in ${stand.offeneRunde.idee}. Diese Idee wartet, bis dort gewählt ist (dann übernimmt sie den Look)`];
+  return [];
 }
 
 /* ---------- Selbstprüfung erfassen ---------- */

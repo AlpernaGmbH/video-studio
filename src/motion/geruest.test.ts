@@ -3,8 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ladeBibliothek, lintBibliothek, lintStueck } from "./bibliothek";
+import { stueckFamilieAus, type FamilienLook } from "./familie";
 import { GeruestFehler, legeStueckAn } from "./geruest";
 import { SIGNAL_TYPEN, loeseVariablen } from "./stueck";
+import { looks } from "../testing/fixtures";
 
 let root: string;
 beforeEach(() => {
@@ -82,3 +84,59 @@ describe("legeStueckAn", () => {
     expect(lintBibliothek(ladeBibliothek(root)).filter((b) => b.stufe === "fehler")).toEqual([]);
   });
 });
+
+describe("Stücke mit Familie (Regel 2)", () => {
+  const familienLook = (over: Partial<FamilienLook> = {}): FamilienLook => ({ vonIdee: "m-001", runde: 1, briefs: looks().briefs, bilder: looks().bilder, gewaehlt: "b", von: "Andrej", am: "2026-10-22T08:00:00.000Z", fassung: 1, notizen: [], ...over });
+  const familie = (over: Partial<FamilienLook> = {}) => ({ name: "Handy-Mockups", look: stueckFamilieAus("mockups", familienLook(over)) });
+  const liste = (...ids: string[]) => ids.map((id) => ({ id, name: id, beschreibung: "Eine Familie für den Test der Bibliothek." }));
+  const codes = (id: string, familien?: ReturnType<typeof liste>) => lintStueck(lade(id), familien).map((b) => `${b.stufe}:${b.code}`);
+
+  it("legt den gewählten Look ins Stück: Familie im Datenblatt, look.md und das Referenzbild", () => {
+    const bild = path.join(root, "b.png");
+    fs.writeFileSync(bild, "png");
+    legeStueckAn(root, { id: "mockup-seite", name: "Mockup Seite", typen: ["zahl"], idee: "m-002", familie: { ...familie({ von: "Leander", fassung: 2 }), referenzBild: bild } });
+    expect(ladeBibliothek(root).befunde).toEqual([]);
+    const g = lade("mockup-seite");
+    expect(g.stueck.familie).toMatchObject({ id: "mockups", fassung: 2, look: { gewaehlt: "b", name: "Interface", von: "Leander", vonIdee: "m-001" } });
+    const md = fs.readFileSync(path.join(g.dir, "look", "look.md"), "utf8");
+    expect(md).toContain("Karte mit feinem Raster wie ein Dashboard");
+    expect(md).toContain("Leander");
+    expect(fs.readFileSync(path.join(g.dir, "look", "referenz.png"), "utf8")).toBe("png");
+    expect(codes("mockup-seite", liste("mockups"))).toEqual([]);
+  });
+
+  it("ohne Standbild entsteht das Stück trotzdem, der Lint warnt aber", () => {
+    legeStueckAn(root, { id: "mockup-seite", name: "Mockup Seite", typen: ["zahl"], familie: familie() });
+    legeStueckAn(root, { id: "mockup-zwei", name: "Mockup Zwei", typen: ["zahl"], familie: { ...familie(), referenzBild: path.join(root, "gibt-es-nicht.png") } });
+    for (const id of ["mockup-seite", "mockup-zwei"]) expect(codes(id, liste("mockups"))).toEqual(["warnung:look_referenz_fehlt"]);
+  });
+
+  it("der Lint verlangt für ein Stück mit Familie den Look im Stück und eine Familie aus der Liste", () => {
+    legeStueckAn(root, { id: "mockup-seite", name: "Mockup Seite", typen: ["zahl"], familie: familie() });
+    expect(codes("mockup-seite", liste("rankings"))).toContain("fehler:familie_unbekannt");
+    expect(codes("mockup-seite", liste("mockups"))).not.toContain("fehler:familie_unbekannt");
+    // ohne Liste (Bibliothek von Hand gebaut) wird die Familie nicht gegen die Liste geprüft
+    expect(codes("mockup-seite")).not.toContain("fehler:familie_unbekannt");
+    fs.rmSync(path.join(root, "mockup-seite", "look", "look.md"));
+    expect(codes("mockup-seite", liste("mockups"))).toContain("fehler:look_fehlt");
+  });
+
+  it("ein Stück ohne Familie braucht weder Look-Ordner noch Eintrag in der Liste", () => {
+    legeStueckAn(root, { id: "einzeln", name: "Einzeln", typen: ["zahl"] });
+    expect(codes("einzeln", liste("mockups"))).toEqual([]);
+    expect(lade("einzeln").stueck.familie).toBeUndefined();
+    expect(fs.existsSync(path.join(root, "einzeln", "look"))).toBe(false);
+  });
+
+  it("die ganze Bibliothek liest _familien.json mit und meldet eine kaputte Datei als Fehler", () => {
+    legeStueckAn(root, { id: "mockup-seite", name: "Mockup Seite", typen: ["zahl"], familie: familie() });
+    fs.writeFileSync(path.join(root, "_familien.json"), JSON.stringify({ schema: 1, familien: liste("mockups") }));
+    expect(ladeBibliothek(root).familien?.map((f) => f.id)).toEqual(["mockups"]);
+    expect(lintBibliothek(ladeBibliothek(root)).filter((b) => b.stufe === "fehler")).toEqual([]);
+    fs.writeFileSync(path.join(root, "_familien.json"), JSON.stringify({ schema: 1, familien: liste("anderes") }));
+    expect(lintBibliothek(ladeBibliothek(root)).map((b) => b.code)).toContain("familie_unbekannt");
+    fs.writeFileSync(path.join(root, "_familien.json"), "{nope");
+    expect(lintBibliothek(ladeBibliothek(root)).map((b) => b.code)).toContain("familien_ungueltig");
+  });
+});
+

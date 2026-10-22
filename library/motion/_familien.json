@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "familien": [
+    {
+      "id": "mockups",
+      "name": "Handy-Mockups",
+      "beschreibung": "Ein Handy oder Bildschirm zeigt eine Seite, einen Wert oder einen Text. Alle Stücke teilen Rahmen, Schrift und Bewegung."
+    },
+    {
+      "id": "rankings",
+      "name": "Rankings",
+      "beschreibung": "Eine Rangliste baut sich Platz für Platz auf, von unten nach oben oder umgekehrt."
+    },
+    {
+      "id": "hook-texte",
+      "name": "Hook-Texte",
+      "beschreibung": "Kurze Textgrafiken in den ersten Sekunden eines Videos: eine Frage, eine Zahl oder eine Behauptung."
+    }
+  ]
+}

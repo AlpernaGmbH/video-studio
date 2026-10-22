@@ -40,12 +40,22 @@ Bei `inspiration` und `auftrag` prüft Claude zuerst, ob ein vorhandenes Stück 
                                          IN BIBLIOTHEK (Stück «aktiv»)
 ```
 
-Zustandsautomat: `src/motion/idee.ts`. Was er **erzwingt** (und die Tests belegen):
+**Looks je Familie (Regel 2, seit 22.10.2026).** Grafiken, die zusammengehören (Handy-Mockups, Rankings, Hook-Texte), bilden eine Familie
+(`library/motion/_familien.json`, eine geschlossene Liste: ein Tippfehler legt keine neue an). Die erste freigegebene Idee einer Familie zeigt die drei
+Looks, ein Mensch wählt einmal. Jede weitere Idee der Familie wartet, bis die Wahl da ist, und **erbt** den Look danach (`freigegeben → look_gewaehlt`, auch
+durch Claude, denn die Wahl hat ein Mensch getroffen). Das Stück entsteht in diesem Look (`motion neu … --idee` legt `look/look.md` und `look/referenz.png` bei), und
+jedes Stück nimmt ein Mensch einzeln ab. Verwirft ein Mensch den Look der Familie, gilt für neue Stücke die nächste Fassung; bestehende behalten ihren Look.
+Der Stand je Familie steht im Ideenprotokoll (`daten/ideen.json`, Schema 2); ohne Familien bleibt die Datei Schema 1.
+
+Zustandsautomat: `src/motion/idee.ts`, Familien: `src/motion/familie.ts`. Was er **erzwingt** (und die Tests belegen):
 
 | Regel | Wo |
 |---|---|
 | Freigabe, Look-Wahl, Änderungswunsch, Abnahme, Ablehnung nach dem Pitch nur durch einen Menschen | `nurMensch`, `istMensch` |
 | Nichts wird gebaut ohne drei verschiedene Looks und eine Wahl | `ERLAUBT`, Guards |
+| Je Familie genau eine Look-Runde; wer wartet, erbt den Look, den ein Mensch gewählt hat (nie einen von einem System) | `erlaubtVon`, `familieBlockiertRunde`, `Erbe` |
+| Gebaut wird nur ein Stück, das die Familie und die geerbte Fassung des Looks trägt | `look_gewaehlt>in_bau`, Lint `familie_unbekannt`, `look_fehlt` |
+| Den Look einer Familie verwirft nur ein Mensch, mit Grund | `Ideenprotokoll.familieZuruecksetzen` |
 | Eine Ablehnung braucht einen Grund aus mindestens zwei Wörtern | `weiter` |
 | «Keiner passt» braucht einen Grund, der in die nächste Runde fliesst | `looks>freigegeben` |
 | Höchstens 2 Stücke gleichzeitig im Bau | `WIP_LIMIT_STANDARD` |

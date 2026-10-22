@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { markeFuerExportFreigegeben, Markenprofil } from "../core/schemas";
-import { ladeBibliothek, type GeladenesStueck } from "./bibliothek";
+import { LOOK_ORDNER, ladeBibliothek, type GeladenesStueck } from "./bibliothek";
 import { messeRender, parseHfCheck, pruefeRender, type Pruefung } from "./render-pruefung";
 import { batchVorbereiten, type BatchZeile } from "./batch";
 import { batchArgs, checkArgs, compareArgs, fuehreHfAus, HYPERFRAMES_VERSION, renderArgs, snapshotArgs, variablenJson } from "./render";
@@ -121,7 +121,7 @@ export interface RenderErgebnis {
 function stueckDateien(dir: string, rel = ""): string[] {
   const aus: string[] = [];
   for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-    if (e.name.startsWith(".") || (rel === "" && e.name === "vorschau")) continue;
+    if (e.name.startsWith(".") || (rel === "" && (e.name === "vorschau" || e.name === LOOK_ORDNER))) continue;
     const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) aus.push(...stueckDateien(dir, r));
     else aus.push(r);

@@ -249,6 +249,28 @@ function initSkript({ mitMcp, ZEILEN, optionen, ansichten, inhalteZeilen, marken
     await ctx.close();
   });
 
+  await t("Familie: Pitch und Look-Wahl sagen, dass der Look für die ganze Familie gilt; ohne Familie steht das nicht da", async () => {
+    const familienPitch = "Familie: Handy-Mockups<br>Du wählst den Look einmal für die ganze Familie «Handy-Mockups».<br><br>Ein Handy zeigt die Seite.";
+    const ideen = [
+      zeile({ "Idee-ID": "m-010", Titel: "Mockup Seite", Status: "pitch", Pitch: familienPitch, url: "https://app.notion.com/p/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa10" }),
+      zeile({ "Idee-ID": "m-011", Titel: "Mockup Wert", Status: "looks", "Look-Runde": 1, Pitch: familienPitch, url: "https://app.notion.com/p/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa11",
+        Bilder: "a: https://bilder.test/a.png | Plakat. Grosse Zahl\nb: https://bilder.test/b.png | Interface. Karte mit Raster\nc: https://bilder.test/c.png | Editorial. Dünne Linien" }),
+      zeile({ "Idee-ID": "m-012", Titel: "Einzelstück", Status: "looks", "Look-Runde": 1, url: "https://app.notion.com/p/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa12",
+        Bilder: "a: https://bilder.test/a.png | Plakat. Grosse Zahl\nb: https://bilder.test/b.png | Interface. Karte mit Raster\nc: https://bilder.test/c.png | Editorial. Dünne Linien" }),
+    ];
+    const { page, ctx } = await seite({ optionen: { name: "Andrej" }, ideen });
+    await pruefen(page, "Mockup Seite");
+    assert.match(await page.locator("#huelle").textContent(), /Hat für die Familie «Handy-Mockups» schon jemand einen Look gewählt, entsteht das Stück in diesem Look/);
+    await page.keyboard.press("Escape");
+    await pruefen(page, "Mockup Wert");
+    assert.match(await page.locator("#huelle").textContent(), /Deine Wahl gilt für alle Stücke der Familie «Handy-Mockups»/);
+    assert.match(await page.locator("#huelle").textContent(), /Jedes Stück nimmst du trotzdem einzeln ab/);
+    await page.keyboard.press("Escape");
+    await pruefen(page, "Einzelstück");
+    assert.doesNotMatch(await page.locator("#huelle").textContent(), /Familie/);
+    await ctx.close();
+  });
+
   await t("Abnahme: Standbilder, «Änderung nötig» verlangt Notiz", async () => {
     const { page, ctx } = await seite({ optionen: { name: "Andrej" } });
     await pruefen(page, "Prozess-Pfeile");

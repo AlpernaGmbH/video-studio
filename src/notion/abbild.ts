@@ -1,6 +1,6 @@
 import type { Akteur } from "../core/schemas";
 import { IDEE_STATI, ausloesenderText, type Idee, type IdeeStatus, type WeiterDaten } from "../motion/idee";
-import { quellenzeile } from "../motion/pitch";
+import { familienHinweis, quellenzeile } from "../motion/pitch";
 
 /**
  * Abbild einer Idee als Zeile der Notion-Datenbank «Ideen» und zurück.
@@ -70,6 +70,8 @@ export interface ZeilenOptionen {
   bildUrls?: Partial<Record<"a" | "b" | "c", string>>;
   /** Standbilder des gebauten Renders für die Abnahme (nur im Status «render_geprueft» verwendet). */
   renderBilder?: BildEintrag[];
+  /** Anzeigename der Familie der Idee (sonst steht ihr Schlüssel da). */
+  familieName?: string;
 }
 
 export function ideeZuZeile(i: Idee, opt: ZeilenOptionen = {}): ZeilenInhalt {
@@ -83,7 +85,8 @@ export function ideeZuZeile(i: Idee, opt: ZeilenOptionen = {}): ZeilenInhalt {
     Satz: kuerze(ausloesenderText(q)),
     Signale: [...new Set(i.signale.map((s) => s.typ))],
     "Warum nichts passt": kuerze(i.warumNichtsPasst.zusammenfassung),
-    Pitch: i.pitch ? kuerze(`${i.pitch.text}\n\nZeigt: ${i.pitch.zeigt}`) : null,
+    // Die Familie steht zuerst: Der Prüfplatz liest sie aus der ersten Zeile und sagt dem Menschen, dass seine Look-Wahl für die ganze Familie gilt.
+    Pitch: i.pitch ? kuerze(`${i.familie ? `Familie: ${opt.familieName ?? i.familie}\n${familienHinweis(opt.familieName ?? i.familie)}\n\n` : ""}${i.pitch.text}\n\nZeigt: ${i.pitch.zeigt}`) : null,
     Aufwand: i.pitch?.aufwand ?? null,
     "Look-Runde": i.looks?.runde ?? 0,
     Stueck: i.bau?.stueck ?? null,
@@ -102,22 +105,25 @@ export function ideeZuZeile(i: Idee, opt: ZeilenOptionen = {}): ZeilenInhalt {
   if (vor(i.status, "render_geprueft")) {
     Object.assign(p, { Abnahme: "offen", "Abnahme-Notiz": null, "Abnahme von": null, "date:Abnahme am:start": null });
   }
-  return { properties: p, inhalt: seitentext(i) };
+  return { properties: p, inhalt: seitentext(i, opt.familieName) };
 }
 
 function lookBilder(i: Idee, opt: ZeilenOptionen): BildEintrag[] {
   if (!i.looks) return [];
   const l = i.looks;
+  // Bei einem geerbten Look liegen die Standbilder im Ordner der Idee, die die Runde gezeigt hat.
+  const ordner = l.erbe ? (opt.onedriveOrdner ? opt.onedriveOrdner.replace(/[^/]+$/, l.erbe.vonIdee) : `ideen/${l.erbe.vonIdee}`) : undefined;
   return l.bilder.map((b) => {
     const brief = l.briefs.find((x) => x.id === b.id);
-    return { id: b.id, url: opt.bildUrls?.[b.id] ?? b.pfad, text: brief ? `${brief.name}. ${brief.leitidee}` : undefined };
+    return { id: b.id, url: opt.bildUrls?.[b.id] ?? (ordner ? `${ordner}/${b.pfad}` : b.pfad), text: brief ? `${brief.name}. ${brief.leitidee}` : undefined };
   });
 }
 
-function seitentext(i: Idee): string {
+function seitentext(i: Idee, famName?: string): string {
   const z: string[] = [];
   const w = i.warumNichtsPasst;
   z.push(`**Quelle:** ${esc(quellenzeile(i))}`, "", `> «${esc(ausloesenderText(i.quelle))}»`, "");
+  if (i.familie) z.push(`**Familie:** ${esc(famName ?? i.familie)}`, "");
   z.push("## Warum nichts Bestehendes passt", "", esc(w.zusammenfassung), "");
   if (w.geprueft.length) {
     z.push(`Geprüft: ${w.geprueft.length} von ${w.bibliothekGroesse} Stücken.`, "", ...w.geprueft.map((g) => `- **${esc(g.stueck)}:** ${esc(g.grund)}`), "");
@@ -127,8 +133,15 @@ function seitentext(i: Idee): string {
     z.push("## Pitch", "", esc(pt.text), "", `**Zeigt:** ${esc(pt.zeigt)}`, "", "**Pro Einsatz anders:**", "", ...pt.parameter.map((x) => `- ${esc(x)}`), "");
     z.push("**Weitere Einsätze:**", "", ...pt.wiederverwendung.map((x) => `- ${esc(x)}`), "", `**Aufwand:** ${pt.aufwand}`, "");
   }
-  if (i.looks) {
+  if (i.looks?.erbe) {
+    const e = i.looks.erbe;
+    const b = i.looks.briefs.find((x) => x.id === i.looks!.gewaehlt);
+    z.push(`## Look der Familie ${esc(famName ?? e.familie)}, geerbt`, "");
+    z.push(`${esc(e.von)} hat am ${e.am.slice(0, 10)} für die Familie gewählt (Look ${i.looks.gewaehlt!.toUpperCase()}${b ? `, ${esc(b.name)}` : ""}, Fassung ${e.fassung}, gezeigt in ${e.vonIdee}). Dieses Stück entsteht in diesem Look und wird trotzdem einzeln abgenommen.`, "");
+    if (b) z.push(`- **Leitidee:** ${esc(b.leitidee)}`, `- **Schrift:** ${esc(b.typografie)}`, `- **Farbe:** ${esc(b.farbeinsatz)}`, `- **Bewegung:** ${esc(b.bewegung)}`, "");
+  } else if (i.looks) {
     z.push(`## Looks, Runde ${i.looks.runde}`, "");
+    if (i.familie) z.push(`Die Wahl gilt für alle Stücke der Familie ${esc(famName ?? i.familie)}.`, "");
     for (const b of i.looks.briefs) {
       z.push(`- **${b.id.toUpperCase()}, ${esc(b.name)}:** ${esc(b.leitidee)} Schrift: ${esc(b.typografie)}. Farbe: ${esc(b.farbeinsatz)}. Bewegung: ${esc(b.bewegung)}.`);
     }

@@ -1,9 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
+import { FamilienFehler, ladeFamilien, type FamilienDefinition } from "./familie";
 import { Stueck, VORHANDEN_AB, erzeugeDeklaration, loeseVariablen, type HfVariable } from "./stueck";
 
 export const STUECK_DATEI = "piece.json";
 export const KOMPOSITION = "index.html";
+/** Der Look der Familie im Stück: Prosa und ein Referenzbild (Standbild des gewählten Looks). */
+export const LOOK_ORDNER = "look";
+export const LOOK_BRIEF_DATEI = "look.md";
+export const LOOK_REFERENZ_DATEI = "referenz.png";
 
 export interface GeladenesStueck {
   stueck: Stueck;
@@ -20,6 +25,8 @@ export interface Befund {
 export interface Bibliothek {
   stuecke: GeladenesStueck[];
   befunde: Befund[];
+  /** Die gültigen Familien aus `_familien.json`. Fehlt die Angabe, prüft der Lint die Familie eines Stücks nicht gegen die Liste. */
+  familien?: FamilienDefinition[];
 }
 
 /** Lädt alle Stücke unterhalb von `root` (je ein Ordner mit piece.json). Ordner mit «_» oder «.» am Anfang werden übersprungen. */
@@ -27,6 +34,13 @@ export function ladeBibliothek(root: string): Bibliothek {
   const stuecke: GeladenesStueck[] = [];
   const befunde: Befund[] = [];
   if (!fs.existsSync(root)) return { stuecke, befunde };
+  let familien: FamilienDefinition[] | undefined;
+  try {
+    familien = ladeFamilien(root);
+  } catch (e) {
+    if (!(e instanceof FamilienFehler)) throw e;
+    befunde.push({ stufe: "fehler", code: "familien_ungueltig", text: e.message });
+  }
 
   for (const eintrag of fs.readdirSync(root, { withFileTypes: true })) {
     if (!eintrag.isDirectory() || eintrag.name.startsWith("_") || eintrag.name.startsWith(".")) continue;
@@ -57,7 +71,7 @@ export function ladeBibliothek(root: string): Bibliothek {
     stuecke.push({ stueck: geparst.data, dir });
   }
   stuecke.sort((a, b) => a.stueck.id.localeCompare(b.stueck.id));
-  return { stuecke, befunde };
+  return { stuecke, befunde, familien };
 }
 
 /* ---------- Deklaration im HTML ---------- */
@@ -93,7 +107,7 @@ export function setzeDeklaration(html: string, variablen: HfVariable[]): string 
 
 /* ---------- Lint ---------- */
 
-export function lintStueck(g: GeladenesStueck): Befund[] {
+export function lintStueck(g: GeladenesStueck, familien?: FamilienDefinition[]): Befund[] {
   const { stueck, dir } = g;
   const b: Befund[] = [];
   const fehler = (code: string, text: string) => b.push({ stufe: "fehler", stueck: stueck.id, code, text });
@@ -172,6 +186,15 @@ export function lintStueck(g: GeladenesStueck): Befund[] {
     if (bilder.length === 0) warnung("vorschau_fehlt", "Keine Vorschaubilder in vorschau/ (./studio motion vorschau <id>)");
   }
 
+  // 3c. Regel 2: Ein Stück mit Familie entsteht in dem Look, den ein Mensch für die Familie gewählt hat
+  if (stueck.familie) {
+    if (familien && !familien.some((f) => f.id === stueck.familie!.id)) {
+      fehler("familie_unbekannt", `Die Familie «${stueck.familie.id}» steht nicht in ${path.join("library", "motion", "_familien.json")}`);
+    }
+    if (!fs.existsSync(path.join(dir, LOOK_ORDNER, LOOK_BRIEF_DATEI))) fehler("look_fehlt", `${LOOK_ORDNER}/${LOOK_BRIEF_DATEI} fehlt: Der Look der Familie «${stueck.familie.id}» gehört ins Stück (motion neu … --idee <id> legt ihn bei)`);
+    if (!fs.existsSync(path.join(dir, LOOK_ORDNER, LOOK_REFERENZ_DATEI))) warnung("look_referenz_fehlt", `${LOOK_ORDNER}/${LOOK_REFERENZ_DATEI} fehlt: Das Standbild des gewählten Looks sollte neben dem Stück liegen`);
+  }
+
   // 4. Einsatzbeispiele müssen mit den Parametern auflösbar sein
   for (const [i, bsp] of (stueck.einsatz?.beispiele ?? []).entries()) {
     const werte = { ...bsp.variablen };
@@ -186,7 +209,7 @@ export function lintStueck(g: GeladenesStueck): Befund[] {
 
 export function lintBibliothek(bib: Bibliothek): Befund[] {
   const b: Befund[] = [...bib.befunde];
-  for (const g of bib.stuecke) b.push(...lintStueck(g));
+  for (const g of bib.stuecke) b.push(...lintStueck(g, bib.familien));
   const ids = new Set(bib.stuecke.map((g) => g.stueck.id));
   for (const g of bib.stuecke) {
     for (const k of g.stueck.einsatz?.kombinierbarMit ?? []) {

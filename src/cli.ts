@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { Akteur } from "./core/schemas";
 import { parseArgs, werteAusSet, type Args } from "./args";
 import { aktiviere, setzeStatus } from "./motion/aktivieren";
+import { FamilienFehler, ladeFamilien, familienLookFuer, referenzBildPfad, stueckFamilieAus } from "./motion/familie";
 import { legeStueckAn } from "./motion/geruest";
 import { kompakterIndex, ladeBibliothek, leseDeklaration, lintBibliothek, setzeDeklaration, vorhandene } from "./motion/bibliothek";
 import { IDEE_STATI, Pitch, PruefRunde, Looks, type IdeeStatus } from "./motion/idee";
@@ -43,7 +44,8 @@ Motion-Bibliothek
   motion lint                         Alle Stücke prüfen (Datenblatt, index.html, Variablen, Einsatzbeispiele)
   motion list [--alle]                Stücke mit Status
   motion index                        Kompakter Index für den Storyboard-Prompt
-  motion neu <id> --name "Name" --typen verlauf,vergleich [--idee m-001]   Neues Stück mit Gerüst anlegen (Status «entwurf»)
+  motion neu <id> --name "Name" --typen verlauf,vergleich [--idee m-001]   Neues Stück mit Gerüst anlegen (Status «entwurf»).
+                                      Gehört die Idee zu einer Familie, legt das Gerüst deren gewählten Look bei (look/look.md, look/referenz.png); ohne Look wird nichts gebaut (Regel 2)
   motion sync <id>                    data-composition-variables in index.html aus piece.json erzeugen
   motion vars <id> [--set k=v ...] [--dauer s] [--marke key]   Variablen auflösen und prüfen
   motion check <id>                   hyperframes check (Layout, Kontrast, Laufzeitfehler)
@@ -61,7 +63,9 @@ Ideenprotokoll
   ideen zeigen <id>                   Eine Idee als JSON
   ideen pitch <id>                    Pitch als Text
   ideen neu --json entwurf.json [--by Name]
-  ideen bearbeiten <id> [--titel "…"] [--beschreibung "…"] [--zusammenfassung "…"]   nur im Status «idee»
+  ideen bearbeiten <id> [--titel "…"] [--beschreibung "…"] [--zusammenfassung "…"] [--familie schluessel]   nur im Status «idee»
+  ideen familien                      Familien (library/motion/_familien.json) mit gewähltem Look, offener Runde und wartenden Ideen
+  ideen familie-zuruecksetzen <familie> --mensch --by Name --grund "…"   Den Look einer Familie verwerfen (nur Mensch): Die nächste Idee zeigt eine neue Runde
   ideen weiter <id> <status> (--mensch|--system) --by Name [--grund "…"] [--json daten.json] [--stueck slug] [--gewaehlt a|b|c]
   ideen pruefung <id> --json runde.json [--by Name]
 
@@ -106,7 +110,15 @@ function akteur(a: Args, standardTyp: "mensch" | "system" = "system"): Akteur {
 }
 
 function protokoll(env: Umgebung): Ideenprotokoll {
-  return new Ideenprotokoll(path.join(env.datenDir, "ideen.json"), path.join(env.datenDir, "ereignisse.jsonl"));
+  // Die Liste gültiger Familien liegt in der Bibliothek (library/motion/_familien.json): Ein Tippfehler legt keine neue Familie an.
+  return new Ideenprotokoll(path.join(env.datenDir, "ideen.json"), path.join(env.datenDir, "ereignisse.jsonl"), ladeFamilien(env.bibliothek).map((f) => f.id));
+}
+
+/** Anzeigename der Familie (aus _familien.json) für Pitch und Notion-Zeile. */
+function familienAnzeige(env: Umgebung, familie: string | undefined): { name: string } | undefined {
+  if (!familie) return undefined;
+  const def = ladeFamilien(env.bibliothek).find((f) => f.id === familie);
+  return def ? { name: def.name } : undefined;
 }
 
 function zeigeBefunde(b: { stufe: string; stueck?: string; code: string; text: string }[]): void {
@@ -137,6 +149,25 @@ function zeilenAusDatei(datei: string): Zeile[] {
 
 /* ---------- Befehle ---------- */
 
+/**
+ * Regel 2 beim Anlegen eines Stücks: Gehört die Idee zu einer Familie, muss deren Look gewählt sein. Dann bekommt das Stück ihn mit
+ * (Datenblatt, Prosa, Referenzbild). Eine unbekannte Idee oder eine Idee ohne Familie ändert nichts am bisherigen Verhalten.
+ */
+function familieFuerStueck(env: Umgebung, ideeId: string): { name: string; look: ReturnType<typeof stueckFamilieAus>; referenzBild?: string } | undefined {
+  const pr = protokoll(env);
+  const idee = pr.lade().ideen.find((x) => x.id === ideeId);
+  if (!idee?.familie) return undefined;
+  try {
+    const look = familienLookFuer(idee, pr.familien());
+    const def = ladeFamilien(env.bibliothek).find((f) => f.id === idee.familie);
+    const bild = referenzBildPfad(env.datenDir, look);
+    return { name: def?.name ?? idee.familie, look: stueckFamilieAus(idee.familie, look), referenzBild: bild && fs.existsSync(bild) ? bild : undefined };
+  } catch (e) {
+    if (e instanceof FamilienFehler) throw new Error(e.message);
+    throw e;
+  }
+}
+
 async function motion(sub: string, a: Args, env: Umgebung): Promise<number> {
   switch (sub) {
     case "lint": {
@@ -162,8 +193,11 @@ async function motion(sub: string, a: Args, env: Umgebung): Promise<number> {
     case "neu": {
       const typen = (typeof a.opt["typen"] === "string" ? a.opt["typen"] : "").split(",").filter(Boolean) as SignalTyp[];
       if (typeof a.opt["name"] !== "string") throw new Error('--name "Name" fehlt');
-      const dir = legeStueckAn(env.bibliothek, { id: id(a, 2), name: a.opt["name"], typen, idee: typeof a.opt["idee"] === "string" ? a.opt["idee"] : undefined });
+      const ideeId = typeof a.opt["idee"] === "string" ? a.opt["idee"] : undefined;
+      const fam = ideeId ? familieFuerStueck(env, ideeId) : undefined;
+      const dir = legeStueckAn(env.bibliothek, { id: id(a, 2), name: a.opt["name"], typen, idee: ideeId, familie: fam });
       console.log(`Gerüst angelegt: ${path.relative(studioRoot, dir)}\nNächste Schritte: piece.json und index.html ausfüllen (alle TODO ersetzen), dann «motion sync ${id(a, 2)}», «motion lint», «motion check ${id(a, 2)}».\nSignaltypen: ${SIGNAL_TYPEN.join(", ")}`);
+      if (fam) console.log(`Familie «${fam.look.id}»: Das Stück entsteht im Look von ${fam.look.look.von} (Fassung ${fam.look.fassung}, ${fam.look.look.name}). Lies look/look.md${fam.referenzBild ? " und schau dir look/referenz.png an" : " (das Standbild fehlt: motion lint warnt)"}.`);
       return 0;
     }
     case "sync": {
@@ -310,17 +344,48 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
     case "liste": {
       const status = typeof a.opt["status"] === "string" ? (a.opt["status"] as IdeeStatus) : undefined;
       if (status && !IDEE_STATI.includes(status)) throw new Error(`Status «${status}» unbekannt. Möglich: ${IDEE_STATI.join(", ")}`);
+      const staende = pr.familien();
       for (const i of pr.liste({ status })) {
-        console.log(`${i.id}  ${i.status.padEnd(15)} ${i.titel}  «${i.quelle.typ === "video" ? i.quelle.satz : i.quelle.typ === "auftrag" ? i.quelle.text : i.quelle.beobachtung}»`);
+        const wartet = pr.wartetAuf(i, staende);
+        const fam = i.familie ? `[${i.familie}${wartet ? `, wartet auf Look-Wahl in ${wartet}` : ""}] ` : "";
+        console.log(`${i.id}  ${i.status.padEnd(15)} ${fam}${i.titel}  «${i.quelle.typ === "video" ? i.quelle.satz : i.quelle.typ === "auftrag" ? i.quelle.text : i.quelle.beobachtung}»`);
       }
+      return 0;
+    }
+    case "familien": {
+      const liste = ladeFamilien(env.bibliothek);
+      if (liste.length === 0) console.log("Keine Familie definiert (library/motion/_familien.json). Jede Idee zeigt drei eigene Looks.");
+      const staende = pr.familien();
+      const alle = pr.liste();
+      for (const f of liste) {
+        const st = staende[f.id];
+        console.log(`${f.id}  ${f.name}`);
+        if (st?.look) console.log(`  Look: ${st.look.gewaehlt.toUpperCase()} «${st.look.briefs.find((b) => b.id === st.look!.gewaehlt)?.name ?? "?"}», gewählt von ${st.look.von} am ${st.look.am.slice(0, 10)}, Fassung ${st.look.fassung}, gezeigt in ${st.look.vonIdee}`);
+        else console.log("  Look: noch keiner gewählt");
+        if (st?.offeneRunde) console.log(`  Offene Runde: ${st.offeneRunde.idee}, Runde ${st.offeneRunde.runde}`);
+        if (st?.frueher.length) console.log(`  Verworfene Fassungen: ${st.frueher.map((x) => x.fassung).join(", ")}`);
+        const ideen = alle.filter((i) => i.familie === f.id);
+        const wartend = ideen.filter((i) => pr.wartetAuf(i, staende));
+        const erben = ideen.filter((i) => i.status === "freigegeben" && st?.look);
+        console.log(`  Ideen: ${ideen.length ? ideen.map((i) => `${i.id} (${i.status})`).join(", ") : "keine"}${wartend.length ? `; warten auf die Look-Wahl: ${wartend.map((i) => i.id).join(", ")}` : ""}${erben.length ? `; können den Look übernehmen: ${erben.map((i) => i.id).join(", ")} («ideen weiter <id> look_gewaehlt --system»)` : ""}`);
+      }
+      const unbekannt = alle.filter((i) => i.familie && !liste.some((f) => f.id === i.familie));
+      for (const i of unbekannt) console.log(`Hinweis: ${i.id} nennt die Familie «${i.familie}», die nicht in _familien.json steht.`);
+      return 0;
+    }
+    case "familie-zuruecksetzen": {
+      const stand = pr.familieZuruecksetzen(id(a, 2), akteur(a, "mensch"), jetzt(), typeof a.opt["grund"] === "string" ? a.opt["grund"] : "");
+      console.log(`Familie «${id(a, 2)}»: Look verworfen (Fassung ${stand.frueher.at(-1)?.fassung}). Die nächste Idee der Familie zeigt eine neue Runde. Stücke, die schon im alten Look entstanden sind, behalten ihn.`);
       return 0;
     }
     case "zeigen":
       console.log(JSON.stringify(pr.holen(id(a, 2)), null, 2));
       return 0;
-    case "pitch":
-      console.log(pitchText(pr.holen(id(a, 2))));
+    case "pitch": {
+      const idee = pr.holen(id(a, 2));
+      console.log(pitchText(idee, familienAnzeige(env, idee.familie)));
       return 0;
+    }
     case "neu": {
       if (typeof a.opt["json"] !== "string") throw new Error("--json <entwurf.json> fehlt");
       const e = lesJson<Parameters<Ideenprotokoll["neu"]>[0]>(a.opt["json"]);
@@ -333,8 +398,9 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
         titel: typeof a.opt["titel"] === "string" ? a.opt["titel"] : undefined,
         beschreibung: typeof a.opt["beschreibung"] === "string" ? a.opt["beschreibung"] : undefined,
         zusammenfassung: typeof a.opt["zusammenfassung"] === "string" ? a.opt["zusammenfassung"] : undefined,
+        familie: typeof a.opt["familie"] === "string" ? a.opt["familie"] : undefined,
       };
-      if (Object.values(patch).every((x) => x === undefined)) throw new Error("Nichts zu ändern: --titel, --beschreibung oder --zusammenfassung angeben");
+      if (Object.values(patch).every((x) => x === undefined)) throw new Error("Nichts zu ändern: --titel, --beschreibung, --zusammenfassung oder --familie angeben");
       const neu = pr.bearbeite(id(a, 2), patch, akteur(a), jetzt());
       console.log(`${neu.id}: «${neu.titel}»`);
       return 0;
@@ -354,20 +420,26 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
         const g = ladeBibliothek(env.bibliothek).stuecke.find((s) => s.stueck.id === idee.bau?.stueck);
         stueckAktiviert = g?.stueck.status === "aktiv";
       }
-      const neu = pr.weiter(iid, nach, akteur(a), jetzt(), { grund: typeof a.opt["grund"] === "string" ? a.opt["grund"] : undefined, daten, stueckAktiviert });
-      console.log(`${neu.id}: ${neu.status}`);
+      // Regel 2: Das Stück einer Idee mit Familie muss den Look der Familie tragen (sonst liesse sich das Gerüst ohne Familie anlegen).
+      let stueckFamilie: { id?: string; fassung?: number } | undefined;
+      if (nach === "in_bau" && typeof daten["stueck"] === "string") {
+        const g = ladeBibliothek(env.bibliothek).stuecke.find((x) => x.stueck.id === daten["stueck"]);
+        if (g) stueckFamilie = { id: g.stueck.familie?.id, fassung: g.stueck.familie?.fassung };
+      }
+      const neu = pr.weiter(iid, nach, akteur(a), jetzt(), { grund: typeof a.opt["grund"] === "string" ? a.opt["grund"] : undefined, daten, stueckAktiviert, stueckFamilie });
+      console.log(`${neu.id}: ${neu.status}${neu.looks?.erbe ? ` (Look der Familie «${neu.looks.erbe.familie}» geerbt, Fassung ${neu.looks.erbe.fassung})` : ""}`);
       return 0;
     }
     case "notion-zeile": {
       const idee = pr.holen(id(a, 2));
       const bildUrls = typeof a.opt["bilder"] === "string" ? lesJson<Record<string, string>>(a.opt["bilder"]) : undefined;
       const renderBilder = typeof a.opt["render-bilder"] === "string" ? lesJson<{ id: string; url: string; text?: string }[]>(a.opt["render-bilder"]) : undefined;
-      console.log(JSON.stringify(ideeZuZeile(idee, { onedriveOrdner: `daten/ideen/${idee.id}`, bildUrls, renderBilder }), null, 2));
+      console.log(JSON.stringify(ideeZuZeile(idee, { onedriveOrdner: `daten/ideen/${idee.id}`, bildUrls, renderBilder, familieName: familienAnzeige(env, idee.familie)?.name }), null, 2));
       return 0;
     }
     case "notion-alle": {
       const ziel = ladeNotionZiel(studioRoot);
-      const zeilen = pr.liste().map((i) => ({ idee: i.id, ...ideeZuZeile(i, { onedriveOrdner: `daten/ideen/${i.id}` }) }));
+      const zeilen = pr.liste().map((i) => ({ idee: i.id, ...ideeZuZeile(i, { onedriveOrdner: `daten/ideen/${i.id}`, familieName: familienAnzeige(env, i.familie)?.name }) }));
       console.log(JSON.stringify({ datenquelle: ziel.motionIdeen.datenquelle, zeilen }, null, 2));
       return 0;
     }
@@ -398,7 +470,10 @@ function ideen(sub: string, a: Args, env: Umgebung): number {
           fehler.push({ idee: x.idee, fehler: [(e as Error).message] });
         }
       }
-      console.log(JSON.stringify({ anwenden, angewendet, fehler, hinweise: bericht.befunde.filter((b) => b.hinweise.length).map((b) => ({ idee: b.idee, hinweise: b.hinweise })), ohneIdee: bericht.ohneIdee, ohneZeile: bericht.ohneZeile, zeileNeuSchreiben: [...nachziehen] }, null, 2));
+      // Ideen, die auf die Look-Wahl ihrer Familie gewartet haben und den Look jetzt übernehmen können («ideen weiter <id> look_gewaehlt --system»)
+      const staende = pr.familien();
+      const erbenKoennen = pr.liste({ status: "freigegeben" }).filter((i) => i.familie && staende[i.familie]?.look).map((i) => i.id);
+      console.log(JSON.stringify({ anwenden, angewendet, fehler, erbenKoennen, hinweise: bericht.befunde.filter((b) => b.hinweise.length).map((b) => ({ idee: b.idee, hinweise: b.hinweise })), ohneIdee: bericht.ohneIdee, ohneZeile: bericht.ohneZeile, zeileNeuSchreiben: [...nachziehen] }, null, 2));
       return fehler.length ? 1 : 0;
     }
     case "pruefung": {

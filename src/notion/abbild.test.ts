@@ -138,6 +138,58 @@ function zeile(i: Idee, over: Zeile): Zeile {
   return { "Idee-ID": i.id, Status: i.status, ...over };
 }
 
+describe("Idee → Zeile: Familie", () => {
+  const pitchZeile = (i: Idee, familieName?: string) => ideeZuZeile(i, { onedriveOrdner: `daten/ideen/${i.id}`, familieName });
+
+  it("eine Idee ohne Familie hat weder eine Familienzeile im Pitch noch im Seitentext", () => {
+    pr.neu(entwurf(), SYSTEM, JETZT);
+    pr.weiter("m-001", "pitch", SYSTEM, JETZT, { daten: { pitch: pitch() } });
+    const z = pitchZeile(pr.holen("m-001"));
+    expect(String(z.properties["Pitch"])).not.toContain("Familie");
+    expect(z.inhalt).not.toContain("Familie");
+  });
+
+  it("die Familie steht in der ersten Zeile des Pitchs: Der Prüfplatz sagt daraus, dass die Wahl für die Familie gilt", () => {
+    pr.neu(entwurf({ familie: "mockups" }), SYSTEM, JETZT);
+    pr.weiter("m-001", "pitch", SYSTEM, JETZT, { daten: { pitch: pitch() } });
+    const z = pitchZeile(pr.holen("m-001"), "Handy-Mockups");
+    expect(String(z.properties["Pitch"]).split("\n")[0]).toBe("Familie: Handy-Mockups");
+    expect(String(z.properties["Pitch"])).toContain("Jedes Stück nimmst du trotzdem einzeln ab.");
+    expect(z.inhalt).toContain("**Familie:** Handy-Mockups");
+    // auch ein langer Pitch kürzt die Familienzeile nicht weg
+    const lang = { ...pr.holen("m-001"), pitch: { ...pr.holen("m-001").pitch!, text: "x".repeat(3000) } } as Idee;
+    expect(String(pitchZeile(lang, "Handy-Mockups").properties["Pitch"]).startsWith("Familie: Handy-Mockups")).toBe(true);
+  });
+
+  it("die Runde einer Familie sagt im Seitentext, dass die Wahl für alle Stücke gilt", () => {
+    pr.neu(entwurf({ familie: "mockups" }), SYSTEM, JETZT);
+    pr.weiter("m-001", "pitch", SYSTEM, JETZT, { daten: { pitch: pitch() } });
+    pr.weiter("m-001", "freigegeben", MENSCH, JETZT);
+    pr.weiter("m-001", "looks", SYSTEM, JETZT, { daten: { looks: looks() } });
+    expect(pitchZeile(pr.holen("m-001"), "Handy-Mockups").inhalt).toContain("Die Wahl gilt für alle Stücke der Familie Handy-Mockups.");
+  });
+
+  it("ein geerbter Look steht als Look der Familie im Seitentext, die Standbilder zeigen auf den Ordner der Idee mit der Runde", () => {
+    for (const n of [1, 2]) {
+      pr.neu(entwurf({ familie: "mockups" }), SYSTEM, JETZT);
+      pr.weiter(`m-00${n}`, "pitch", SYSTEM, JETZT, { daten: { pitch: pitch() } });
+      pr.weiter(`m-00${n}`, "freigegeben", MENSCH, JETZT);
+    }
+    pr.weiter("m-001", "looks", SYSTEM, JETZT, { daten: { looks: looks() } });
+    pr.weiter("m-001", "look_gewaehlt", { typ: "mensch", name: "Leander" }, SPAETER, { daten: { gewaehlt: "c" } });
+    pr.weiter("m-002", "look_gewaehlt", SYSTEM, SPAETER);
+    const z = pitchZeile(pr.holen("m-002"), "Handy-Mockups");
+    expect(z.inhalt).toContain("## Look der Familie Handy-Mockups, geerbt");
+    expect(z.inhalt).toContain("Leander hat am 2026-10-16 für die Familie gewählt");
+    expect(z.inhalt).toContain("gezeigt in m-001");
+    expect(z.inhalt).toContain("Leitidee");
+    expect(z.inhalt).not.toContain("## Looks, Runde");
+    expect(String(z.properties["Bilder"])).toContain("c: daten/ideen/m-001/looks/c.png");
+    // Entscheid der Stufe «Look» bleibt leer: Claude schreibt nie eine Wahl, auch keine geerbte
+    expect(z.properties).not.toHaveProperty("Look-Wahl");
+  });
+});
+
 describe("Zeile → Entscheid", () => {
   it("übernimmt die Freigabe eines Menschen mit Name und Zeitpunkt", () => {
     const i = bis("pitch");

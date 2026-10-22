@@ -250,3 +250,111 @@ describe("studio CLI: Notion", () => {
     expect(JSON.parse(notion("ideen", "zeigen", "m-001").out)).toMatchObject({ status: "in_bibliothek", abnahme: { wer: "Andrej" } });
   }, 90_000);
 });
+
+describe("studio CLI: Familien (Regel 2, ein Look je Familie)", () => {
+  let daten: string;
+  let lib: string;
+  const cli = (...args: string[]) => {
+    const r = spawnSync("npx", ["tsx", "src/cli.ts", ...args], { cwd: studioRoot, encoding: "utf8", env: { ...process.env, STUDIO_DATA_DIR: daten, STUDIO_LIBRARY_DIR: lib } });
+    return { code: r.status, out: r.stdout, err: r.stderr };
+  };
+  const json = (name: string, inhalt: unknown) => {
+    const datei = path.join(daten, name);
+    fs.writeFileSync(datei, JSON.stringify(inhalt));
+    return datei;
+  };
+  const idee = (id: string) => JSON.parse(cli("ideen", "zeigen", id).out) as { status: string; familie?: string; looks?: { gewaehlt?: string; erbe?: { von: string; fassung: number; vonIdee: string } } };
+
+  beforeAll(() => {
+    daten = fs.mkdtempSync(path.join(os.tmpdir(), "studio-cli-fam-"));
+    lib = path.join(daten, "lib");
+    fs.cpSync(path.join(studioRoot, "library", "motion"), lib, { recursive: true });
+  });
+  afterAll(() => fs.rmSync(daten, { recursive: true, force: true }));
+
+  it("eine unbekannte Familie legt keine Idee an", () => {
+    const r = cli("ideen", "neu", "--json", json("falsch.json", entwurf({ familie: "mokups" })));
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("Familie «mokups» ist unbekannt");
+    expect(r.err).toContain("mockups");
+    expect(cli("ideen", "liste").out).toBe("");
+  });
+
+  it("zwei Ideen derselben Familie: eine zeigt die Looks, die andere wartet und erbt dann den Look des Menschen", () => {
+    for (const nr of [1, 2]) {
+      expect(cli("ideen", "neu", "--json", json(`e${nr}.json`, entwurf({ familie: "mockups" }))).code).toBe(0);
+      const m = `m-00${nr}`;
+      expect(cli("ideen", "weiter", m, "pitch", "--system", "--json", json("pitch.json", { pitch: pitch() })).code).toBe(0);
+      expect(cli("ideen", "weiter", m, "freigegeben", "--mensch", "--by", "Andrej").code).toBe(0);
+    }
+    expect(cli("ideen", "weiter", "m-001", "looks", "--system", "--json", json("looks.json", { looks: looks(1) })).code).toBe(0);
+
+    const wartet = cli("ideen", "weiter", "m-002", "looks", "--system", "--json", path.join(daten, "looks.json"));
+    expect(wartet.code).toBe(1);
+    expect(wartet.err).toContain("wartet auf die Look-Wahl in m-001");
+    expect(cli("ideen", "liste").out).toContain("[mockups, wartet auf Look-Wahl in m-001]");
+
+    // Regel 2 beim Bauen: ohne gewählten Look gibt es kein Gerüst
+    const zuFrueh = cli("motion", "neu", "mockup-a", "--name", "Mockup A", "--typen", "zahl", "--idee", "m-001");
+    expect(zuFrueh.code).toBe(1);
+    expect(zuFrueh.err).toContain("noch kein Look gewählt");
+    expect(fs.existsSync(path.join(lib, "mockup-a"))).toBe(false);
+
+    // Das Standbild des gewählten Looks liegt im Ordner der Idee, die die Runde gezeigt hat
+    fs.mkdirSync(path.join(daten, "ideen", "m-001", "looks"), { recursive: true });
+    fs.writeFileSync(path.join(daten, "ideen", "m-001", "looks", "c.png"), "standbild");
+
+    expect(cli("ideen", "weiter", "m-001", "look_gewaehlt", "--mensch", "--by", "Leander", "--gewaehlt", "c").code).toBe(0);
+    const fam = cli("ideen", "familien").out;
+    expect(fam).toContain("mockups  Handy-Mockups");
+    expect(fam).toContain("gewählt von Leander");
+    expect(fam).toContain("können den Look übernehmen: m-002");
+
+    const erbt = cli("ideen", "weiter", "m-002", "look_gewaehlt", "--system");
+    expect(erbt.code).toBe(0);
+    expect(erbt.out).toContain("Look der Familie «mockups» geerbt, Fassung 1");
+    expect(idee("m-002")).toMatchObject({ status: "look_gewaehlt", looks: { gewaehlt: "c", erbe: { von: "Leander", fassung: 1, vonIdee: "m-001" } } });
+  });
+
+  it("das Stück entsteht im Look der Familie: Datenblatt, look.md, Referenzbild; der Lint ist grün", () => {
+    const r = cli("motion", "neu", "mockup-b", "--name", "Mockup B", "--typen", "zahl", "--idee", "m-002");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("Familie «mockups»: Das Stück entsteht im Look von Leander (Fassung 1");
+    const dir = path.join(lib, "mockup-b");
+    expect(JSON.parse(fs.readFileSync(path.join(dir, "piece.json"), "utf8"))).toMatchObject({ familie: { id: "mockups", fassung: 1, look: { gewaehlt: "c", von: "Leander", name: "Editorial" } } });
+    expect(fs.readFileSync(path.join(dir, "look", "look.md"), "utf8")).toContain("Dünne Linien, viel Weissraum");
+    expect(fs.readFileSync(path.join(dir, "look", "referenz.png"), "utf8")).toBe("standbild");
+    expect(cli("motion", "lint").code).toBe(0);
+  });
+
+  it("gebaut wird nur ein Stück, das den Look der Familie trägt", () => {
+    expect(cli("motion", "neu", "ohne-familie", "--name", "Ohne Familie", "--typen", "zahl").code).toBe(0);
+    const falsch = cli("ideen", "weiter", "m-002", "in_bau", "--system", "--stueck", "ohne-familie");
+    expect(falsch.code).toBe(1);
+    expect(falsch.err).toContain("trägt nicht den Look der Familie «mockups»");
+    expect(idee("m-002").status).toBe("look_gewaehlt");
+    expect(cli("ideen", "weiter", "m-002", "in_bau", "--system", "--stueck", "mockup-b").code).toBe(0);
+  });
+
+  it("Pitch und Notion-Zeile nennen die Familie, damit die Look-Wahl als Wahl für die Familie erkennbar ist", () => {
+    expect(cli("ideen", "pitch", "m-001").out).toContain("**Familie:** Handy-Mockups");
+    const z = JSON.parse(cli("ideen", "notion-zeile", "m-001").out) as { properties: { Pitch: string }; inhalt: string };
+    expect(z.properties.Pitch.split("\n")[0]).toBe("Familie: Handy-Mockups");
+    expect(z.inhalt).toContain("**Familie:** Handy-Mockups");
+    const geerbt = JSON.parse(cli("ideen", "notion-zeile", "m-002").out) as { inhalt: string };
+    expect(geerbt.inhalt).toContain("Look der Familie Handy-Mockups, geerbt");
+  });
+
+  it("den Look einer Familie verwirft nur ein Mensch mit Namen und Grund", () => {
+    const system = cli("ideen", "familie-zuruecksetzen", "mockups", "--system", "--grund", "Der Look wirkt zu laut");
+    expect(system.code).toBe(1);
+    expect(system.err).toContain("nur von einem Menschen");
+    expect(cli("ideen", "familie-zuruecksetzen", "mockups", "--mensch", "--by", "Claude", "--grund", "Der Look wirkt zu laut").code).toBe(1);
+    expect(cli("ideen", "familie-zuruecksetzen", "mockups", "--mensch", "--by", "Leander", "--grund", "zu laut").err).toContain("mindestens zwei Wörtern");
+    const ok = cli("ideen", "familie-zuruecksetzen", "mockups", "--mensch", "--by", "Leander", "--grund", "Der Look wirkt zu laut");
+    expect(ok.code).toBe(0);
+    expect(cli("ideen", "familien").out).toContain("Look: noch keiner gewählt");
+    // m-002 behält seinen Look
+    expect(idee("m-002").looks?.erbe?.fassung).toBe(1);
+  });
+});

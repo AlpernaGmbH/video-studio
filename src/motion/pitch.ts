@@ -17,16 +17,23 @@ export function quellenzeile(i: Idee): string {
   }
 }
 
-/** Der Pitch als Text für den Prüfplatz oder eine Notion-Seite. Ruhig, ohne Druck. */
-export function pitchText(i: Idee): string {
+/** Der Satz zur Familie im Pitch: Der Look wird einmal je Familie gewählt (Regel 2). */
+export function familienHinweis(name: string): string {
+  return `Du wählst den Look einmal für die ganze Familie «${name}». Hat für sie schon jemand gewählt, entsteht das Stück in diesem Look. Jedes Stück nimmst du trotzdem einzeln ab.`;
+}
+
+/** Der Pitch als Text für den Prüfplatz oder eine Notion-Seite. Ruhig, ohne Druck. `familie`: Anzeigename der Familie der Idee (sonst der Schlüssel). */
+export function pitchText(i: Idee, familie?: { name: string }): string {
   if (!i.pitch) throw new Error(`${i.id} hat noch keinen Pitch`);
   const p = i.pitch;
   const w = i.warumNichtsPasst;
+  const famName = i.familie ? (familie?.name ?? i.familie) : undefined;
   const zeilen: string[] = [
     `# Pitch ${i.id}: ${i.titel}`,
     "",
     `**Quelle:** ${quellenzeile(i)}`,
     "",
+    ...(famName ? [`**Familie:** ${famName}`, "", familienHinweis(famName), ""] : []),
     `> «${ausloesenderText(i.quelle)}»`,
     "",
     "## Worum es geht",
@@ -60,7 +67,9 @@ export function pitchText(i: Idee): string {
     "- [ ] Freigeben",
     "- [ ] Ablehnen. Grund: …",
     "",
-    "Nach einer Freigabe wird noch nichts gebaut. Zuerst kommen drei Looks als Standbilder zur Wahl.",
+    famName
+      ? `Nach einer Freigabe wird noch nichts gebaut. Hat ein Mensch für die Familie «${famName}» schon einen Look gewählt, entsteht das Stück in diesem Look. Sonst kommen drei Looks als Standbilder zur Wahl, einmal für die ganze Familie.`
+      : "Nach einer Freigabe wird noch nichts gebaut. Zuerst kommen drei Looks als Standbilder zur Wahl.",
     "",
   ];
   return zeilen.join("\n");

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Iso, Slug, type Markenprofil } from "../core/schemas";
+import { StueckFamilie } from "./familie";
 
 /**
  * Stück-Vertrag (Motion-Bibliothek)
@@ -134,6 +135,8 @@ export const Stueck = z
     status: z.enum(STUECK_STATI),
     welle: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal("wachstum")]),
     herkunft: z.object({ idee: z.string().regex(/^m-\d{3,}$/).optional(), notiz: z.string().optional() }).default({}),
+    /** Die Familie und ihr gewählter Look (Regel 2). Ein Stück mit Familie entsteht nur in einem Look, den ein Mensch gewählt hat; `look/look.md` beschreibt ihn. */
+    familie: StueckFamilie.optional(),
     zweck: z.string().min(10),
     ausloeser: z.object({
       typen: z.array(z.enum(SIGNAL_TYPEN)).min(1),

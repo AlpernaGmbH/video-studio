@@ -3,7 +3,7 @@
 Stand: 21.10.2026, nach Freigabe von **Bauplan v4** (`docs/plan/bauplan-v4.md`, gilt vor v3; Umsetzungsstand im Abschnitt «Plan v4» unten). Etappe 1 (**Fundament und Motion-Werkstatt**) und Etappe 2 (**Notion, OneDrive, Prüfplatz, Einrichtung je Mac**) sind fertig. Als Nächstes: Phase 0 auf dem ersten Mac (`docs/phase0-mac.md`).
 Phase 0 des Bauplans (Tests T1 bis T6) ist **nicht** gelaufen, weil sie M4/M5-Macs, echte Clips, Instagram und Notion-Praxis braucht.
 
-`npm run check`: 1276 Tests in 78 Dateien grün (3 übersprungen, brauchen Apples DTD und Python mit OpenTimelineIO), Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
+`npm run check`: 1319 Tests in 78 Dateien grün (3 übersprungen, brauchen Apples DTD und Python mit OpenTimelineIO), Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
 Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion, Modus `view`), 14 Prüfungen bestanden. Er gehört nicht zu `npm run check`, weil er Playwright braucht.
 
 ## Entscheide von Andrej am 22.10.2026
@@ -14,6 +14,20 @@ Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion,
 - **Datenmodell** (Plan v4, Anhang B) und **Phase 2 (Studio im Alperna-Tool)**: «ja machen». Phase 2 war im Plan an das Urteil «sieht hochwertig aus» geknüpft; dieses Urteil steht aus, Andrej hat die Phase trotzdem freigegeben.
 - **Entscheider im Tool:** nur Admins (Andrej, Leander). Mitarbeitende sehen alles und schreiben Notizen.
 - Nichts davon gibt Claude frei: Einspielen der Datenbank-Migration, `NEXT_PUBLIC_FEATURE_STUDIO=1` auf Vercel, Merge auf `main` des Tools und das Abschalten des Prüfplatz-Artifacts brauchen jeweils ein eigenes Ja.
+
+## Regel 2 «Looks je Familie»: gebaut am 22.10.2026
+
+Im Code (`src/motion/familie.ts`, `idee.ts`, `protokoll.ts`, `geruest.ts`, `bibliothek.ts`, `cli.ts`; Konzept in `docs/motion-werkstatt.md`):
+- **Geschlossene Liste** `library/motion/_familien.json` (Entwurf von Claude: `mockups`, `rankings`, `hook-texte`; ein Mensch ändert sie). `ideen neu` und `ideen bearbeiten --familie` weisen jeden anderen Schlüssel ab.
+- **Eine Runde je Familie.** Die erste freigegebene Idee zeigt die drei Looks, ein Mensch wählt. Weitere Ideen der Familie warten (`ideen liste` nennt den Grund) und **erben** den Look danach mit `freigegeben → look_gewaehlt`, auch durch das System, weil die Wahl ein Mensch getroffen hat (`erbe.von`/`erbe.am` sind seine). Ein Look, den ein System gesetzt hätte, wird nicht übernommen. Das Erben ist kein Lernsignal.
+- **Stand je Familie** im Ideenprotokoll (`daten/ideen.json`, Schema 2, nur wenn eine Familie einen Stand hat; sonst bleibt es Schema 1). Ein Rechner mit altem Code weist eine Schema-2-Datei mit klarer Meldung ab, statt den Stand still zu verlieren: **beide Macs vor der ersten Familie aktualisieren (`./studio update`).**
+- Wird die Idee mit der offenen Runde abgelehnt, wird die Runde frei. «Keiner passt» behält sie bei der Idee (Runde 2).
+- **Neue Fassung:** `ideen familie-zuruecksetzen <familie> --mensch --by Name --grund "…"` verwirft den Look (nur Mensch). Stücke, die schon im alten Look entstanden sind, behalten ihn.
+- **Das Stück trägt den Look:** `motion neu … --idee <id>` verweigert das Gerüst, wenn der Look der Familie nicht gewählt ist, und legt sonst `familie` ins Datenblatt, `look/look.md` und `look/referenz.png` bei. `ideen weiter … in_bau` verlangt ein Stück mit der Familie (und bei geerbtem Look mit derselben Fassung). Lint: `familie_unbekannt`, `look_fehlt` (Fehler), `look_referenz_fehlt` (Warnung). Der Ordner `look/` zählt nicht in den Render-Schlüssel.
+- **Pitch und Prüfplatz:** Der Pitch sagt, dass der Look einmal je Familie gewählt wird. Die Notion-Zeile trägt «Familie: …» in der ersten Zeile von «Pitch» (keine neue Notion-Spalte nötig); der Prüfplatz zeigt daraus bei Pitch und Look-Wahl: «Deine Wahl gilt für alle Stücke der Familie …». **Das Prüfplatz-Artifact ist damit noch nicht neu veröffentlicht** (das geschieht mit dem ersten Pitch einer Familie).
+- Geprüft: 43 neue Tests (rein, Protokoll, Gerüst, Lint, CLI als Prozess, Notion-Abbild, Prüfplatz im Browser mit nachgebautem Notion), 20 Mutationsproben (Menschen-Prüfung beim Erben, `look_gewaehlt` für alle, offene Runde ignoriert, Runde nicht frei, Lernsignal beim Erben, Liste nicht geprüft, Verwerfen ohne Menschen, Schema immer 2, Speichern löscht den Stand, Lint, Fassung, Pitch-Text, Notion-Zeile, Prüfplatz-Hinweis): alle gefangen; eine überlebte zuerst (toter Code bei «Verwerfen während einer Runde», entfernt).
+- **Nicht geprüft:** ein echter Durchlauf mit Notion und dem veröffentlichten Prüfplatz; dass die Familien-Zeile im Pitch von Notion unverändert zurückkommt (die Eigenschaft «Pitch» ist Text, Zeilenumbrüche kommen als `<br>`, der Prüfplatz liest die erste Zeile danach).
+- **Offen für einen Menschen:** Die Liste der Familien bestätigen oder ändern; Gate 0 und die Look-Wahl gehören Menschen und laufen im Prüfplatz.
 
 ## Plan v4 (21.10.2026): Stand der Phase 1 (Schnittqualität)
 
@@ -39,7 +53,7 @@ Auslöser war der erste echte Testlauf: Das Video wirkte billig (hektisch, 40 Zo
 - Der Look ist eine **Näherung aus Zahlen** (Startwerte, Vermutung), keine Kamera-LUT: Welche Kamera und welches Log-Profil das Material hat, ist nicht bekannt, die Umrechnung des Herstellers fehlt. Die Schwellen der Log-Erkennung (Sättigung unter 0,08 und Helligkeitsspanne unter 0,45) sind Annahmen (T10). Hauttöne richtet ein Mensch am Vectorscope aus. Wie das Ergebnis aussieht, ist nie gesehen worden: Bilder kann ich nicht ansehen, nur messen.
 - Die Aufnahme wird pro Video als Stück transkribiert: Läuft eine lange Aufnahme über mehrere Videos, hört Whisper jedes Stück einzeln (dafür nie mehr als die Länge der Videos).
 
-**Noch offen in Phase 1:** 1.5 Premium-Look und Grafikfamilien (braucht die Look-Wahl eines Menschen je Familie, Regel 2; der Familien-Look im Code ist seit 22.10. in Arbeit). Phase 2 bis 5 (Alperna-Tool, Supabase, Bibliothek, Videoanalyse) sind nicht begonnen: Sie warten auf das bestätigte Datenmodell (Plan v4, Anhang B) und geprüften Schreibzugriff auf `AlpernaGmbH/tool`.
+**Noch offen in Phase 1:** 1.5 Premium-Look und Grafikfamilien (braucht die Look-Wahl eines Menschen je Familie, Regel 2; der Familien-Look im Code steht seit 22.10., die erste Familie «Mockups» wartet auf die Pitch-Freigabe). Phase 2 bis 5 (Alperna-Tool, Supabase, Bibliothek, Videoanalyse) sind nicht begonnen: Sie warten auf das bestätigte Datenmodell (Plan v4, Anhang B) und geprüften Schreibzugriff auf `AlpernaGmbH/tool`.
 
 ## Entscheide aus dem Chat (17.10.)
 

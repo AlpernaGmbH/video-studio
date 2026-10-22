@@ -438,12 +438,17 @@ dd { margin: 0; overflow-wrap: anywhere; }
     const treffer = typeof z.url === "string" ? z.url.match(/[0-9a-f]{32}/gi) : null;
     return {
       art: "idee", id: t("Idee-ID"), titel: t("Titel"), status: t("Status"), quelle: t("Quelle"), projekt: t("Projekt"), satz: t("Satz"),
-      signale, warum: t("Warum nichts passt"), pitch: t("Pitch"), aufwand: t("Aufwand"),
+      signale, warum: t("Warum nichts passt"), pitch: t("Pitch"), familie: familieAus(t("Pitch")), aufwand: t("Aufwand"),
       entscheid: t("Entscheid"), entscheidGrund: t("Entscheid-Grund"),
       lookRunde: Number(z["Look-Runde"]) || 0, lookWahl: t("Look-Wahl"), lookNotiz: t("Look-Notiz"),
       abnahme: t("Abnahme"), abnahmeNotiz: t("Abnahme-Notiz"), stueck: t("Stueck"),
       bilder: bilder(t("Bilder")), url: typeof z.url === "string" ? z.url : "", seite: treffer ? treffer[treffer.length - 1] : "",
     };
+  }
+  /** Die Familie steht in der ersten Zeile des Pitchs («Familie: Handy-Mockups»), damit der Prüfplatz ohne neue Notion-Spalte weiss, dass die Look-Wahl für eine ganze Familie gilt. */
+  function familieAus(pitch) {
+    const m = /^Familie:[ \t]*(.+)$/m.exec(pitch.split("\n")[0] || "");
+    return m ? m[1].trim() : "";
   }
   /** «<id>: <adresse> | <beschriftung>», eine Zeile je Bild. Nur https-Adressen werden als Bild geladen. */
   function bilder(text) {
@@ -1153,7 +1158,9 @@ dd { margin: 0; overflow-wrap: anywhere; }
       abschnitt("Warum nichts Bestehendes passt", h("p", { class: "text", text: m.warum })),
       abschnitt("Was Claude vorschlägt", h("p", { class: "text", text: m.pitch })),
       ablehnen ? textfeld(m, "grund", "Grund der Ablehnung", "Mindestens zwei Wörter. Der Grund verhindert, dass dieselbe Idee wiederkommt.") : null,
-      h("p", { class: "hinweis" }, "Nach einer Freigabe wird noch nichts gebaut. Zuerst zeigt Claude dir drei Looks als Standbilder, und du wählst. ", notionLink(m)),
+      h("p", { class: "hinweis" }, m.familie
+        ? "Nach einer Freigabe wird noch nichts gebaut. Hat für die Familie «" + m.familie + "» schon jemand einen Look gewählt, entsteht das Stück in diesem Look. Sonst zeigt Claude dir drei Looks als Standbilder, und du wählst einmal für die ganze Familie. "
+        : "Nach einer Freigabe wird noch nichts gebaut. Zuerst zeigt Claude dir drei Looks als Standbilder, und du wählst. ", notionLink(m)),
       h("div", { class: "aktionen" },
         ablehnen
           ? [knopf(m, "Ablehnung senden", "primaer", grundOk, () => senden(m, Object.assign({ Entscheid: "abgelehnt", "Entscheid-Grund": grund(), "Entscheid von": S.name.trim() }, datum("Entscheid am")), nochOffen, (d) => d.entscheid === "abgelehnt")),
@@ -1181,6 +1188,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
     });
     return [
       abschnitt("Der Satz", h("p", { class: "zitat", text: "«" + m.satz + "»" })),
+      m.familie ? h("p", { class: "hinweis", text: "Deine Wahl gilt für alle Stücke der Familie «" + m.familie + "»: Sie entstehen danach in diesem Look. Jedes Stück nimmst du trotzdem einzeln ab." }) : null,
       abschnitt("Wähle die Richtung, Runde " + m.lookRunde, h("div", { class: "looks" }, tiles)),
       h("label", { class: "keiner" }, radio("keiner"), "Keiner passt"),
       textfeld(m, "notiz", wahl() === "keiner" ? "Was soll die nächste Runde anders machen" : "Notiz an Claude (freiwillig)", wahl() === "keiner" ? "Pflicht bei «Keiner passt», mindestens ein kurzer Satz." : "Zum Beispiel: Schrift etwas kleiner."),

@@ -44,7 +44,19 @@ Wenn ja, sage es und lege nichts an.
 Siehe `prompts/pitch-schreiben.md`. `ideen weiter <id> pitch --system --json pitch.json`, dann Zeile nach Notion schreiben (Abschnitt «Notion», «Raus»).
 Dem Menschen sagen: «Der Pitch liegt im Prüfplatz.» Danach aufhören und auf die Entscheidung warten.
 
-### C. Drei Looks (erst nach «freigegeben»)
+### C. Drei Looks (erst nach «freigegeben»), je Familie
+
+Zuerst `./studio ideen familien` (oder `ideen liste`, das bei wartenden Ideen den Grund nennt). Drei Fälle:
+
+- **Die Idee hat keine Familie:** drei eigene Looks, wie unten.
+- **Die Familie hat schon einen gewählten Look:** keine Runde. Die Idee übernimmt ihn: `ideen weiter <id> look_gewaehlt --system` («geerbt», die Wahl bleibt die des Menschen).
+  Danach das Stück mit `motion neu … --idee <id>` anlegen: Es bekommt `look/look.md` und `look/referenz.png`. Lies beides, bevor du baust, und erfinde keinen eigenen Look.
+- **In der Familie läuft die Runde bei einer anderen Idee:** diese Idee wartet (`ideen liste` zeigt «wartet auf Look-Wahl in m-0xx»). Nichts tun, nichts umgehen. Nach jeder
+  Entscheidung im Prüfplatz zeigt `ideen notion-lesen` unter `erbenKoennen`, wer jetzt erben kann.
+- **Sonst (die Familie hat weder Look noch Runde):** diese Idee zeigt die Runde für die ganze Familie, wie unten.
+
+Findet ein Mensch den Look der Familie später falsch, verwirft nur er ihn: `ideen familie-zuruecksetzen <familie> --mensch --by <Name> --grund "…"` (dir diktiert).
+Du verwirfst nie selbst.
 
 1. Ordner `<datenDir>/ideen/<id>/looks/a`, `b`, `c` (im Studio-Ordner auf OneDrive) mit je einer `index.html` (Standbild-Entwurf, gleiches Format wie ein Stück,
    Timeline mit mindestens 2 s). Die drei Looks müssen sich in Leitidee, Typografie, Farbeinsatz und Bewegung unterscheiden.
@@ -58,7 +70,7 @@ Baue Runde 2 anders, nicht ähnlich. `notion-lesen` setzt die Idee dabei zurück
 
 ### D. Bauen (erst nach der Wahl)
 
-1. `motion neu <slug> --name "…" --typen <typ,…> --idee <id>` legt das Gerüst an. Es erfüllt den Stück-Vertrag schon.
+1. `motion neu <slug> --name "…" --typen <typ,…> --idee <id>` legt das Gerüst an. Es erfüllt den Stück-Vertrag schon. Gehört die Idee zu einer Familie und ist ihr Look nicht gewählt, verweigert der Befehl das Gerüst (Regel 2).
 2. `piece.json` ausfüllen: Zweck, Auslöser, Parameter mit Beschreibung (sagt, was der Platz bedeutet), Dauer, Abnahme, Einsatzangaben
    (wann, wann nicht, mindestens ein Beispiel mit Satz). Alle `TODO` ersetzen.
 3. Nach jeder Änderung an Parametern: `motion sync <slug>` schreibt die Deklaration in `index.html`.
@@ -69,7 +81,7 @@ Baue Runde 2 anders, nicht ähnlich. `notion-lesen` setzt die Idee dabei zurück
    - Texte messen mit `offsetWidth`, nie mit `getBoundingClientRect` (das rechnet Transformationen mit)
    - Marke nur über die `marke…`-Variablen, nichts fest verdrahten
    - Inhalt im Sicherheitsrand (x 54–864, y 154–1536)
-5. `ideen weiter <id> in_bau --system --stueck <slug>`
+5. `ideen weiter <id> in_bau --system --stueck <slug>` (bei einer Familie nur mit einem Stück, das den Look der Familie trägt)
 6. Schleife: `motion lint` → `motion check <slug>` → `motion render <slug> -o … --set …` (prüft objektiv) → Bildprüfung
    (`prompts/bildpruefung.md`) → `ideen pruefung <id> --json runde.json`. Höchstens zwei Korrekturrunden.
 7. Besteht die Prüfung: `motion status <slug> gebaut`, dann (Einsatzbeispiele gerendert, Vorschau erzeugt) `motion status <slug> geprueft`,
