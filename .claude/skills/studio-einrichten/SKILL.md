@@ -25,6 +25,7 @@ Der steht in `~/.config/video-studio/config.json` (ausserhalb von Repo und OneDr
    Ein Admin legt das Gerät im Repo `alperna-tool` an (`node scripts/studio-geraet.mjs anlegen "<Name des Macs>" mac <Admin-E-Mail>`) und gibt das Token. Dann
    `printf %s "<Token>" | ./studio tool verbinden https://alperna-tool.vercel.app --token-stdin`. Das Token ist ein Geheimnis: nicht in Dateien, nicht in Notion, nicht in die Ausgabe schreiben.
    Ohne Verbindung läuft alles wie bisher. Anleitung und Grenzen: `docs/studio-tool.md`.
+   Ist der Mac verbunden, holt er auch Aufträge aus der Warteschlange des Tools (Skill `studio-warteschlange`); das braucht kein weiteres Gerät. Ein Gerät der Art «cloud» holt keine Aufträge.
 
 ## Wenig Platz auf dem Mac
 

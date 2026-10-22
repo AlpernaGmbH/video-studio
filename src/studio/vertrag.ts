@@ -49,3 +49,38 @@ export const DateiEintragenSchema = z.strictObject({
   kind: z.enum(["vorschau", "kontaktbogen", "gegenlesen", "plan", "storyboard", "auftrag", "qualitaet"]),
   version: z.number().int().min(1).max(1_000_000),
 });
+
+/**
+ * Aufträge der Warteschlange (Scheibe S5). Die Arten, Ergebnisse und Grenzen stehen in `docs/studio/vertrag.json` (`jobs`), im Tool in `lib/studio/jobs.ts` und in der Datenbank
+ * (`app.studio_job_spec`); `vertrag.test.ts` vergleicht den Code hier mit dem Vertrag.
+ */
+export const ARTEN_AUFTRAG = ["reel_vorbereiten", "reel_storyboard", "reel_uebergabe", "reel_messen", "katalog_beschreiben", "text_entwurf", "analyse_auswerten", "planung"] as const;
+export type AuftragsArt = (typeof ARTEN_AUFTRAG)[number];
+
+export const ERGEBNISSE = ["done", "failed", "blocked", "cancelled"] as const;
+export type Ergebnis = (typeof ERGEBNISSE)[number];
+
+/** Auftrag holen: leer oder mit einer Liste von Arten. */
+export const AuftragHolenSchema = z.strictObject({ kinds: z.array(z.enum(ARTEN_AUFTRAG)).min(1).max(20).optional() });
+
+/** Lebenszeichen: Auftrag und Lease. */
+export const AuftragHerzschlagSchema = z.strictObject({ job: z.string().uuid(), lease: z.string().uuid() });
+
+/** Abschluss: Ergebnis und, bei failed und blocked, ein Grund von mindestens 5 und höchstens 500 Zeichen (die Datenbank verlangt das). */
+export const AuftragAbschlussSchema = z.strictObject({ job: z.string().uuid(), lease: z.string().uuid(), outcome: z.enum(ERGEBNISSE), reason: z.string().max(500).nullable().optional() });
+
+/** Was das Tool einem Mac auf «Auftrag holen» gibt. Nie der Urheber, nie der Schlüssel der Oberfläche. */
+export const AuftragSchema = z.object({
+  id: z.string().uuid(),
+  kind: z.enum(ARTEN_AUFTRAG),
+  target: z.enum(["mac", "cloud"]),
+  content: z.string().regex(/^c-[0-9]{4,}$/).nullable(),
+  status: z.string(),
+  params: z.record(z.unknown()),
+  notes: z.string().nullable(),
+  lease: z.string().uuid(),
+  lease_until: z.string(),
+  attempts: z.number().int().min(1).max(3),
+  cancel_requested: z.boolean(),
+});
+export type Auftrag = z.infer<typeof AuftragSchema>;

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { baueEreignis } from "./melder";
-import { ereignisFehler, MEDIEN, SendungSchema } from "./vertrag";
+import { ARTEN_AUFTRAG, AuftragAbschlussSchema, AuftragHerzschlagSchema, AuftragHolenSchema, AuftragSchema, ereignisFehler, ERGEBNISSE, MEDIEN, SendungSchema } from "./vertrag";
 
 interface Fall {
   name: string;
@@ -11,6 +11,16 @@ interface Fall {
 const vertrag = JSON.parse(fs.readFileSync(path.join(__dirname, "../../docs/studio/vertrag.json"), "utf8")) as {
   medien: string[];
   events: { gueltig: Fall[]; ungueltig: Fall[]; eintrag_gueltig: unknown[]; eintrag_ungueltig: { grund: string; eintrag: unknown }[] };
+  status: Record<string, string>;
+  jobs: {
+    arten: string[];
+    ergebnisse: string[];
+    grund: { min_bei_failed_und_blocked: number; max: number };
+    lease_sekunden: number;
+    claim: { gueltig: Fall[]; ungueltig: Fall[]; antwort: { job: unknown }; antwort_leer: { job: null } };
+    heartbeat: { gueltig: Fall[]; ungueltig: Fall[]; antwort: Record<string, unknown> };
+    finish: { gueltig: Fall[]; ungueltig: Fall[]; antwort: Record<string, unknown> };
+  };
 };
 const JETZT = Date.parse("2026-10-22T09:00:00.000Z");
 
@@ -78,5 +88,79 @@ describe("Was der Melder baut, nimmt das Tool an", () => {
 describe("Vertrag mit dem Tool: Medien", () => {
   it("die Liste im Code ist die des Vertrags (und damit die der Datenbank)", () => {
     expect([...MEDIEN]).toEqual(vertrag.medien);
+  });
+});
+
+describe("Vertrag mit dem Tool: Aufträge", () => {
+  const j = vertrag.jobs;
+  it("die Arten und Ergebnisse im Code sind die des Vertrags (und damit die der Datenbank)", () => {
+    expect([...ARTEN_AUFTRAG]).toEqual(j.arten);
+    expect([...ERGEBNISSE]).toEqual(j.ergebnisse);
+  });
+  it("die Grenzen des Vertrags: Grund von 5 bis 500 Zeichen, Lease drei Minuten", () => {
+    expect(j.grund).toEqual({ min_bei_failed_und_blocked: 5, max: 500 });
+    expect(j.lease_sekunden).toBe(180);
+  });
+  it.each(j.claim.gueltig)("holen gültig: $name", ({ body }) => {
+    expect(AuftragHolenSchema.safeParse(body).success).toBe(true);
+  });
+  it.each(j.claim.ungueltig)("holen ungültig: $name", ({ body }) => {
+    expect(AuftragHolenSchema.safeParse(body).success).toBe(false);
+  });
+  it.each(j.heartbeat.gueltig)("Lebenszeichen gültig: $name", ({ body }) => {
+    expect(AuftragHerzschlagSchema.safeParse(body).success).toBe(true);
+  });
+  it.each(j.heartbeat.ungueltig)("Lebenszeichen ungültig: $name", ({ body }) => {
+    expect(AuftragHerzschlagSchema.safeParse(body).success).toBe(false);
+  });
+  it.each(j.finish.gueltig)("Abschluss gültig: $name", ({ body }) => {
+    expect(AuftragAbschlussSchema.safeParse(body).success).toBe(true);
+  });
+  it.each(j.finish.ungueltig)("Abschluss ungültig: $name", ({ body }) => {
+    expect(AuftragAbschlussSchema.safeParse(body).success).toBe(false);
+  });
+  it("das Beispiel einer Antwort auf «holen» liest dieser Rechner", () => {
+    expect(AuftragSchema.safeParse(j.claim.antwort.job).success).toBe(true);
+    expect(j.claim.antwort_leer).toEqual({ job: null });
+  });
+  it("Lebenszeichen und Abschluss verlangen echte Kennungen (uuid) für Auftrag und Lease", () => {
+    const id = "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e";
+    expect(AuftragHerzschlagSchema.safeParse({ job: id, lease: id }).success).toBe(true);
+    expect(AuftragHerzschlagSchema.safeParse({ job: id, lease: "abc" }).success).toBe(false);
+    expect(AuftragAbschlussSchema.safeParse({ job: id, lease: "abc", outcome: "done" }).success).toBe(false);
+  });
+  it("der Grund darf höchstens 500 Zeichen haben (die Datenbank nimmt nicht mehr)", () => {
+    const id = "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e";
+    expect(AuftragAbschlussSchema.safeParse({ job: id, lease: id, outcome: "failed", reason: "a".repeat(500) }).success).toBe(true);
+    expect(AuftragAbschlussSchema.safeParse({ job: id, lease: id, outcome: "failed", reason: "a".repeat(501) }).success).toBe(false);
+  });
+  describe("Antwort auf «holen» (AuftragSchema)", () => {
+    const basis = j.claim.antwort.job as Record<string, unknown>;
+    const mit = (o: Record<string, unknown>) => AuftragSchema.safeParse({ ...basis, ...o }).success;
+    it("Inhalt: leer oder c-Nummer mit mindestens vier Ziffern", () => {
+      expect(mit({ content: null })).toBe(true);
+      expect(mit({ content: "c-1000" })).toBe(true);
+      expect(mit({ content: "x" })).toBe(false);
+      expect(mit({ content: "c-12" })).toBe(false);
+      expect(mit({ content: "c-1000/../x" })).toBe(false);
+    });
+    it("Versuch: ganze Zahl von 1 bis 3", () => {
+      for (const n of [1, 2, 3]) expect(mit({ attempts: n }), String(n)).toBe(true);
+      for (const n of [0, 4, 1.5, "2"]) expect(mit({ attempts: n }), String(n)).toBe(false);
+    });
+    it("Lease: eine uuid", () => {
+      expect(mit({ lease: "nicht-uuid" })).toBe(false);
+    });
+    it("Art und Ziel: nur bekannte Werte", () => {
+      for (const k of ARTEN_AUFTRAG) expect(mit({ kind: k }), k).toBe(true);
+      expect(mit({ kind: "reel_nachbau" })).toBe(false);
+      expect(mit({ target: "pc" })).toBe(false);
+    });
+  });
+  it("das Beispiel einer Antwort trägt keine Felder, die ein Rechner nicht kennen soll", () => {
+    expect(Object.keys(j.claim.antwort.job as object).sort()).toEqual(["attempts", "cancel_requested", "content", "id", "kind", "lease", "lease_until", "notes", "params", "status", "target"]);
+  });
+  it("409 steht im Vertrag", () => {
+    expect(vertrag.status["409"]).toContain("Lease");
   });
 });

@@ -22,6 +22,7 @@ import { presetsBefehl, PRESETS_HILFE } from "./presets/befehle";
 import { katalogBefehl, KATALOG_HILFE } from "./katalog/befehle";
 import { schnittBefehl, SCHNITT_HILFE } from "./schnitt/befehle";
 import { reelBefehl, REEL_HILFE } from "./schnitt/reel";
+import { auftragBefehl, AUFTRAG_HILFE } from "./studio/auftraege";
 import { toolBefehl, TOOL_HILFE } from "./studio/befehle";
 import { ausgangsordner, beendeMelder, standardMelder, standardOrt } from "./studio/standard";
 import { whisperBefehl, WHISPER_HILFE } from "./schnitt/whisper-setup";
@@ -91,6 +92,7 @@ ${REEL_HILFE}
 ${SCHNITT_HILFE}
 ${PRESETS_HILFE}
 ${TOOL_HILFE}
+${AUFTRAG_HILFE}
 Umgebung: STUDIO_HOME (Studio-Ordner statt Konfiguration), STUDIO_MEDIEN (Medien-Ordner), STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse; sonst <Studio-Ordner>/daten), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
 `;
 
@@ -582,9 +584,10 @@ async function main(): Promise<number> {
     const ort = standardOrt();
     return toolBefehl(sub, a, { ort, ausgang: ausgangsordner(ort), home });
   }
+  if (gruppe === "warteschlange" && sub) return auftragBefehl(sub, a, { ort: standardOrt() });
   if (gruppe === "schnitt" && sub) return schnittBefehl(sub, a, env);
   if (gruppe === "presets" && sub) return presetsBefehl(sub, a, env);
-  console.error(`Unbekannter Befehl «${[gruppe, sub].filter(Boolean).join(" ")}».\nGruppen: init, doctor, motion, ideen, inhalte, marken, katalog, whisper, reel, schnitt, presets, tool, pruefplatz. Alle Befehle: ./studio hilfe\nIst dein Stand alt? ./studio update`);
+  console.error(`Unbekannter Befehl «${[gruppe, sub].filter(Boolean).join(" ")}».\nGruppen: init, doctor, motion, ideen, inhalte, marken, katalog, whisper, reel, schnitt, presets, tool, warteschlange, pruefplatz. Alle Befehle: ./studio hilfe\nIst dein Stand alt? ./studio update`);
   return 2;
 }
 

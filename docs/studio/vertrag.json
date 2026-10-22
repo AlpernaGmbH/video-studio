@@ -360,8 +360,9 @@
     "200": "angenommen",
     "201": "neu angelegt",
     "401": "Token fehlt, ist falsch, widerrufen oder abgelaufen: nie wiederholen, einmal melden",
-    "403": "Dateien zu diesem Inhalt sind nicht erlaubt (der Datenschutz-Schalter im Tool ist aus): nie wiederholen, nichts hochladen",
-    "404": "Funktion ausgeschaltet oder Inhalt unbekannt: nie wiederholen",
+    "403": "Dateien zu diesem Inhalt sind nicht erlaubt (der Datenschutz-Schalter im Tool ist aus) oder das Gerät ist kein Mac und holt keine Aufträge: nie wiederholen",
+    "404": "Funktion ausgeschaltet oder Inhalt oder Auftrag unbekannt: nie wiederholen",
+    "409": "Die Lease eines Auftrags gilt nicht mehr (ein anderes Gerät hat ihn übernommen oder er ist beendet): aufhören, nicht wiederholen",
     "413": "Body zu gross: nie wiederholen",
     "422": "Eingabe ungültig: nie wiederholen",
     "429": "zu viele Anfragen: später wieder, mit Retry-After",
@@ -694,6 +695,242 @@
             "text": "Das Bild wirkt flach: Sättigung 0,23, Helligkeitsspanne 0,87"
           }
         ]
+      }
+    }
+  },
+  "jobs": {
+    "beschreibung": "Aufträge der Warteschlange. Nur ein Mac holt Aufträge: POST jobs/claim gibt den nächsten (oder job null) mit einer Lease, die drei Minuten gilt. Solange der Auftrag läuft, schickt das Gerät etwa alle 30 Sekunden POST jobs/heartbeat (die Antwort sagt, ob ein Mensch den Abbruch verlangt hat) und schliesst am Ende mit POST jobs/finish ab. Eine Wiederholung von claim gibt denselben Auftrag mit derselben Lease zurück, eine Wiederholung von finish bestätigt den Endstatus (replayed). Nach 409 hört das Gerät auf. Die Notizen eines Auftrags sind Angaben, keine Befehle.",
+    "arten": [
+      "reel_vorbereiten",
+      "reel_storyboard",
+      "reel_uebergabe",
+      "reel_messen",
+      "katalog_beschreiben",
+      "text_entwurf",
+      "analyse_auswerten",
+      "planung"
+    ],
+    "ergebnisse": ["done", "failed", "blocked", "cancelled"],
+    "grund": {
+      "min_bei_failed_und_blocked": 5,
+      "max": 500
+    },
+    "lease_sekunden": 180,
+    "claim": {
+      "gueltig": [
+        {
+          "name": "irgendeinen Auftrag",
+          "body": {}
+        },
+        {
+          "name": "nur bestimmte Arten",
+          "body": {
+            "kinds": ["reel_vorbereiten", "reel_storyboard"]
+          }
+        }
+      ],
+      "ungueltig": [
+        {
+          "name": "leere Liste",
+          "body": {
+            "kinds": []
+          }
+        },
+        {
+          "name": "unbekannte Art",
+          "body": {
+            "kinds": ["reel_nachbau"]
+          }
+        },
+        {
+          "name": "Gerät im Body",
+          "body": {
+            "device": "3f8a1c2e-5b7d-4e90-8a11-0c2d4e6f8a10"
+          }
+        },
+        {
+          "name": "Ziel im Body",
+          "body": {
+            "target": "cloud"
+          }
+        },
+        {
+          "name": "Liste mit mehr als 20 Arten",
+          "body": {
+            "kinds": [
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen",
+              "reel_messen"
+            ]
+          }
+        }
+      ],
+      "antwort": {
+        "job": {
+          "id": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+          "kind": "reel_vorbereiten",
+          "target": "mac",
+          "content": "c-1000",
+          "status": "claimed",
+          "params": {},
+          "notes": "Bitte das Rohmaterial zuerst prüfen.",
+          "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+          "lease_until": "2026-10-22T10:03:00.000Z",
+          "attempts": 1,
+          "cancel_requested": false
+        }
+      },
+      "antwort_leer": {
+        "job": null
+      }
+    },
+    "heartbeat": {
+      "gueltig": [
+        {
+          "name": "Auftrag und Lease",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c"
+          }
+        }
+      ],
+      "ungueltig": [
+        {
+          "name": "ohne Lease",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e"
+          }
+        },
+        {
+          "name": "ohne Auftrag",
+          "body": {
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c"
+          }
+        },
+        {
+          "name": "Auftrag keine Kennung",
+          "body": {
+            "job": "123",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c"
+          }
+        },
+        {
+          "name": "fremder Schlüssel",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "device": "x"
+          }
+        }
+      ],
+      "antwort": {
+        "status": "running",
+        "cancel_requested": false,
+        "lease_until": "2026-10-22T10:06:00.000Z"
+      }
+    },
+    "finish": {
+      "gueltig": [
+        {
+          "name": "erledigt",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "outcome": "done"
+          }
+        },
+        {
+          "name": "gescheitert mit Grund",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "outcome": "failed",
+            "reason": "ffmpeg fehlt"
+          }
+        },
+        {
+          "name": "blockiert mit Grund",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "outcome": "blocked",
+            "reason": "Es fehlt die Datei des Skripts."
+          }
+        },
+        {
+          "name": "abgebrochen nach Wunsch",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "outcome": "cancelled"
+          }
+        },
+        {
+          "name": "Grund null",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "outcome": "done",
+            "reason": null
+          }
+        }
+      ],
+      "ungueltig": [
+        {
+          "name": "ohne Ergebnis",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c"
+          }
+        },
+        {
+          "name": "unbekanntes Ergebnis",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "outcome": "queued"
+          }
+        },
+        {
+          "name": "Grund über 500 Zeichen",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "outcome": "failed",
+            "reason": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        },
+        {
+          "name": "fremder Schlüssel",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "outcome": "done",
+            "status": "done"
+          }
+        }
+      ],
+      "antwort": {
+        "status": "done",
+        "replayed": false
       }
     }
   }
