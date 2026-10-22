@@ -10,6 +10,7 @@ import { pruefeSchnittplan } from "./pruefung";
 import { schnittBefehl } from "./befehle";
 import { findeStille } from "./stille";
 import { juengsterExport, listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, transkriptMarkdown, type ReelGeraete, type ReelZustand } from "./reel";
+import { leseCube } from "./lut";
 import { testSatz } from "./testdaten";
 import type { Segment } from "./transkript";
 
@@ -566,9 +567,9 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     expect(fs.existsSync(studio("inhalte", "c-0007", "ergebnis", "resolve"))).toBe(false);
     expect(await lauf("reel", "uebergabe", "c-0007", "--entwurf")).toBe(0);
     const ordner = studio("inhalte", "c-0007", "ergebnis", "resolve");
-    // das Testbild gilt als normal: Der Angleich der Marke liegt als LUT bei
+    // das Testbild gilt als normal: Der Angleich der Marke liegt als LUT bei, und weil die Marke von V-Log ausgeht, auch die V-Log-LUT (für B-Roll aus der Kamera, die später dazukommt)
     expect(fs.readdirSync(ordner).sort()).toEqual(["LIESMICH.md", "lut", "overlays", "plan.json", "timeline.fcpxml", "timeline.otio", "untertitel.srt"]);
-    expect(fs.readdirSync(path.join(ordner, "lut"))).toEqual(["farbe-angleich.cube"]);
+    expect(fs.readdirSync(path.join(ordner, "lut")).sort()).toEqual(["farbe-angleich.cube", "farbe-log.cube"]);
     expect(fs.readFileSync(path.join(ordner, "LIESMICH.md"), "utf8")).toMatch(/## Betonte Wörter[\s\S]*Küche/);
     expect(await lauf("reel", "uebergabe", "c-0007", "--entwurf")).toBe(0);
     expect(fs.existsSync(`${ordner}-v2`)).toBe(true);
@@ -805,30 +806,82 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten mit Farbe", () => {
   const planLesen = () => leseSchnittplan(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"), "utf8")));
   const lutPfad = (n: string) => studio("inhalte", "c-0007", "ergebnis", "lut", n);
 
-  it("flaches Material wird als Log erkannt, bekommt die LUT «log» mit gemessenen Punkten, der Plan trägt die Farbart", async () => {
+  it("mit dem generischen Profil: flaches Material wird als Log erkannt, bekommt die LUT «log» mit gemessenen Punkten, der Plan trägt die Farbart", async () => {
     await start();
     video(true);
-    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--profil", "generisch")).toBe(0);
     expect(planLesen().quellen[0]!.farbe).toBe("log");
     expect(text()).toMatch(/Farbe: sprache-01: sieht nach Log \(flach\) aus, unsicher/);
     expect(text()).toMatch(/Look: farbe-log\.cube für sprache-01 \(Schwarzpunkt 0,\d\d, Weisspunkt 0,\d\d, am Material gemessen\)/);
     expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(true);
     expect(fs.existsSync(lutPfad("farbe-angleich.cube"))).toBe(true);
+    expect(leseCube(fs.readFileSync(lutPfad("farbe-log.cube"), "utf8")).groesse).toBe(33);
+    expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8")).profil).toBe("generisch");
   }, 180_000);
 
-  it("normales Material bekommt nur den Angleich", async () => {
+  it("mit V-Log (Marke Alperna): flaches Material bekommt die Umrechnung des Herstellers mit 65 Punkten, dazu die Hinweise zu Datenbereich und Belichtung", async () => {
+    await start();
+    video(true);
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(planLesen().quellen[0]!.farbe).toBe("log");
+    expect(text()).toMatch(/Look: farbe-log\.cube \(V-Log nach Rec\. 709, Umrechnung von Panasonic, Belichtung \+0,0 Blenden, mit dem Look der Marke darüber\) für sprache-01/);
+    expect(text()).not.toContain("Schwarzpunkt");
+    expect(text()).toMatch(/Farbe: sprache-01: dunkelster Pixel bei Code \d+ \(10 Bit\)\. V-Log-Schwarz liegt bei 128 \(Bereich voll\) oder 173 \(begrenzt\)/);
+    expect(text()).toMatch(/Farbe: sprache-01: mittlere Helligkeit .* 18 % Grau \(Bereich /);
+    expect(leseCube(fs.readFileSync(lutPfad("farbe-log.cube"), "utf8")).groesse).toBe(65);
+    // ohne Handeingabe steht nichts davon in reel.json (die Marke entscheidet)
+    const reel = JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"));
+    expect(reel).not.toHaveProperty("profil");
+    expect(reel).not.toHaveProperty("belichtung");
+    expect(reel).not.toHaveProperty("bereich");
+  }, 180_000);
+
+  it("--belichtung, --bereich und --profil werden gemerkt, gelten beim nächsten Lauf und lassen sich mit auto zurücknehmen; falsche Werte brechen vorher ab", async () => {
+    await start();
+    video(true);
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--belichtung", "-0,5", "--bereich", "voll");
+    expect(text()).toMatch(/Belichtung −0,5 Blenden/);
+    expect(text()).toContain("von Hand «voll»");
+    const reel = () => JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"));
+    expect(reel()).toMatchObject({ belichtung: -0.5, bereich: "voll" });
+    expect(planLesen().quellen[0]).toMatchObject({ farbe: "log", bereich: "voll" });
+    ausgabe.length = 0;
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    expect(text()).toMatch(/Belichtung −0,5 Blenden/);
+    expect(planLesen().quellen[0]).toMatchObject({ bereich: "voll" });
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--belichtung", "auto", "--bereich", "auto");
+    expect(reel()).not.toHaveProperty("belichtung");
+    expect(reel()).not.toHaveProperty("bereich");
+    expect(planLesen().quellen[0]).not.toHaveProperty("bereich");
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--belichtung", "viel")).rejects.toThrow(/--belichtung erwartet eine Zahl/);
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--belichtung", "5")).rejects.toThrow(/-3 bis 3/);
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--bereich", "halb")).rejects.toThrow(/voll.*begrenzt.*auto/);
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--profil", "sony")).rejects.toThrow(/vlog.*generisch.*auto/);
+  }, 300_000);
+
+  it("normales Material bekommt mit dem generischen Profil nur den Angleich", async () => {
     await start();
     video(false);
-    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--profil", "generisch")).toBe(0);
     expect(planLesen().quellen[0]!.farbe).toBe("rec709");
     expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(false);
     expect(fs.existsSync(lutPfad("farbe-angleich.cube"))).toBe(true);
   }, 180_000);
 
+  it("normales Material bekommt mit V-Log keine Hinweise zu Bereich und Belichtung, die LUT «log» liegt für späteres Log-Material trotzdem bereit", async () => {
+    await start();
+    video(false);
+    expect(await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel")).toBe(0);
+    expect(planLesen().quellen[0]!.farbe).toBe("rec709");
+    expect(text()).not.toContain("dunkelster Pixel");
+    expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(true);
+    expect(text()).toContain("Log-Material, das noch dazukommt");
+  }, 180_000);
+
   it("--farbe setzt die Farbart von Hand, wird in reel.json gemerkt und gilt beim nächsten Lauf; --farbe auto kehrt zur Messung zurück", async () => {
     await start();
     video(false);
-    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--farbe", "log");
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--farbe", "log", "--profil", "generisch");
     expect(planLesen().quellen[0]!.farbe).toBe("log");
     expect(text()).toContain("(von Hand, --farbe)");
     expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8")).farbe).toBe("log");
@@ -838,7 +891,7 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten mit Farbe", () => {
     await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--farbe", "auto");
     expect(planLesen().quellen[0]!.farbe).toBe("rec709");
     expect(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8")).farbe).toBeUndefined();
-    expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(false);
+    expect(fs.existsSync(lutPfad("farbe-log.cube"))).toBe(false); // das generische Profil (von Hand gesetzt und gemerkt) schreibt die LUT «log» nur für Log-Material
     await expect(lauf("reel", "vorbereiten", "c-0007", "--farbe", "bunt")).rejects.toThrow(/log.*rec709.*auto/);
   }, 300_000);
 

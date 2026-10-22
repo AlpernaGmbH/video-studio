@@ -9,6 +9,10 @@ import { lauf } from "../presets/messen";
  */
 
 export type Farbart = "log" | "rec709";
+/** Das Log-Profil der Marke (`farbe.logProfil`): «vlog» = Panasonic V-Log (Lumix S1IIE, S5II). */
+export type LogProfil = "vlog" | "generisch";
+/** Der Datenbereich der Videospur: voll (0 bis 1023) oder begrenzt (64 bis 940). */
+export type Bereich = "voll" | "begrenzt";
 
 export interface Farbmessung {
   /** `color_transfer` aus ffprobe, wenn die Datei eines trägt. */
@@ -20,6 +24,12 @@ export interface Farbmessung {
   yHigh: number;
   /** Anzahl der gemessenen Bilder. */
   bilder: number;
+  /** Mittlerer Code des dunkelsten Pixels je Bild, auf 10 Bit umgerechnet (0 bis 1023, roh, ohne Bereich). Für den Hinweis zum Datenbereich bei V-Log. */
+  yMinCode?: number;
+  /** Mittlerer Code der Helligkeit, auf 10 Bit umgerechnet. Für den Belichtungshinweis. */
+  yMittelCode?: number;
+  /** Datenbereich laut Etikett der Datei (`color_range`), falls vorhanden. */
+  bereichEtikett?: Bereich;
 }
 
 export interface Farburteil {
@@ -41,31 +51,55 @@ export const FLACH_SPANNE = 0.45;
 
 const f2 = (n: number): string => n.toFixed(2).replace(".", ",");
 
-export function urteileFarbe(m: Farbmessung): Farburteil {
+/** Sättigung und Spanne einer Messung: flach heisst Log-ähnlich (Vermutung, siehe oben). */
+export function istFlach(m: Pick<Farbmessung, "saettigung" | "yLow" | "yHigh">): boolean {
+  return m.saettigung < FLACH_SAETTIGUNG && m.yHigh - m.yLow < FLACH_SPANNE;
+}
+
+/**
+ * Das Urteil aus Etikett und Messung. Mit dem Profil «vlog» entscheidet bei einem Widerspruch die Marke: Kameras schreiben das Etikett oft falsch (V-Log mit «bt709»),
+ * das Bild ist aber flach. Das Urteil ist dann «log», aber unsicher. Ein normales Bild mit normalem Etikett bleibt normal (Handy-Clips). HDR (HLG, PQ) ist nicht V-Log und bekommt
+ * dann keine Log-LUT: Die V-Log-Kurve würde es falsch umrechnen.
+ */
+export function urteileFarbe(m: Farbmessung, profil?: LogProfil): Farburteil {
   const t = m.transfer?.toLowerCase();
-  if (t && NORMAL.has(t)) return { farbe: "rec709", sicher: true, grund: `Die Datei sagt «${t}»: normales Material` };
-  if (t && (HDR.has(t) || LOG_NAMEN.test(t))) return { farbe: "log", sicher: true, grund: `Die Datei sagt «${t}»: flaches oder HDR-Material` };
   const spanne = m.yHigh - m.yLow;
-  const flach = m.saettigung < FLACH_SAETTIGUNG && spanne < FLACH_SPANNE;
+  const flach = istFlach(m);
+  const messtext = `gemessen: Sättigung ${f2(m.saettigung)}, Helligkeitsspanne ${f2(spanne)} (flach heisst unter ${f2(FLACH_SAETTIGUNG)} und ${f2(FLACH_SPANNE)})`;
+  if (t && NORMAL.has(t)) {
+    if (profil === "vlog" && flach) {
+      return { farbe: "log", sicher: false, grund: `Die Datei sagt «${t}», das Bild ist aber flach (${messtext}) und die Marke geht von V-Log aus. [Vermutung] V-Log mit falschem Etikett` };
+    }
+    return { farbe: "rec709", sicher: true, grund: `Die Datei sagt «${t}»: normales Material` };
+  }
+  if (t && HDR.has(t)) {
+    if (profil === "vlog") return { farbe: "rec709", sicher: false, grund: `Die Datei sagt «${t}»: HDR, nicht V-Log. Die V-Log-LUT würde es falsch umrechnen, darum bekommt es keinen Log-Look` };
+    return { farbe: "log", sicher: true, grund: `Die Datei sagt «${t}»: flaches oder HDR-Material` };
+  }
+  if (t && LOG_NAMEN.test(t)) return { farbe: "log", sicher: true, grund: `Die Datei sagt «${t}»: flaches oder HDR-Material` };
   return {
     farbe: flach ? "log" : "rec709",
     sicher: false,
-    grund: `Die Datei trägt kein Etikett; gemessen: Sättigung ${f2(m.saettigung)}, Helligkeitsspanne ${f2(spanne)} (flach heisst unter ${f2(FLACH_SAETTIGUNG)} und ${f2(FLACH_SPANNE)}). [Vermutung] ${flach ? "sieht nach Log aus" : "sieht normal aus"}`,
+    grund: `Die Datei trägt kein Etikett; ${messtext}. [Vermutung] ${flach ? "sieht nach Log aus" : "sieht normal aus"}`,
   };
 }
 
 /** Liest die Zeilen von `signalstats,metadata=print` und gibt Mittelwerte zurück. Chroma und Luma sind durch den Wertebereich der Bittiefe geteilt. */
-export function parseSignalstats(text: string): { saettigung: number; yLow: number; yHigh: number; bilder: number } | undefined {
+export function parseSignalstats(text: string): { saettigung: number; yLow: number; yHigh: number; bilder: number; yMinCode?: number; yMittelCode?: number } | undefined {
   const lesen = (name: string): number[] => [...text.matchAll(new RegExp(`lavfi\\.signalstats\\.${name}=(-?\\d+(?:\\.\\d+)?)`, "g"))].map((m) => Number(m[1]));
   const sat = lesen("SATAVG");
   const low = lesen("YLOW");
   const high = lesen("YHIGH");
+  const min = lesen("YMIN");
+  const avg = lesen("YAVG");
   const bits = lesen("YBITDEPTH");
   const n = Math.min(sat.length, low.length, high.length);
   if (!n) return undefined;
   let s = 0;
   let l = 0;
   let h = 0;
+  let mi = 0;
+  let av = 0;
   for (let i = 0; i < n; i++) {
     const bereich = 2 ** (bits[i] ?? 8);
     s += sat[i]! / bereich;
@@ -73,8 +107,12 @@ export function parseSignalstats(text: string): { saettigung: number; yLow: numb
     const voll = (y: number): number => Math.min(1, Math.max(0, ((y / (bereich - 1)) * 255 - 16) / 219));
     l += voll(low[i]!);
     h += voll(high[i]!);
+    // Rohe Codes auf 10 Bit umgerechnet (ohne Bereich), damit sie mit den Codes des V-Log-Handbuchs vergleichbar sind (Schwarz 128, 18 % Grau 433)
+    mi += ((min[i] ?? 0) / (bereich - 1)) * 1023;
+    av += ((avg[i] ?? 0) / (bereich - 1)) * 1023;
   }
-  return { saettigung: s / n, yLow: l / n, yHigh: h / n, bilder: n };
+  const mitCodes = min.length >= n && avg.length >= n;
+  return { saettigung: s / n, yLow: l / n, yHigh: h / n, bilder: n, ...(mitCodes ? { yMinCode: mi / n, yMittelCode: av / n } : {}) };
 }
 
 /** Das Etikett `color_transfer` der Videospur, oder undefined. */
@@ -85,8 +123,16 @@ export async function liesTransfer(datei: string): Promise<string | undefined> {
   return t && t !== "unknown" && t !== "unspecified" ? t : undefined;
 }
 
+/** Der Datenbereich laut Etikett (`color_range`: tv = begrenzt, pc = voll), oder undefined. */
+export async function liesBereich(datei: string): Promise<Bereich | undefined> {
+  const r = await lauf("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=color_range", "-of", "csv=p=0", datei]);
+  if (r.code !== 0) return undefined;
+  const t = r.stdout.trim().toLowerCase();
+  return t === "pc" || t === "jpeg" ? "voll" : t === "tv" || t === "mpeg" ? "begrenzt" : undefined;
+}
+
 /** Misst Sättigung und Helligkeit an bis zu `bilder` Bildern, gleichmässig über die Dauer verteilt (nicht am Anfang und Ende, wo oft Schwarz ist). */
-export async function messeBilder(datei: string, dauer: number, bilder = 5): Promise<{ saettigung: number; yLow: number; yHigh: number; bilder: number } | undefined> {
+export async function messeBilder(datei: string, dauer: number, bilder = 5): Promise<{ saettigung: number; yLow: number; yHigh: number; bilder: number; yMinCode?: number; yMittelCode?: number } | undefined> {
   const zeiten = Array.from({ length: bilder }, (_, i) => Math.round(dauer * ((i + 1) / (bilder + 1)) * 100) / 100);
   const proben: ReturnType<typeof parseSignalstats>[] = [];
   for (const t of zeiten) {
@@ -97,15 +143,40 @@ export async function messeBilder(datei: string, dauer: number, bilder = 5): Pro
   }
   if (!proben.length) return undefined;
   const mittel = (k: "saettigung" | "yLow" | "yHigh"): number => proben.reduce((a, p) => a + p![k], 0) / proben.length;
-  return { saettigung: mittel("saettigung"), yLow: mittel("yLow"), yHigh: mittel("yHigh"), bilder: proben.length };
+  const codes = proben.filter((p) => p!.yMinCode !== undefined && p!.yMittelCode !== undefined);
+  const codeMittel = (k: "yMinCode" | "yMittelCode"): number => codes.reduce((a, p) => a + p![k]!, 0) / codes.length;
+  return {
+    saettigung: mittel("saettigung"),
+    yLow: mittel("yLow"),
+    yHigh: mittel("yHigh"),
+    bilder: proben.length,
+    ...(codes.length === proben.length ? { yMinCode: codeMittel("yMinCode"), yMittelCode: codeMittel("yMittelCode") } : {}),
+  };
 }
 
-/** Erkennt die Farbart einer Videodatei: Etikett und Messung. `undefined`, wenn sich nichts messen liess. */
-export async function erkenneFarbe(datei: string, dauer: number): Promise<{ urteil: Farburteil; messung: Farbmessung } | undefined> {
-  const [transfer, m] = await Promise.all([liesTransfer(datei), messeBilder(datei, dauer)]);
+/** Erkennt die Farbart einer Videodatei: Etikett und Messung. `undefined`, wenn sich nichts messen liess. Mit `profil` «vlog» entscheidet bei einem Widerspruch die Marke (siehe `urteileFarbe`). */
+export async function erkenneFarbe(datei: string, dauer: number, profil?: LogProfil): Promise<{ urteil: Farburteil; messung: Farbmessung } | undefined> {
+  const [transfer, bereich, m] = await Promise.all([liesTransfer(datei), liesBereich(datei), messeBilder(datei, dauer)]);
   if (!m) return undefined;
-  const messung: Farbmessung = { ...(transfer ? { transfer } : {}), ...m };
-  return { urteil: urteileFarbe(messung), messung };
+  const messung: Farbmessung = { ...(transfer ? { transfer } : {}), ...(bereich ? { bereichEtikett: bereich } : {}), ...m };
+  return { urteil: urteileFarbe(messung, profil), messung };
+}
+
+/** V-Log-Schwarz als 10-Bit-Code, wenn die Datei den Bereich so schreibt, wie die Formel es ausgibt (voll: Code geteilt durch 1023), und wenn sie ihn auf 64 bis 940 abbildet (begrenzt). */
+export const VLOG_SCHWARZ_CODE = { voll: 128, begrenzt: 173 } as const;
+
+/**
+ * Hinweis zum Datenbereich bei V-Log, aus dem dunkelsten Pixel (Code, 10 Bit). Ob die Dateien der Kameras den Bereich «voll» oder «begrenzt» schreiben und richtig etikettieren,
+ * ist nicht belegt (Test T11): Die Zahl zeigt einem Menschen, wohin er schauen soll. Ein Objektivdeckel-Bild zeigt es am klarsten (128 = voll, 173 = begrenzt).
+ */
+export function bereichsHinweis(m: Pick<Farbmessung, "yMinCode" | "bereichEtikett">, gewaehlt?: Bereich): string | undefined {
+  if (m.yMinCode === undefined) return undefined;
+  const code = Math.round(m.yMinCode);
+  const etikett = m.bereichEtikett ? `Etikett «${m.bereichEtikett}»` : "kein Etikett";
+  const gilt = gewaehlt ? `von Hand «${gewaehlt}»` : `laut ${etikett}`;
+  let text = `dunkelster Pixel bei Code ${code} (10 Bit). V-Log-Schwarz liegt bei ${VLOG_SCHWARZ_CODE.voll} (Bereich voll) oder ${VLOG_SCHWARZ_CODE.begrenzt} (begrenzt); gelesen wird ${gilt}`;
+  if (code < 100) text += ". [Vermutung] Das ist dunkler als V-Log-Schwarz: der Bereich ist vermutlich falsch gedeutet oder es ist kein V-Log. Mit «--bereich voll» oder «--bereich begrenzt» umstellen, wenn Schwarz im Bild abgesoffen oder grau aussieht";
+  return text;
 }
 
 /**

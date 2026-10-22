@@ -34,7 +34,9 @@
   "look": "Cine-Look: kühl, kontraststark, leicht entsättigt. Hauttöne über das Vectorscope kalibrieren (Hautlinie, Richtung Pink). LUT folgt (Bauplan 3.9).",
   "farbe": {
     "log": { "gamma": 1.05, "kontrast": 0.45, "saettigung": 0.95, "kuehle": 0.35 },
-    "angleich": { "gamma": 1, "kontrast": 0.3, "saettigung": 0.92, "kuehle": 0.35 }
+    "angleich": { "gamma": 1, "kontrast": 0.3, "saettigung": 0.92, "kuehle": 0.35 },
+    "logProfil": "vlog",
+    "vlog": { "gamma": 1, "kontrast": 0.3, "saettigung": 0.92, "kuehle": 0.35 }
   },
   "hashtags": { "fest": [], "anzahl": 5 }
 }

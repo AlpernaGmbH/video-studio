@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { erkenneFarbe, FLACH_SAETTIGUNG, FLACH_SPANNE, liesTransfer, loeseLook, messeBilder, parseSignalstats, schlageLevelsVor, urteileFarbe } from "./farbe";
+import { bereichsHinweis, erkenneFarbe, FLACH_SAETTIGUNG, FLACH_SPANNE, liesBereich, liesTransfer, loeseLook, messeBilder, parseSignalstats, schlageLevelsVor, urteileFarbe, VLOG_SCHWARZ_CODE } from "./farbe";
 
 const hatFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 const m = (x: Partial<Parameters<typeof urteileFarbe>[0]> = {}) => ({ saettigung: 0.2, yLow: 0.1, yHigh: 0.8, bilder: 5, ...x });
@@ -48,6 +48,73 @@ describe("urteileFarbe: die Schwellen als feste Zahlen (Vermutung, an echtem Mat
   });
 });
 
+describe("urteileFarbe mit dem Profil «vlog» (Lumix: Marke und Messung gegen das Etikett)", () => {
+  const flach = m({ saettigung: 0.03, yLow: 0.2, yHigh: 0.5 });
+  const normal = m({ saettigung: 0.2, yLow: 0.05, yHigh: 0.9 });
+  const mit = (basis: ReturnType<typeof m>, transfer?: string) => ({ ...basis, ...(transfer ? { transfer } : {}) });
+
+  it("Etikett «bt709» bei flachem Bild: V-Log gilt, aber unsicher, und der Grund nennt den Widerspruch", () => {
+    const u = urteileFarbe(mit(flach, "bt709"), "vlog");
+    expect(u).toMatchObject({ farbe: "log", sicher: false });
+    expect(u.grund).toContain("«bt709»");
+    expect(u.grund).toContain("flach");
+    expect(u.grund).toContain("V-Log");
+  });
+
+  it("ohne Profil bleibt «bt709» sicher normal, auch bei flachem Bild (wie bisher)", () => {
+    expect(urteileFarbe(mit(flach, "bt709"))).toMatchObject({ farbe: "rec709", sicher: true });
+    expect(urteileFarbe(mit(flach, "bt709"), "generisch")).toMatchObject({ farbe: "rec709", sicher: true });
+  });
+
+  it("ein normales Bild mit normalem Etikett bleibt normal, sicher: Handy-Clips bekommen keinen V-Log-Look", () => {
+    expect(urteileFarbe(mit(normal, "bt709"), "vlog")).toMatchObject({ farbe: "rec709", sicher: true });
+  });
+
+  it("ohne Etikett entscheidet die Messung wie bisher, unsicher, mit oder ohne Profil", () => {
+    for (const profil of [undefined, "vlog", "generisch"] as const) {
+      expect(urteileFarbe(flach, profil)).toMatchObject({ farbe: "log", sicher: false });
+      expect(urteileFarbe(normal, profil)).toMatchObject({ farbe: "rec709", sicher: false });
+    }
+  });
+
+  it("ein Log-Etikett bleibt sicher Log", () => {
+    expect(urteileFarbe(mit(normal, "log"), "vlog")).toMatchObject({ farbe: "log", sicher: true });
+  });
+
+  it("HDR (HLG, PQ) ist mit dem Profil «vlog» kein V-Log: keine Log-LUT, unsicher, mit Grund. Ohne Profil gilt es wie bisher als Log", () => {
+    for (const t of ["arib-std-b67", "smpte2084"]) {
+      const u = urteileFarbe(mit(flach, t), "vlog");
+      expect(u).toMatchObject({ farbe: "rec709", sicher: false });
+      expect(u.grund).toContain("HDR");
+      expect(urteileFarbe(mit(flach, t))).toMatchObject({ farbe: "log", sicher: true });
+    }
+  });
+});
+
+describe("bereichsHinweis (V-Log: wo liegt Schwarz?)", () => {
+  it("nennt den Code des dunkelsten Pixels, beide V-Log-Schwarzpunkte und woher der Bereich kommt", () => {
+    expect(VLOG_SCHWARZ_CODE).toEqual({ voll: 128, begrenzt: 173 });
+    const t = bereichsHinweis({ yMinCode: 131.4, bereichEtikett: "begrenzt" })!;
+    expect(t).toContain("Code 131");
+    expect(t).toContain("128 (Bereich voll)");
+    expect(t).toContain("173 (begrenzt)");
+    expect(t).toContain("laut Etikett «begrenzt»");
+    expect(t).not.toContain("Vermutung");
+    expect(bereichsHinweis({ yMinCode: 131.4 })!).toContain("kein Etikett");
+    expect(bereichsHinweis({ yMinCode: 131.4 }, "voll")!).toContain("von Hand «voll»");
+  });
+
+  it("warnt, wenn das Bild dunkler ist als V-Log-Schwarz, mit dem Weg zur Korrektur", () => {
+    const t = bereichsHinweis({ yMinCode: 64 })!;
+    expect(t).toContain("[Vermutung]");
+    expect(t).toContain("--bereich voll");
+  });
+
+  it("ohne Messung der Codes gibt es keinen Hinweis", () => {
+    expect(bereichsHinweis({})).toBeUndefined();
+  });
+});
+
 describe("parseSignalstats", () => {
   const bild = (sat: number, low: number, high: number, bits = 8) => `frame:0 pts:0 pts_time:0\nlavfi.signalstats.YLOW=${low}\nlavfi.signalstats.YHIGH=${high}\nlavfi.signalstats.SATAVG=${sat}\nlavfi.signalstats.YBITDEPTH=${bits}\n`;
 
@@ -66,6 +133,17 @@ describe("parseSignalstats", () => {
     // 10-Bit-Werte sind vierfach, aber Vollbereich ist 1023 statt 1020: Unterschied unter 0,5 Prozent
     expect(b.yLow).toBeCloseTo(a.yLow, 2);
     expect(b.yHigh).toBeCloseTo(a.yHigh, 2);
+  });
+
+  it("liest dunkelsten Pixel und mittlere Helligkeit als rohe Codes auf 10 Bit umgerechnet (ohne Bereich)", () => {
+    const mitCodes = (min: number, avg: number, bits: number) => `lavfi.signalstats.YMIN=${min}\nlavfi.signalstats.YAVG=${avg}\n` + bild(10, 40, 200, bits);
+    const acht = parseSignalstats(mitCodes(32, 102, 8))!;
+    expect(acht.yMinCode).toBeCloseTo((32 / 255) * 1023, 6);
+    expect(acht.yMittelCode).toBeCloseTo((102 / 255) * 1023, 6);
+    const zehn = parseSignalstats(mitCodes(128, 433, 10))!;
+    expect(zehn.yMinCode).toBeCloseTo(128, 6);
+    expect(zehn.yMittelCode).toBeCloseTo(433, 6);
+    expect(parseSignalstats(bild(10, 40, 200))!).not.toHaveProperty("yMinCode");
   });
 
   it("mittelt über mehrere Bilder, klemmt Werte ausserhalb des Pegels und gibt bei Leerem nichts zurück", () => {
@@ -135,6 +213,23 @@ describe.skipIf(!hatFfmpeg)("mit echten Dateien (ffmpeg)", () => {
     expect(await liesTransfer(path.join(dir, "hlg.mp4"))).toBe("arib-std-b67");
     expect((await erkenneFarbe(path.join(dir, "hlg.mp4"), 4))!.urteil).toMatchObject({ farbe: "log", sicher: true });
     ff(...quelle, "-vf", "eq=contrast=0.35:saturation=0.15,format=yuv420p", "-color_trc", "bt709", path.join(dir, "flach709.mp4"));
+    expect((await erkenneFarbe(path.join(dir, "flach709.mp4"), 4))!.urteil).toMatchObject({ farbe: "rec709", sicher: true });
+  }, 60_000);
+
+  it("liesBereich liest «tv» als begrenzt und «pc» als voll, ohne Etikett nichts", async () => {
+    ff(...quelle, "-vf", "scale=out_range=limited,format=yuv420p", "-color_range", "tv", "-colorspace", "bt709", path.join(dir, "tv.mp4")); // x264 schreibt «tv» nur mit weiteren Angaben ins VUI
+    ff(...quelle, "-vf", "scale=out_range=full,format=yuv420p", "-color_range", "pc", path.join(dir, "pc.mp4"));
+    expect(await liesBereich(path.join(dir, "tv.mp4"))).toBe("begrenzt");
+    expect(await liesBereich(path.join(dir, "pc.mp4"))).toBe("voll");
+    const r = (await erkenneFarbe(path.join(dir, "pc.mp4"), 4))!;
+    expect(r.messung.bereichEtikett).toBe("voll");
+    expect(r.messung.yMinCode).toBeGreaterThanOrEqual(0);
+    expect(r.messung.yMittelCode).toBeGreaterThan(r.messung.yMinCode!);
+  }, 60_000);
+
+  it("das Profil «vlog» gilt bis in die Erkennung: flaches Bild mit Etikett bt709 wird zu Log, unsicher; ohne Profil bleibt es normal", async () => {
+    ff(...quelle, "-vf", "eq=contrast=0.35:saturation=0.15,format=yuv420p", "-color_trc", "bt709", path.join(dir, "flach709.mp4"));
+    expect((await erkenneFarbe(path.join(dir, "flach709.mp4"), 4, "vlog"))!.urteil).toMatchObject({ farbe: "log", sicher: false });
     expect((await erkenneFarbe(path.join(dir, "flach709.mp4"), 4))!.urteil).toMatchObject({ farbe: "rec709", sicher: true });
   }, 60_000);
 

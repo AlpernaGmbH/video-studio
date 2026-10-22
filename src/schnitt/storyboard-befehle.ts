@@ -8,9 +8,9 @@ import { ladeBibliothek } from "../motion/bibliothek";
 import { extrahiereJson, ladeMarke, rendereStueck, type Umgebung } from "../motion/werkstatt";
 import { sondiere } from "../presets/messen";
 import { studioHome } from "../setup";
-import { leseSchnittplan, platziere, SchnittQuelle } from "./plan";
+import { leseSchnittplan, platziere, type SchnittQuelle } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
-import { bauAuftrag, wendeStoryboardAn, type RenderAuftrag } from "./storyboard";
+import { bauAuftrag, brollQuelleAusKatalog, wendeStoryboardAn, type RenderAuftrag } from "./storyboard";
 import { loesePfad } from "./uebergabe";
 
 /** Befehle `studio schnitt auftrag` und `studio schnitt storyboard` (Bauplan v2, Kap. 3.5). Logik in storyboard.ts. */
@@ -81,7 +81,7 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
       nichtDa.push(k.pfad);
       continue;
     }
-    brollQuellen.set(key, SchnittQuelle.parse({ id: `broll-${key}`, pfad: k.pfad, ...(await sondiere(abs)) }));
+    brollQuellen.set(key, brollQuelleAusKatalog(k, await sondiere(abs), plan));
   }
 
   const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive, ...(marke.schnittprofil ? { profil: marke.schnittprofil } : {}) });

@@ -3,7 +3,7 @@ import { pruefeStoryboard, StoryboardFehler, type VerworfenesOverlay } from "../
 import { kompakterIndex } from "../motion/bibliothek";
 import type { Stueck } from "../motion/stueck";
 import { STANDARD_SCHNITTPROFIL, ZOOM_STUFE } from "./planbau";
-import { leseSchnittplan, platziere, sekunden, type Schnittplan, type SchnittQuelle } from "./plan";
+import { leseSchnittplan, platziere, sekunden, SchnittQuelle, type Schnittplan } from "./plan";
 import { wendeZoomsAn, type ZoomEinsatz } from "./zoom";
 import { projektKennung } from "../katalog/katalog";
 import { woerterMitHerkunft } from "./untertitel";
@@ -35,6 +35,15 @@ export function imLetztenVideo(katalog: KatalogEintrag[], aktuellesProjekt: stri
   if (!genutzt.length) return [];
   const juengstes = genutzt.reduce((a, b) => (b.zuletztGenutzt!.datum > a.zuletztGenutzt!.datum ? b : a)).zuletztGenutzt!.projekt;
   return genutzt.filter((k) => k.zuletztGenutzt!.projekt === juengstes).map((k) => k.schluessel);
+}
+
+/**
+ * Die Quelle einer B-Roll aus dem Katalog. Steht im Katalog `log` (flaches Material aus der Kamera), trägt die Quelle die Farbart «log» und bekommt so die LUT «log» statt des Angleichs.
+ * Hat ein Mensch für den Inhalt den Datenbereich festgelegt, gilt er auch für diese Quelle (derselbe Kamera-Modus).
+ */
+export function brollQuelleAusKatalog(k: Pick<KatalogEintrag, "schluessel" | "pfad" | "log">, sondiert: object, plan: Pick<Schnittplan, "quellen">): SchnittQuelle {
+  const bereich = plan.quellen.find((q) => q.farbe === "log" && q.bereich)?.bereich;
+  return SchnittQuelle.parse({ id: `broll-${k.schluessel}`, pfad: k.pfad, ...sondiert, ...(k.log ? { farbe: "log", ...(bereich ? { bereich } : {}) } : {}) });
 }
 
 /* ---------- 1. Auftrag an Claude ---------- */

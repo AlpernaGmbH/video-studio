@@ -67,6 +67,44 @@ describe("vorschauArgs", () => {
       expect(graph(args(mitFarbe(undefined), { lut: luts }))).toContain("farbe-angleich");
     });
 
+    it("Log-Material wird ausdrücklich nach RGB gebracht (BT.709), bekommt die LUT und geht nach BT.709 begrenzt zurück; normales Material bekommt nur die LUT", () => {
+      const g = graph(args(mitFarbe("log"), { lut: luts }));
+      const kette = "scale=in_color_matrix=bt709:out_range=full,format=gbrp16le,lut3d=file='/l/farbe-log.cube',scale=out_color_matrix=bt709:out_range=limited,format=yuv420p";
+      expect(g.match(new RegExp(kette.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))).toHaveLength(2);
+      // Der Look steht hinter dem Zuschnitt (die LUT rechnet nur das 540er Bild) und vor setsar
+      expect(g).toMatch(/crop=540:960,scale=in_color_matrix=bt709.*lut3d.*format=yuv420p,setsar=1/);
+      const n = graph(args(mitFarbe("rec709"), { lut: luts }));
+      expect(n).not.toContain("in_color_matrix");
+      expect(n).not.toContain("gbrp16le");
+    });
+
+    it("ein von Hand festgelegter Datenbereich gilt schon beim ersten Skalieren, mit gleichem Eingang und Ausgang (sonst rechnet dieses Skalieren nach dem falschen Etikett um)", () => {
+      const mit = (bereich: "voll" | "begrenzt" | undefined) =>
+        plan({ quellen: [{ id: "sprache", pfad: "rohmaterial/farben.mp4", art: "video", dauer: 4, fps: 25, breite: 320, hoehe: 568, hatAudio: true, farbe: "log", ...(bereich ? { bereich } : {}) }] });
+      const voll = graph(args(mit("voll"), { lut: luts }));
+      expect(voll).toContain("force_original_aspect_ratio=increase:in_range=full:out_range=full,crop=540:960");
+      expect(graph(args(mit("begrenzt"), { lut: luts }))).toContain("force_original_aspect_ratio=increase:in_range=limited:out_range=limited,crop=540:960");
+      // ohne Angabe gilt das Etikett der Datei
+      expect(graph(args(mit(undefined), { lut: luts }))).not.toContain("in_range");
+      // normales Material ignoriert die Angabe (sie gilt nur für Log)
+      const normal = plan({ quellen: [{ id: "sprache", pfad: "rohmaterial/farben.mp4", art: "video", dauer: 4, fps: 25, breite: 320, hoehe: 568, hatAudio: true, farbe: "rec709" }] });
+      expect(graph(args(normal, { lut: luts }))).not.toContain("in_range");
+    });
+
+    it("auch die B-Roll aus der Kamera (Log) bekommt Umwandlung und Bereich, mit der LUT «log»", () => {
+      const p = plan({
+        quellen: [
+          { id: "sprache", pfad: "rohmaterial/farben.mp4", art: "video", dauer: 4, fps: 25, breite: 320, hoehe: 568, hatAudio: true, farbe: "log" },
+          { id: "broll-k-0001", pfad: "rohmaterial/kamera.mov", art: "video", dauer: 2, fps: 25, breite: 640, hoehe: 360, farbe: "log", bereich: "voll" },
+        ],
+        broll: [{ quelle: "broll-k-0001", katalog: "k-0001", t: 0.4, dauer: 0.4, von: 1, begruendung: "Zeigt die Aussage" }],
+      });
+      const broll = graph(args(p, { lut: luts })).split(";").find((z) => z.endsWith("[b0]"))!;
+      expect(broll).toContain("in_range=full:out_range=full");
+      expect(broll).toContain("lut3d=file='/l/farbe-log.cube'");
+      expect(broll).toContain("gbrp16le");
+    });
+
     it("die B-Roll bekommt den Angleich, die Grafiken nie einen Look", () => {
       const p = mitFarbe("log", {
         broll: [{ quelle: "broll-k-0001", katalog: "k-0001", t: 0.4, dauer: 0.4, von: 1, begruendung: "Zeigt die Aussage" }],
@@ -171,6 +209,11 @@ describe("vorschauArgs", () => {
   it("kodiert H.264 und AAC mit Schnellstart", () => {
     const a = args(plan());
     expect(a.join(" ")).toMatch(/-r 25\/1 -c:v libx264 -preset veryfast -crf 27 -c:a aac -b:a 128k -movflags \+faststart \/tmp\/v\.mp4$/);
+  });
+
+  it("trägt die Etiketten BT.709 und begrenzter Bereich in die Datei", () => {
+    const a = args(plan()).join(" ");
+    expect(a).toContain("-colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -r 25/1");
   });
 
   it("rechnet NTSC-Bildraten als Bruch", () => {

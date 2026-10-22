@@ -4,7 +4,7 @@ import { stueckVerlauf, stueckZahl } from "../testing/fixtures";
 import { bauePlan } from "./planbau";
 import { SchnittQuelle, type Schnittplan } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
-import { bauAuftrag, imLetztenVideo, renderOrdnerName, wendeStoryboardAn, type AnwendenKontext } from "./storyboard";
+import { bauAuftrag, brollQuelleAusKatalog, imLetztenVideo, renderOrdnerName, wendeStoryboardAn, type AnwendenKontext } from "./storyboard";
 import { testSatz as satz } from "./testdaten";
 import { liesmich } from "./uebergabe";
 import { woerterMitHerkunft } from "./untertitel";
@@ -37,6 +37,28 @@ const ctx = (extra: Partial<AnwendenKontext> = {}): AnwendenKontext => ({
 });
 const ov = (o: Record<string, unknown>) => ({ effekt: "zahl-zaehler", t: 1, dauer: 2.6, params: { wert: 7 }, begruendung: "Kennzahl im Skript, Zahl wirkt stärker als Wort", ...o });
 const broll = (key: string, t: number, dauer = 1.5) => ov({ effekt: "broll", t, dauer, params: { katalog: key }, begruendung: "Zeigt die Aussage, bringt Bildwechsel" });
+
+describe("brollQuelleAusKatalog (B-Roll aus dem Katalog)", () => {
+  const sondiert = { art: "video", dauer: 6, fps: 25, breite: 1080, hoehe: 1920 };
+  const plan = (quellen: Record<string, unknown>[]) => ({ quellen: quellen.map((q) => SchnittQuelle.parse({ art: "video", dauer: 5, fps: 25, breite: 1080, hoehe: 1920, ...q })) });
+
+  it("Log-Material aus der Kamera (Katalog: log) trägt die Farbart «log», anderes bleibt ohne Angabe", () => {
+    const log = brollQuelleAusKatalog({ schluessel: "k-0007", pfad: "b-roll/k7.mov", log: true }, sondiert, plan([]));
+    expect(log).toMatchObject({ id: "broll-k-0007", pfad: "b-roll/k7.mov", farbe: "log" });
+    const normal = brollQuelleAusKatalog({ schluessel: "k-0008", pfad: "b-roll/k8.mp4", log: false }, sondiert, plan([]));
+    expect(normal.farbe).toBeUndefined();
+    expect(normal).not.toHaveProperty("bereich");
+  });
+
+  it("der von Hand festgelegte Datenbereich des Inhalts gilt auch für Log-B-Roll, nicht für normale", () => {
+    const p = plan([{ id: "sprache-01", pfad: "a.mov", farbe: "log", bereich: "voll" }]);
+    expect(brollQuelleAusKatalog({ schluessel: "k-0007", pfad: "b-roll/k7.mov", log: true }, sondiert, p)).toMatchObject({ farbe: "log", bereich: "voll" });
+    expect(brollQuelleAusKatalog({ schluessel: "k-0008", pfad: "b-roll/k8.mp4", log: false }, sondiert, p)).not.toHaveProperty("bereich");
+    // ein Bereich an normalem Material im Plan zählt nicht (die Angabe gehört nur zu Log)
+    const ohne = plan([{ id: "sprache-01", pfad: "a.mov", farbe: "log" }]);
+    expect(brollQuelleAusKatalog({ schluessel: "k-0007", pfad: "b-roll/k7.mov", log: true }, sondiert, ohne)).not.toHaveProperty("bereich");
+  });
+});
 
 describe("renderOrdnerName und imLetztenVideo", () => {
   it("nimmt die Inhalt-ID, sonst den Projektnamen als Kennung", () => {

@@ -28,6 +28,9 @@ export interface VorschauOptionen {
   hoehe?: number;
 }
 
+/** Die Vorschau ist Rec. 709, begrenzter Bereich: So steht es in der Datei, damit Player und Browser sie so darstellen, wie sie gerechnet ist. */
+const FARB_TAGS = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"];
+
 const gerade = (x: number): number => Math.max(2, Math.round(x / 2) * 2);
 const zahl = (x: number): string => String(Math.round(x * 100000) / 100000);
 /** Pfad für den Filter `subtitles`: Doppelpunkt, Backslash und Apostroph müssen maskiert werden. */
@@ -52,13 +55,30 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     return n++;
   };
   const filter: string[] = [];
-  /** Der Look einer Videoquelle als Filter, oder nichts. */
+  /**
+   * Der Look einer Videoquelle als Filter, oder nichts.
+   * Log-Material (V-Log) wird ausdrücklich nach RGB gebracht: mit der Matrix BT.709 (ohne Angabe nähme ffmpeg bei einer Datei ohne Etikett BT.601). Danach die LUT und zurück nach BT.709,
+   * begrenzt, damit die Vorschau so aussieht wie in Resolve mit derselben LUT. Den Datenbereich, den ein Mensch festgelegt hat, setzt `deckend` schon beim ersten Skalieren (siehe dort).
+   * Normales Material bekommt wie bisher nur die LUT (die Umwandlung in RGB wählt ffmpeg selbst).
+   */
   const look = (q: { farbe?: "log" | "rec709" }): string => {
-    const datei = q.farbe === "log" ? o.lut?.log : o.lut?.angleich;
+    if (q.farbe === "log") {
+      const datei = o.lut?.log;
+      if (!datei) return "";
+      return `,scale=in_color_matrix=bt709:out_range=full,format=gbrp16le,lut3d=file='${filterPfad(datei)}',scale=out_color_matrix=bt709:out_range=limited,format=yuv420p`;
+    }
+    const datei = o.lut?.angleich;
     return datei ? `,lut3d=file='${filterPfad(datei)}'` : "";
   };
-  /** Das Bild füllt den Ausschnitt ganz (Zuschnitt statt Ränder), dann optional der Zoom. */
-  const deckend = (i: number, extra = ""): string => `[${i}:v]fps=${fpsText},scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}${extra},setsar=1`;
+  /**
+   * Das Bild füllt den Ausschnitt ganz (Zuschnitt statt Ränder), dann optional der Zoom.
+   * `bereich`: der von Hand festgelegte Datenbereich eines Log-Videos. Er muss beim **ersten** Skalieren gelten (Eingang und Ausgang gleich, also ohne Umrechnung): Schon dieses Skalieren
+   * rechnet sonst nach dem Etikett der Datei um, und ein falsches Etikett (voller Bereich, Datei sagt «tv» oder umgekehrt) wäre danach nicht mehr zu retten.
+   */
+  const deckend = (i: number, extra = "", bereich?: "voll" | "begrenzt"): string => {
+    const r = bereich === "voll" ? ":in_range=full:out_range=full" : bereich === "begrenzt" ? ":in_range=limited:out_range=limited" : "";
+    return `[${i}:v]fps=${fpsText},scale=${W}:${H}:force_original_aspect_ratio=increase${r},crop=${W}:${H}${extra},setsar=1`;
+  };
 
   // V1/A1: die Sprache
   const teile: string[] = [];
@@ -67,7 +87,7 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     const q = p.quelle;
     const i = eingang(["-ss", zahl(alsZahl(p.quellStart)), "-t", zahl(dauer + 2 / fps), "-i", o.loese(q.pfad, "quelle")]);
     const zoom = p.clip.zoom !== 1 ? `,scale=${gerade(W * p.clip.zoom)}:${gerade(H * p.clip.zoom)},crop=${W}:${H}` : "";
-    filter.push(`${deckend(i, zoom + look(q))},setpts=PTS-STARTPTS,trim=end_frame=${p.frames},setpts=PTS-STARTPTS[v${k}]`);
+    filter.push(`${deckend(i, zoom + look(q), q.farbe === "log" ? q.bereich : undefined)},setpts=PTS-STARTPTS,trim=end_frame=${p.frames},setpts=PTS-STARTPTS[v${k}]`);
     const ton = externerTon(q, quellen);
     if (ton) {
       // Sprache von der Tonaufnahme: Zeit in der Aufnahme = Zeit im Video + Versatz
@@ -96,7 +116,7 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
     if (!q) return;
     const i = eingang(["-ss", zahl(b.von), "-t", zahl(b.dauer + 2 / fps), "-i", o.loese(q.pfad, "quelle")]);
     const start = inFrames(b.t, fps) / fps;
-    filter.push(`${deckend(i, look(q))},setpts=PTS-STARTPTS+${zahl(start)}/TB[b${k}]`);
+    filter.push(`${deckend(i, look(q), q.farbe === "log" ? q.bereich : undefined)},setpts=PTS-STARTPTS+${zahl(start)}/TB[b${k}]`);
     lege(`b${k}`, b.t, b.dauer);
   });
 
@@ -130,7 +150,7 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
   }
   filter.push(`[${ton}]alimiter=limit=0.95[aout]`);
 
-  return ["-loglevel", "error", "-y", ...eingaben, "-filter_complex", filter.join(";"), "-map", "[vout]", "-map", "[aout]", "-r", fpsText, "-c:v", "libx264", "-preset", "veryfast", "-crf", "27", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", o.ausgabe];
+  return ["-loglevel", "error", "-y", ...eingaben, "-filter_complex", filter.join(";"), "-map", "[vout]", "-map", "[aout]", ...FARB_TAGS, "-r", fpsText, "-c:v", "libx264", "-preset", "veryfast", "-crf", "27", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", o.ausgabe];
 }
 
 export async function erzeugeVorschau(o: VorschauOptionen): Promise<{ datei: string; dauer: number }> {

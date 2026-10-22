@@ -15,7 +15,7 @@ import { schnittBefehl } from "./befehle";
 import { SchnittQuelle, platziere } from "./plan";
 import { leseSchnittplan } from "./plan";
 import { bestimmeFarbe, lutOrdner, schreibeLuts } from "./farbe-ablauf";
-import type { Farbart, Farbmessung } from "./farbe";
+import type { Bereich, Farbart, Farbmessung, LogProfil } from "./farbe";
 import { ordneTonZu, parseVersatzOption } from "./ton-ablauf";
 import { stoppuhr, type Stoppuhr } from "./stoppuhr";
 import { cacheDatei, fingerabdruck } from "./transkript-cache";
@@ -40,11 +40,13 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
   reel transkript <ID> [--marke key] [--aufnahmen ordner] [--modell large-v3] [--neu] [--ohne-ton-sync] [--versatz …]
                                       Ohne Skript, oder wenn es nicht stimmt: transkribiert die Videos und schreibt ergebnis/transkript.md (nummerierte Sätze mit Zeiten).
                                       Claude wählt daraus die Sätze und schreibt sie wörtlich in skript.md.
-  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--ohne-farbe] [--farbe log|rec709|auto] [--ohne-ton-sync] [--versatz 5.3 | clip=5.3;clip2=-2:aufnahme] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
+  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--ohne-farbe] [--farbe log|rec709|auto] [--profil vlog|generisch|auto] [--bereich voll|begrenzt|auto] [--belichtung Blenden|auto] [--ohne-ton-sync] [--versatz 5.3 | clip=5.3;clip2=-2:aufnahme] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
                                       Sondiert die Videos, legt getrennte Tonaufnahmen (wav, m4a, mp3 im selben Ordner) über die Videos (Versatz aus der Lautstärkekurve, oder von Hand mit --versatz;
                                       ein Versatz von Hand wird gemerkt), transkribiert mit Whisper (vorhandene Transkripte bleiben, --neu erzwingt), misst die Stille der Tonspur, ordnet das Skript zu
                                       stellt fest, ob das Material flach (Log) ist, baut daraus die LUTs für den Look der Marke (ergebnis/lut/, Schwarz- und Weisspunkt am Material gemessen; bei falschem Urteil
-                                      --farbe setzen, es wird gemerkt), ordnet das Skript zu und baut den Schnittplan. Schreibt ergebnis/gegenlesen.md. Die Untertitel nehmen das Gehörte.
+                                      --farbe setzen, es wird gemerkt). Die Marke Alperna geht von Panasonic V-Log aus (Lumix): Die LUT rechnet dann nach der Kurve des Herstellers um (--profil generisch
+                                      nimmt die Näherung aus Zahlen). Bei Log-Material meldet der Befehl den Code des dunkelsten Pixels (Datenbereich: --bereich voll|begrenzt, wenn Schwarz abgesoffen oder grau ist) und
+                                      die mittlere Helligkeit in Blenden zu 18 % Grau (--belichtung, plus = heller). Profil, Bereich und Belichtung werden gemerkt. Ordnet das Skript zu und baut den Schnittplan. Schreibt ergebnis/gegenlesen.md. Die Untertitel nehmen das Gehörte.
   reel gegenlesen <ID> [--zwischenablage | --datei antwort.json] [--nicht-kopieren] [--regeln regeln.json] [--katalog katalog.json]
                                       Claude hat gegenlesen.md gelesen und ergebnis/gegenlesen.json geschrieben (Regie, Abbrüche, Verhörer). Der Befehl wendet es auf den Plan an
                                       und schreibt ergebnis/auftrag.md fürs Storyboard (auf dem Mac auch in die Zwischenablage). Ohne gültiges Gegenlesen läuft «reel storyboard» nicht.
@@ -197,6 +199,12 @@ const ReelDatei = z.object({
   versatz: z.record(z.string(), z.object({ versatz: z.number(), ton: z.string().optional() })).optional(),
   /** Von Hand festgelegte Farbart für alle Videos (sonst wird gemessen). */
   farbe: z.enum(["log", "rec709"]).optional(),
+  /** Von Hand festgelegtes Log-Profil (sonst das der Marke). */
+  profil: z.enum(["vlog", "generisch"]).optional(),
+  /** Von Hand festgelegter Datenbereich der Log-Videos (sonst das Etikett der Datei). */
+  bereich: z.enum(["voll", "begrenzt"]).optional(),
+  /** Belichtung der V-Log-Umrechnung in Blenden (sonst die der Marke). */
+  belichtung: z.number().min(-3).max(3).optional(),
 });
 type ReelDatei = z.infer<typeof ReelDatei>;
 
@@ -535,13 +543,29 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const farbeOpt = str(a, "farbe");
   if (farbeOpt !== undefined && farbeOpt !== "log" && farbeOpt !== "rec709" && farbeOpt !== "auto") throw new Error("--farbe erwartet «log», «rec709» oder «auto»");
   const farbVorgabe: Farbart | undefined = farbeOpt === "auto" ? undefined : ((farbeOpt as Farbart | undefined) ?? alt?.farbe);
+  const profilOpt = str(a, "profil");
+  if (profilOpt !== undefined && profilOpt !== "vlog" && profilOpt !== "generisch" && profilOpt !== "auto") throw new Error("--profil erwartet «vlog», «generisch» oder «auto»");
+  const profilVonHand: LogProfil | undefined = profilOpt === "auto" ? undefined : ((profilOpt as LogProfil | undefined) ?? alt?.profil);
+  const profil: LogProfil | undefined = profilVonHand ?? marke.farbe?.logProfil;
+  const bereichOpt = str(a, "bereich");
+  if (bereichOpt !== undefined && bereichOpt !== "voll" && bereichOpt !== "begrenzt" && bereichOpt !== "auto") throw new Error("--bereich erwartet «voll», «begrenzt» oder «auto»");
+  const bereich: Bereich | undefined = bereichOpt === "auto" ? undefined : ((bereichOpt as Bereich | undefined) ?? alt?.bereich);
+  const belichtungOpt = str(a, "belichtung");
+  const belichtungZahl = belichtungOpt === undefined || belichtungOpt === "auto" ? undefined : Number(belichtungOpt.replace(",", "."));
+  if (belichtungZahl !== undefined && (!Number.isFinite(belichtungZahl) || belichtungZahl < -3 || belichtungZahl > 3)) throw new Error("--belichtung erwartet eine Zahl von -3 bis 3 (Blenden, plus = heller), zum Beispiel --belichtung -0.5");
+  const belichtung: number | undefined = belichtungOpt === "auto" ? undefined : (belichtungZahl ?? alt?.belichtung);
   let messungen = new Map<string, Farbmessung>();
   let farbeGemessen = false;
   if (a.opt["ohne-farbe"] === true) console.log("Farbe nicht gemessen (--ohne-farbe): keine LUT, das Material bleibt unverändert");
   else {
-    const fr = await uhr.messe("Farbe messen", () => bestimmeFarbe({ videos: quellen.filter((q) => q.art === "video").map((q) => ({ id: q.id, datei: gr.pfade.get(q.id)!, dauer: q.dauer })), ...(farbVorgabe ? { vorgabe: farbVorgabe } : {}) }));
+    const fr = await uhr.messe("Farbe messen", () => bestimmeFarbe({ videos: quellen.filter((q) => q.art === "video").map((q) => ({ id: q.id, datei: gr.pfade.get(q.id)!, dauer: q.dauer })), ...(farbVorgabe ? { vorgabe: farbVorgabe } : {}), ...(profil ? { profil } : {}), ...(bereich ? { bereich } : {}) }));
     for (const m of fr.meldungen) console.log(m);
-    for (const [id, f] of fr.farbart) quellen.find((q) => q.id === id)!.farbe = f;
+    for (const [id, f] of fr.farbart) {
+      const q = quellen.find((x) => x.id === id)!;
+      q.farbe = f;
+      // Der von Hand gesetzte Datenbereich gilt für das Log-Material (Vorschau und LIESMICH): normales Material bleibt beim Etikett
+      if (bereich && f === "log") q.bereich = bereich;
+    }
     messungen = fr.messungen;
     farbeGemessen = fr.farbart.size > 0;
   }
@@ -585,7 +609,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const planText = `${JSON.stringify(ergebnis.plan, null, 2)}\n`;
   fs.writeFileSync(p.planRoh, planText);
   fs.writeFileSync(p.plan, planText);
-  if (farbeGemessen) for (const m of schreibeLuts({ ergebnis: p.ergebnis, marke, quellen: ergebnis.plan.quellen, messungen }).meldungen) console.log(m);
+  if (farbeGemessen) for (const m of schreibeLuts({ ergebnis: p.ergebnis, marke, quellen: ergebnis.plan.quellen, messungen, ...(profil ? { profil } : {}), ...(belichtung !== undefined ? { belichtung } : {}) }).meldungen) console.log(m);
   else fs.rmSync(lutOrdner(p.ergebnis), { recursive: true, force: true });
   fs.rmSync(p.gegenlesenStand, { force: true });
   fs.rmSync(p.auftrag, { force: true });
@@ -604,6 +628,9 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     ...(str(a, "modell") ?? alt?.modell ? { modell: gr.modell } : {}),
     ...(str(a, "sprache") ?? alt?.sprache ? { sprache: gr.sprache } : {}),
     ...(farbVorgabe ? { farbe: farbVorgabe } : {}),
+    ...(profilVonHand ? { profil: profilVonHand } : {}),
+    ...(bereich ? { bereich } : {}),
+    ...(belichtung !== undefined ? { belichtung } : {}),
     ...versatzFelder(gr),
   });
 

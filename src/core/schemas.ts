@@ -141,7 +141,21 @@ export const Markenprofil = z.object({
    * Der Look in Zahlen (Plan v4, 1.4): `log` für flaches Material (Log), `angleich` für normales Material und B-Roll, damit beides zusammenpasst.
    * Daraus entstehen die LUTs für Vorschau und Resolve. Eine Näherung, keine Kamera-LUT.
    */
-  farbe: z.object({ log: Farblook.optional(), angleich: Farblook.optional() }).optional(),
+  farbe: z
+    .object({
+      log: Farblook.optional(),
+      angleich: Farblook.optional(),
+      /**
+       * Das Log-Profil der Kamera (Lumix S1IIE, S5II: Panasonic V-Log). «vlog» macht V-Log zur Annahme für flaches Material und baut die LUT «log» mit der
+       * Umrechnung des Herstellers (`vlog.ts`) statt aus Zahlen allein; dann gilt `vlog` als Look über der Basis. «generisch» (oder fehlend) bleibt die Näherung aus `log`.
+       */
+      logProfil: z.enum(["vlog", "generisch"]).optional(),
+      /** Der Look über der V-Log-Basis (Rec. 709): wenige Zahlen, die Basis ist schon ein normales Bild. Fehlt er, bleibt es bei der reinen Umrechnung. */
+      vlog: Farblook.optional(),
+      /** Belichtung der V-Log-Umrechnung in Blenden (plus = heller). Pro Inhalt mit `--belichtung` überschreibbar. */
+      belichtung: z.number().min(-3).max(3).optional(),
+    })
+    .optional(),
   schnittprofil: Schnittprofil.optional(),
   schlusskarte: z.object({ text: z.string(), handle: z.string().optional() }).optional(),
   hashtags: z.object({ fest: z.array(z.string()).default([]), anzahl: z.number().int().min(0).max(30) }),

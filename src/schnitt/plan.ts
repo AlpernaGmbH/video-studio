@@ -40,6 +40,11 @@ export const SchnittQuelle = z
      * Daraus wählen Vorschau und Übergabe die LUT.
      */
     farbe: z.enum(["log", "rec709"]).optional(),
+    /**
+     * Datenbereich der Videospur, wenn ein Mensch ihn festgelegt hat: «voll» (0 bis 1023) oder «begrenzt» (64 bis 940). Fehlt die Angabe, gilt das Etikett der Datei.
+     * Bei V-Log verschiebt ein falscher Bereich Schwarz und Weiss; die Messung in `reel vorbereiten` nennt dazu den Code der dunkelsten Pixel.
+     */
+    bereich: z.enum(["voll", "begrenzt"]).optional(),
   })
   .superRefine((q, ctx) => {
     if (q.art === "video") {
@@ -50,6 +55,7 @@ export const SchnittQuelle = z
     if (q.art === "audio" && !q.hatAudio) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["hatAudio"], message: "Eine Audioquelle hat Audio" });
     if (q.ton && q.art !== "video") ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["ton"], message: "Nur eine Videoquelle hat einen getrennten Ton" });
     if (q.farbe && q.art !== "video") ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["farbe"], message: "Nur eine Videoquelle hat eine Farbart" });
+    if (q.bereich && q.art !== "video") ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["bereich"], message: "Nur eine Videoquelle hat einen Datenbereich" });
   });
 export type SchnittQuelle = z.infer<typeof SchnittQuelle>;
 

@@ -154,7 +154,7 @@ export function erzeugeUebergabe(o: UebergabeOptionen): UebergabeErgebnis {
   }
 
   const dauer = sekunden(zeit.gesamtFrames, plan.projekt.fps);
-  schreibe("LIESMICH.md", liesmich({ plan, dauer, seiten, befunde, export: o.export, audio: o.audio, umgewandelt, luts: lutNamen, dateien: [...dateien, "LIESMICH.md"] }));
+  schreibe("LIESMICH.md", liesmich({ plan, dauer, seiten, befunde, export: o.export, audio: o.audio, umgewandelt, luts: lutNamen, vlog: o.luts?.log ? istVlogLut(o.luts.log) : false, dateien: [...dateien, "LIESMICH.md"] }));
   return { ordner, dateien, befunde, fehlendeDateien: fehlend, umgewandelt, dauer, untertitel: seiten };
 }
 
@@ -193,17 +193,37 @@ Der Versatz ist aus der Lautstärkekurve gemessen (auf 10 Millisekunden), ein Bi
 `;
 }
 
-/** Der Punkt «Look» unter «Danach von Hand»: mit LUTs eine Anleitung, sonst der Hinweis, dass es keine gibt. */
-function lookPunkt(plan: Schnittplan, luts: string[]): string {
+/** Ob die LUT «log» die V-Log-Umrechnung ist (der Titel in der .cube-Datei sagt es, `baueVlogCube`). */
+export function istVlogLut(datei: string): boolean {
+  try {
+    const kopf = fs.readFileSync(datei, { encoding: "utf8", flag: "r" }).slice(0, 200);
+    return /^TITLE\s+".*V-Log"/m.test(kopf);
+  } catch {
+    return false;
+  }
+}
+
+/** Der Punkt «Look» unter «Danach von Hand»: mit LUTs eine Anleitung, sonst der Hinweis, dass es keine gibt. `vlog`: Die LUT «log» ist die V-Log-Umrechnung (Panasonic). */
+function lookPunkt(plan: Schnittplan, luts: string[], vlog = false): string {
   if (!luts.length) return `- Look: Der Look der Marke ${plan.projekt.marke} sitzt auf den Kamera-Clips, nicht auf den Grafiken. Eine LUT liegt nicht bei (Markenprofil, Feld «farbe»).`;
   const log = plan.quellen.filter((q) => q.art === "video" && q.farbe === "log" && plan.clips.some((c) => c.quelle === q.id)).map((q) => q.id);
   const zeilen: string[] = [];
-  if (luts.some((n) => n.includes("log"))) zeilen.push(`  - \`lut/farbe-log.cube\` für Clips aus Log-Quellen${log.length ? ` (${log.join(", ")})` : ""}: flaches Material wird zum Bild mit Kontrast und Farbe.`);
+  if (luts.some((n) => n.includes("log"))) {
+    zeilen.push(`  - \`lut/farbe-log.cube\` für Clips aus Log-Quellen${log.length ? ` (${log.join(", ")})` : ""}: flaches Material wird zum Bild mit Kontrast und Farbe.${vlog ? " Das ist die Umrechnung von V-Log nach Rec. 709 mit der Kurve von Panasonic (V-Log/V-Gamut, Rev. 1.0) und dem Look der Marke darüber. Eingang V-Log, voller Code 0 bis 1023." : ""}`);
+    if (vlog) {
+      zeilen.push("  - Die LUT gehört in ein Projekt **ohne Farbmanagement** (Projekteinstellungen, Farbmanagement: DaVinci YRGB, nicht «Resolve Color Managed» oder ACES). Sonst rechnet Resolve schon selbst um, und die LUT wandelt ein zweites Mal.");
+      zeilen.push("  - Datenpegel des Clips prüfen (Clip-Attribute, Datenpegel «Video» oder «Voll»). Schwarz bei zugehaltenem Objektiv liegt bei Code 128 (voll) oder 173 (begrenzt). **[Vermutung]** Wie die Lumix den Bereich schreibt und etikettiert, ist an echten Clips nicht geprüft. Sieht Schwarz abgesoffen oder grau aus, den Datenpegel umstellen und dasselbe in `reel vorbereiten` mit `--bereich voll` oder `--bereich begrenzt` setzen, damit die Vorschau dazu passt.");
+      zeilen.push("  - Belichtung: Die Umrechnung legt 18 % Grau (Code 433) auf 0,41 im Bild. Ist eine Aufnahme zu hell oder zu dunkel, vor der LUT mit Offset oder Gain ausgleichen oder den Plan mit `--belichtung` (Blenden) neu bauen lassen. Der Befehl nennt die mittlere Helligkeit, eine Automatik gibt es nicht.");
+    }
+  }
   if (luts.some((n) => n.includes("angleich"))) zeilen.push("  - `lut/farbe-angleich.cube` für alle anderen Videoclips und die B-Roll: gleicht sie an den Look an, ohne sie flach zu behandeln.");
-  return `- Look: Die LUTs gehören auf die Videoclips (V1 und V2), **nie auf die Grafiken (V3)**: Die stehen in den Farben der Marke. In Resolve auf der Farbseite einen Knoten mit der LUT anlegen oder die LUT per Rechtsklick auf den Clip setzen.\n${zeilen.join("\n")}\n  - Die LUTs sind eine Näherung aus wenigen Zahlen der Marke, keine Kamera-LUT. Wer die Umrechnung des Herstellers hat (S-Log3, C-Log, Apple Log), setzt sie davor. Hauttöne am Vectorscope auf die Hautlinie legen. Die Vorschau zeigte denselben Look.`;
+  const schluss = vlog
+    ? "  - Der Look über der Umrechnung ist ein Entwurf aus wenigen Zahlen der Marke und gehört in der Vorschau von einem Menschen bestätigt. Hauttöne am Vectorscope auf die Hautlinie legen. Die Vorschau zeigte denselben Look."
+    : "  - Die LUTs sind eine Näherung aus wenigen Zahlen der Marke, keine Kamera-LUT. Wer die Umrechnung des Herstellers hat (S-Log3, C-Log, Apple Log), setzt sie davor. Hauttöne am Vectorscope auf die Hautlinie legen. Die Vorschau zeigte denselben Look.";
+  return `- Look: Die LUTs gehören auf die Videoclips (V1 und V2), **nie auf die Grafiken (V3)**: Die stehen in den Farben der Marke. In Resolve auf der Farbseite einen Knoten mit der LUT anlegen oder die LUT per Rechtsklick auf den Clip setzen.\n${zeilen.join("\n")}\n${schluss}`;
 }
 
-export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; luts?: string[]; dateien: string[] }): string {
+export function liesmich(a: { plan: Schnittplan; dauer: number; seiten: number; befunde: Befund[]; export: ExportPreset; audio: AudioPreset; umgewandelt: string[]; luts?: string[]; vlog?: boolean; dateien: string[] }): string {
   const { plan, export: e, audio } = a;
   const hinweise = a.befunde.filter((b) => b.stufe === "hinweis");
   const mbit = (e.bitrateMbit.min + e.bitrateMbit.max) / 2;
@@ -236,7 +256,7 @@ ${a.dateien
 
 ## Danach von Hand
 
-${lookPunkt(plan, a.luts ?? [])}
+${lookPunkt(plan, a.luts ?? [], a.vlog)}
 - Ton: Ziel ${audio.zielLufs} LUFS (±${audio.toleranzLu} LU) bei höchstens ${audio.spitzeDbtp} dBTP, Preset «${audio.id}».${audio.musikPegelDb !== undefined ? ` Die Musik liegt auf ${audio.musikPegelDb} dB.` : ""}
 - Grafiken ansehen: Auf V3 muss der Hintergrund transparent bleiben. Wenn er schwarz ist, die Grafik als PNG-Folge neu rendern lassen.
 

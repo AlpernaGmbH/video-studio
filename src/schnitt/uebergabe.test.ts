@@ -195,6 +195,36 @@ describe("erzeugeUebergabe mit Look (LUT)", () => {
     expect(liesmich).toContain("keine Kamera-LUT");
   });
 
+  it("eine V-Log-LUT bekommt die Anleitung dazu: ohne Farbmanagement, Datenpegel prüfen, Belichtung; und sagt nicht mehr «Näherung»", () => {
+    const w = werkstatt();
+    w.plan.quellen.find((q) => q.id === "sprache")!.farbe = "log";
+    const vlog = path.join(w.root, "luts", "farbe-log.cube");
+    fs.mkdirSync(path.dirname(vlog), { recursive: true });
+    fs.writeFileSync(vlog, 'TITLE "Alperna V-Log"\nLUT_3D_SIZE 2\n');
+    const r = lauf(w, { luts: { log: vlog, angleich: lutDatei(w.root, "farbe-angleich.cube") } });
+    const liesmich = fs.readFileSync(path.join(r.ordner, "LIESMICH.md"), "utf8");
+    expect(liesmich).toContain("Umrechnung von V-Log nach Rec. 709 mit der Kurve von Panasonic");
+    expect(liesmich).toContain("ohne Farbmanagement");
+    expect(liesmich).toContain("Code 128 (voll) oder 173 (begrenzt)");
+    expect(liesmich).toContain("[Vermutung]");
+    expect(liesmich).toContain("--bereich voll");
+    expect(liesmich).toContain("--belichtung");
+    expect(liesmich).toContain("ein Entwurf");
+    expect(liesmich).not.toContain("keine Kamera-LUT");
+    expect(liesmich).toContain("nie auf die Grafiken (V3)");
+  });
+
+  it("eine LUT «log» ohne V-Log im Titel (die Näherung aus Zahlen) bekommt die V-Log-Anleitung nicht", () => {
+    const w = werkstatt();
+    w.plan.quellen.find((q) => q.id === "sprache")!.farbe = "log";
+    const generisch = path.join(w.root, "luts", "farbe-log.cube");
+    fs.mkdirSync(path.dirname(generisch), { recursive: true });
+    fs.writeFileSync(generisch, 'TITLE "Alperna Log"\nLUT_3D_SIZE 2\n');
+    const liesmich = fs.readFileSync(path.join(lauf(w, { luts: { log: generisch } }).ordner, "LIESMICH.md"), "utf8");
+    expect(liesmich).not.toContain("ohne Farbmanagement");
+    expect(liesmich).toContain("keine Kamera-LUT");
+  });
+
   it("ohne LUT sagt die Anleitung, dass keine beiliegt, und es gibt keinen Ordner lut/", () => {
     const w = werkstatt();
     const r = lauf(w);
