@@ -1,0 +1,283 @@
+{
+  "version": 1,
+  "beschreibung": "Beispiele für die Geräte-API des Studios. Dieselbe Datei liegt in beiden Repos (alperna-tool: docs/studio/vertrag.json, video-studio: docs/studio/vertrag.json). Die Tests beider Seiten lesen sie; wer sie ändert, ändert beide.",
+  "events": {
+    "gueltig": [
+      {
+        "name": "ein Ereignis, nur Pflichtfelder",
+        "body": {
+          "events": [
+            {
+              "id": "a1",
+              "step": "whisper",
+              "state": "start",
+              "at": "2026-10-22T08:00:00.000Z"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Beginn und Ende eines Schritts mit gleicher span, Dauer, Inhalt und Detail",
+        "body": {
+          "events": [
+            {
+              "id": "b1",
+              "step": "whisper",
+              "state": "start",
+              "at": "2026-10-22T08:00:00.000Z",
+              "span": "sp-1",
+              "code": "c-1000"
+            },
+            {
+              "id": "b2",
+              "step": "whisper",
+              "state": "ok",
+              "at": "2026-10-22T08:01:31.000Z",
+              "span": "sp-1",
+              "ms": 91000,
+              "code": "c-1000",
+              "detail": { "modell": "large-v3", "dateien": 4 }
+            }
+          ]
+        }
+      },
+      {
+        "name": "Fehler eines Auftrags",
+        "body": {
+          "events": [
+            {
+              "id": "c1",
+              "step": "plan",
+              "state": "error",
+              "at": "2026-10-22T08:05:00.000Z",
+              "job": "3f8a1c2e-5b7d-4e90-8a11-0c2d4e6f8a10",
+              "detail": { "code": "ton-fehlt" }
+            }
+          ]
+        }
+      }
+    ],
+    "ungueltig": [
+      { "name": "kein events", "body": {} },
+      { "name": "leere Liste", "body": { "events": [] } },
+      { "name": "events ist keine Liste", "body": { "events": "a" } },
+      {
+        "name": "fremder Schlüssel im Umschlag",
+        "body": {
+          "events": [
+            {
+              "id": "a",
+              "step": "x",
+              "state": "ok",
+              "at": "2026-10-22T08:00:00.000Z"
+            }
+          ],
+          "device": "x"
+        }
+      }
+    ],
+    "eintrag_gueltig": [
+      {
+        "id": "a",
+        "step": "whisper",
+        "state": "start",
+        "at": "2026-10-22T08:00:00.000Z"
+      },
+      {
+        "id": "a",
+        "step": "  whisper  ",
+        "state": "ok",
+        "at": "2026-10-22T08:00:00.000Z",
+        "ms": 0
+      },
+      {
+        "id": "a",
+        "step": "x",
+        "state": "info",
+        "at": "2026-10-22T08:00:00.000Z",
+        "code": "c-99999999"
+      },
+      {
+        "id": "a",
+        "step": "x",
+        "state": "error",
+        "at": "2026-10-22T08:00:00.000Z",
+        "detail": {}
+      }
+    ],
+    "eintrag_ungueltig": [
+      {
+        "grund": "state unbekannt",
+        "eintrag": {
+          "id": "a",
+          "step": "x",
+          "state": "laeuft",
+          "at": "2026-10-22T08:00:00.000Z"
+        }
+      },
+      {
+        "grund": "id fehlt",
+        "eintrag": {
+          "step": "x",
+          "state": "ok",
+          "at": "2026-10-22T08:00:00.000Z"
+        }
+      },
+      {
+        "grund": "step fehlt",
+        "eintrag": {
+          "id": "a",
+          "state": "ok",
+          "at": "2026-10-22T08:00:00.000Z"
+        }
+      },
+      {
+        "grund": "at fehlt",
+        "eintrag": { "id": "a", "step": "x", "state": "ok" }
+      },
+      {
+        "grund": "ms negativ",
+        "eintrag": {
+          "id": "a",
+          "step": "x",
+          "state": "ok",
+          "at": "2026-10-22T08:00:00.000Z",
+          "ms": -1
+        }
+      },
+      {
+        "grund": "code in Grossbuchstaben",
+        "eintrag": {
+          "id": "a",
+          "step": "x",
+          "state": "ok",
+          "at": "2026-10-22T08:00:00.000Z",
+          "code": "C-0001"
+        }
+      },
+      {
+        "grund": "job kein uuid",
+        "eintrag": {
+          "id": "a",
+          "step": "x",
+          "state": "ok",
+          "at": "2026-10-22T08:00:00.000Z",
+          "job": "kein-uuid"
+        }
+      },
+      {
+        "grund": "detail ist eine Liste",
+        "eintrag": {
+          "id": "a",
+          "step": "x",
+          "state": "ok",
+          "at": "2026-10-22T08:00:00.000Z",
+          "detail": [1, 2]
+        }
+      }
+    ],
+    "antwort": { "accepted": 2, "duplicates": 0, "rejected": [] }
+  },
+  "contents": {
+    "gueltig": [
+      {
+        "name": "neuer Inhalt, nur Titel",
+        "body": { "title": "Hook zu Mythos" }
+      },
+      {
+        "name": "neuer Inhalt mit Stammdaten",
+        "body": {
+          "title": "Hook zu Mythos",
+          "medium": "reel",
+          "brand": "alperna",
+          "funnel": "awareness",
+          "intent": "Vertrauen",
+          "content_type": "erklaerung",
+          "pattern": "mythos"
+        }
+      },
+      {
+        "name": "Stammdaten ergänzen, ein Feld löschen",
+        "body": { "code": "c-1000", "pattern": "zahl", "funnel": null }
+      }
+    ],
+    "ungueltig": [
+      { "name": "neuer Inhalt ohne Titel", "body": { "medium": "reel" } },
+      { "name": "leerer Body", "body": {} },
+      { "name": "Titel mit einem Zeichen", "body": { "title": "A" } },
+      {
+        "name": "unbekanntes Medium",
+        "body": { "title": "Hook zu Mythos", "medium": "podcast" }
+      },
+      {
+        "name": "Marke ist kein Schlüssel",
+        "body": { "title": "Hook zu Mythos", "brand": "Alperna Gross" }
+      },
+      { "name": "Code in Grossbuchstaben", "body": { "code": "C-1000" } },
+      {
+        "name": "Status setzen",
+        "body": { "code": "c-1000", "status": "approved" }
+      },
+      {
+        "name": "Tor I setzen",
+        "body": { "code": "c-1000", "tor_i": "approved" }
+      },
+      {
+        "name": "Tor P setzen",
+        "body": { "code": "c-1000", "tor_p": "approved" }
+      },
+      { "name": "Fassung setzen", "body": { "code": "c-1000", "version": 2 } },
+      {
+        "name": "Vorschau freischalten",
+        "body": { "code": "c-1000", "preview_allowed": true }
+      },
+      {
+        "name": "Archiv setzen",
+        "body": { "code": "c-1000", "archived": true }
+      },
+      {
+        "name": "Kunde zuordnen",
+        "body": {
+          "code": "c-1000",
+          "company_id": "3f8a1c2e-5b7d-4e90-8a11-0c2d4e6f8a10"
+        }
+      },
+      {
+        "name": "Schreibfehler im Schlüssel",
+        "body": { "title": "Hook zu Mythos", "titel": "x" }
+      }
+    ],
+    "antwort_neu": {
+      "status": 201,
+      "body": { "code": "c-1000", "created": true }
+    },
+    "antwort_aenderung": {
+      "status": 200,
+      "body": { "code": "c-1000", "created": false }
+    },
+    "stand": {
+      "status": 200,
+      "body": {
+        "code": "c-1000",
+        "title": "Hook zu Mythos",
+        "medium": "reel",
+        "status": "new",
+        "tor_i": "open",
+        "tor_p": "open",
+        "version": 1,
+        "preview_allowed": false,
+        "archived": false
+      }
+    }
+  },
+  "status": {
+    "200": "angenommen",
+    "201": "neu angelegt",
+    "401": "Token fehlt, ist falsch, widerrufen oder abgelaufen: nie wiederholen, einmal melden",
+    "404": "Funktion ausgeschaltet oder Inhalt unbekannt: nie wiederholen",
+    "413": "Body zu gross: nie wiederholen",
+    "422": "Eingabe ungültig: nie wiederholen",
+    "429": "zu viele Anfragen: später wieder, mit Retry-After",
+    "503": "Datenbank nicht erreichbar: später wieder, mit Retry-After"
+  }
+}

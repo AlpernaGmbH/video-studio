@@ -22,6 +22,8 @@ import { presetsBefehl, PRESETS_HILFE } from "./presets/befehle";
 import { katalogBefehl, KATALOG_HILFE } from "./katalog/befehle";
 import { schnittBefehl, SCHNITT_HILFE } from "./schnitt/befehle";
 import { reelBefehl, REEL_HILFE } from "./schnitt/reel";
+import { toolBefehl, TOOL_HILFE } from "./studio/befehle";
+import { ausgangsordner, beendeMelder, standardMelder, standardOrt } from "./studio/standard";
 import { whisperBefehl, WHISPER_HILFE } from "./schnitt/whisper-setup";
 import { formatiere, hatFehler, initialisiere, pruefeUmgebung, studioHome, type Sonde } from "./setup";
 import { pruefeRender, messeRender, parseHfCheck } from "./motion/render-pruefung";
@@ -88,6 +90,7 @@ ${WHISPER_HILFE}
 ${REEL_HILFE}
 ${SCHNITT_HILFE}
 ${PRESETS_HILFE}
+${TOOL_HILFE}
 Umgebung: STUDIO_HOME (Studio-Ordner statt Konfiguration), STUDIO_MEDIEN (Medien-Ordner), STUDIO_DATA_DIR (Ideenprotokoll, Ereignisse; sonst <Studio-Ordner>/daten), STUDIO_LIBRARY_DIR (Motion-Bibliothek), STUDIO_HYPERFRAMES_BIN (lokales hyperframes statt npx).
 `;
 
@@ -566,10 +569,22 @@ async function main(): Promise<number> {
   if (gruppe === "marken" && sub) return markenBefehl(sub, a, env, jetzt);
   if (gruppe === "katalog" && sub) return katalogBefehl(sub, a, env);
   if (gruppe === "whisper" && sub) return whisperBefehl(sub, a);
-  if (gruppe === "reel" && sub) return reelBefehl(sub, a, env);
+  if (gruppe === "reel" && sub) {
+    // Fortschritt an das Alperna-Tool (freiwillig): Der Melder stört den Befehl nie. Vor dem Exit wartet er höchstens 1,5 s auf den Rest, der Korb behält, was dann noch aussteht.
+    const melder = standardMelder();
+    try {
+      return await reelBefehl(sub, a, env, { melder });
+    } finally {
+      await beendeMelder(melder);
+    }
+  }
+  if (gruppe === "tool" && sub) {
+    const ort = standardOrt();
+    return toolBefehl(sub, a, { ort, ausgang: ausgangsordner(ort), home });
+  }
   if (gruppe === "schnitt" && sub) return schnittBefehl(sub, a, env);
   if (gruppe === "presets" && sub) return presetsBefehl(sub, a, env);
-  console.error(`Unbekannter Befehl «${[gruppe, sub].filter(Boolean).join(" ")}».\nGruppen: init, doctor, motion, ideen, inhalte, marken, katalog, whisper, reel, schnitt, presets, pruefplatz. Alle Befehle: ./studio hilfe\nIst dein Stand alt? ./studio update`);
+  console.error(`Unbekannter Befehl «${[gruppe, sub].filter(Boolean).join(" ")}».\nGruppen: init, doctor, motion, ideen, inhalte, marken, katalog, whisper, reel, schnitt, presets, tool, pruefplatz. Alle Befehle: ./studio hilfe\nIst dein Stand alt? ./studio update`);
   return 2;
 }
 

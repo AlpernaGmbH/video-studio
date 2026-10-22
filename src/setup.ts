@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
 import { whisperProgramm } from "./schnitt/whisper";
+import { schluesselbund, toolPunkt } from "./studio/konfig";
 
 /**
  * Einrichtung je Mac. Der Code kommt per git, die Daten und Medien liegen in OneDrive im Ordner «Studio».
@@ -307,6 +308,12 @@ export function pruefeUmgebung(s: Sonde): Pruefpunkt[] {
   const nz = s.notionZielPruefen();
   if (nz) add("fehler", "Notion", nz);
   else add("ok", "Notion", "notion.json ist gültig. Zugriff hängt am Notion-Konto in Claude (Seite «Video-Studio» muss geteilt sein)");
+
+  // Das Alperna-Tool ist freiwillig: «nicht eingerichtet» ist ein Hinweis. Geprüft wird nur, was auf diesem Rechner liegt, nie das Netz.
+  p.push(toolPunkt({ dir: path.dirname(configPfad(s.env, s.userHome)), env: s.env, schluessel: schluesselbund(s.platform, (cmd, args) => {
+    const aus = s.befehl(cmd, args);
+    return aus === undefined ? { status: 1, stdout: "" } : { status: 0, stdout: aus };
+  }) }));
 
   add("hinweis", "HyperFrames", "Einmal je Mac: «npx hyperframes@0.8.164 browser ensure» und «npx hyperframes@0.8.164 telemetry disable» (wegen Kundenmaterial)");
   return p;

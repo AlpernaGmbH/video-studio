@@ -17,7 +17,8 @@ import { leseSchnittplan } from "./plan";
 import { bestimmeFarbe, lutOrdner, schreibeLuts } from "./farbe-ablauf";
 import type { Bereich, Farbart, Farbmessung, LogProfil } from "./farbe";
 import { ordneTonZu, parseVersatzOption } from "./ton-ablauf";
-import { stoppuhr, type Stoppuhr } from "./stoppuhr";
+import { stoppuhr, type SchrittEreignis, type Stoppuhr } from "./stoppuhr";
+import { alsSchritt, type Melder } from "../studio/melder";
 import { cacheDatei, fingerabdruck } from "./transkript-cache";
 import { listeTonDateien, schneideTonFenster } from "./ton-sync";
 import { pruefeSchnittplan } from "./pruefung";
@@ -66,6 +67,18 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
 
 /** Die Kennung eines Inhalts, wie sie im Schnittplan steht (`projekt.inhalt`). */
 const ID_MUSTER = /^c-\d{4}$/;
+
+/** Die Inhalt-ID eines Befehls, wenn er eine hat (für die Ereignisse an das Tool). */
+const codeVon = (a: Args): string | undefined => (a.pos[2] !== undefined && ID_MUSTER.test(a.pos[2]) ? a.pos[2] : undefined);
+
+/** Der Beobachter des Melders für eine Stoppuhr, oder keiner: Ein Melder, der kaputt ist, darf den Ablauf nie stoppen. */
+function schritteMelden(g: { melder?: Melder }, code: string | undefined): ((e: SchrittEreignis) => void) | undefined {
+  try {
+    return g.melder?.schritte(code);
+  } catch {
+    return undefined;
+  }
+}
 
 export function pruefeInhaltId(id: string | undefined): string {
   if (!id) throw new Error("Die Inhalt-ID fehlt, zum Beispiel: ./studio reel neu c-0007");
@@ -231,11 +244,13 @@ export interface ReelGeraete {
   /** Öffnet einen Ordner oder eine Datei (Finder, Browser, Player). Fehlt die Funktion, passiert nichts. */
   oeffne?: (pfad: string) => void;
   transkribiere?: typeof transkribiere;
+  /** Meldet Fortschritt an das Alperna-Tool (`src/studio/melder.ts`). Fehlt er, wird nichts gemeldet. Er kann den Ablauf nie stören. */
+  melder?: Melder;
 }
 
 const mac = process.platform === "darwin";
 
-function standardGeraete(): Required<Omit<ReelGeraete, "schreibeZwischenablage" | "oeffne">> & Pick<ReelGeraete, "schreibeZwischenablage" | "oeffne"> {
+function standardGeraete(): Required<Omit<ReelGeraete, "schreibeZwischenablage" | "oeffne" | "melder">> & Pick<ReelGeraete, "schreibeZwischenablage" | "oeffne" | "melder"> {
   return {
     liesZwischenablage: () => {
       const r = spawnSync("pbpaste", [], { encoding: "utf8" });
@@ -349,7 +364,7 @@ const schreibeStand = (datei: string, stand: TonStand): void => {
 const versatzFelder = (gr: Grundlage): { versatz?: ReelDatei["versatz"] } => (gr.versatz.size ? { versatz: Object.fromEntries(gr.versatz) } : {});
 
 /** Sondiert die Videos des Aufnahmenordners, legt getrennte Tonaufnahmen darüber und transkribiert (vorhandene Transkripte bleiben, solange weder Video noch Ton neuer sind). */
-async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>, home: StudioHome, p: ReelPfade, alt: ReelDatei | undefined, uhr: Stoppuhr = stoppuhr()): Promise<Grundlage> {
+async function holeGrundlage(a: Args, env: Umgebung, g: ReturnType<typeof standardGeraete>, home: StudioHome, p: ReelPfade, alt: ReelDatei | undefined, uhr: Stoppuhr = stoppuhr(undefined, schritteMelden(g, codeVon(a)))): Promise<Grundlage> {
   const markeKey = str(a, "marke") ?? alt?.marke ?? einzigeMarke(env);
   ladeMarke(env, markeKey);
   const aufnahmenDir = path.resolve(str(a, "aufnahmen") ?? alt?.aufnahmen ?? p.aufnahmen);
@@ -535,7 +550,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const untertitel = (str(a, "untertitel") as "gehoert" | "skript" | undefined) ?? alt?.untertitel ?? "gehoert";
   if (untertitel !== "gehoert" && untertitel !== "skript") throw new Error("--untertitel erwartet «gehoert» oder «skript»");
   const name = str(a, "name") ?? alt?.name ?? skriptTitel(skriptText, id);
-  const uhr = stoppuhr();
+  const uhr = stoppuhr(undefined, schritteMelden(g, id));
   const gr = await holeGrundlage(a, env, g, home, p, alt, uhr);
   const { quellen, transkripte } = gr;
 
@@ -879,6 +894,11 @@ function zustand(home: StudioHome, p: ReelPfade): ReelZustand {
   };
 }
 
+/** Der Stand eines Inhalts auf diesem Rechner, für den Abgleich mit dem Alperna-Tool (`./studio tool sync`). */
+export function reelStand(home: StudioHome, id: string): ReelZustand {
+  return zustand(home, reelPfade(home, id));
+}
+
 const haken = (b: boolean): string => (b ? "ja  " : "nein");
 
 async function status(a: Args): Promise<number> {
@@ -916,26 +936,33 @@ async function status(a: Args): Promise<number> {
 
 export async function reelBefehl(sub: string, a: Args, env: Umgebung, geraete: ReelGeraete = {}): Promise<number> {
   const g = { ...standardGeraete(), ...geraete };
-  switch (sub) {
-    case "neu":
-      return neu(a, env, g);
-    case "vorbereiten":
-      return vorbereiten(a, env, g);
-    case "transkript":
-      return transkript(a, env, g);
-    case "gegenlesen":
-      return gegenlesen(a, env, g);
-    case "storyboard":
-      return storyboard(a, env, g);
-    case "uebergabe":
-      return uebergabe(a, env);
-    case "messe":
-      return messe(a, env);
-    case "status":
-      return status(a);
-    default:
-      console.error(`Unbekannter Befehl «reel ${sub}»\n`);
-      console.error(REEL_HILFE);
-      return 2;
-  }
+  const lauf = async (): Promise<number> => {
+    switch (sub) {
+      case "neu":
+        return neu(a, env, g);
+      case "vorbereiten":
+        return vorbereiten(a, env, g);
+      case "transkript":
+        return transkript(a, env, g);
+      case "gegenlesen":
+        return gegenlesen(a, env, g);
+      case "storyboard":
+        return storyboard(a, env, g);
+      case "uebergabe":
+        return uebergabe(a, env);
+      case "messe":
+        return messe(a, env);
+      case "status":
+        return status(a);
+      default:
+        console.error(`Unbekannter Befehl «reel ${sub}»\n`);
+        console.error(REEL_HILFE);
+        return 2;
+    }
+  };
+  // Der ganze Befehl ist ein Schritt für das Tool. «status» und unbekannte Befehle sind keine Arbeit und werden nicht gemeldet.
+  if (!BEFEHLE_MIT_MELDUNG.has(sub)) return lauf();
+  return alsSchritt(g.melder, `reel ${sub}`, codeVon(a), lauf);
 }
+
+const BEFEHLE_MIT_MELDUNG = new Set(["neu", "vorbereiten", "transkript", "gegenlesen", "storyboard", "uebergabe", "messe"]);

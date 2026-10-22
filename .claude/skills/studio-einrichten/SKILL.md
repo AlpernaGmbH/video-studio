@@ -21,6 +21,11 @@ Der steht in `~/.config/video-studio/config.json` (ausserhalb von Repo und OneDr
 8. Notion: Claude (App oder Claude Code) braucht die Notion-Verbindung des Kontos, und die Seite «Video-Studio» muss mit dem Konto geteilt sein.
    Prüfen: eine Abfrage der Datenbank «Ideen» (`notion-query-data-sources`, `notion.json`).
 
+9. **Alperna-Tool verbinden (freiwillig).** `./studio tool status` zeigt, ob der Mac schon verbunden ist. Wenn nicht und das Tool das Studio eingeschaltet hat:
+   Ein Admin legt das Gerät im Repo `alperna-tool` an (`node scripts/studio-geraet.mjs anlegen "<Name des Macs>" mac <Admin-E-Mail>`) und gibt das Token. Dann
+   `printf %s "<Token>" | ./studio tool verbinden https://alperna-tool.vercel.app --token-stdin`. Das Token ist ein Geheimnis: nicht in Dateien, nicht in Notion, nicht in die Ausgabe schreiben.
+   Ohne Verbindung läuft alles wie bisher. Anleitung und Grenzen: `docs/studio-tool.md`.
+
 ## Wenig Platz auf dem Mac
 
 Die kleinen Daten (`daten/`: Ideenprotokoll, Standbilder) bleiben im Studio-Ordner, die grossen Ordner (`rohmaterial`, `renders`, `inspiration`) gehören bei knappem Platz auf ein Laufwerk:
