@@ -98,6 +98,26 @@ Ein Admin reiht im Tool einen Auftrag ein (Seite «Warteschlange» im Studio, au
 - **Beispiele und Grenzen** stehen in `docs/studio/vertrag.json` (`jobs`) und werden auf beiden Seiten geprüft; im Tool ist `app.studio_job_spec` die massgebende Stelle.
 - **Handy:** Wer eine Claude-Sitzung auf dem Mac vom Handy steuern will, nutzt Remote Control (`claude remote-control` im Ordner `video-studio`); das ist nicht geprüft.
 
+## Altbestand aus Notion ins Tool (Scheibe S6b)
+
+Das Tool hat keinen Zugang zu Notion. Der Altbestand (die Archivbeiträge der Datenbank «Inhalte») kommt darum **einmal** über eine Datei ins Tool, und ein **Admin** (mit Namen und 2FA) lädt sie dort hoch. Der Mac sendet dabei nichts: Weder das Gerätetoken noch ein Befehl gehen ans Tool (Regel 11), und ein Gerät setzt nie einen Status (Regel 1).
+
+1. Eine Claude-Sitzung liest die Ansichten «Inhalte» und «Marken» (Modus `view`, `notion.json`; Regel 9) und speichert beide Ergebnisse als Dateien, zum Beispiel `.cache/inhalte.json` und `.cache/marken.json`.
+2. `./studio inhalte tool-export --inhalte .cache/inhalte.json --marken .cache/marken.json --out .cache/import.json` schreibt die Importdatei und gibt Prüfsumme, Zahlen, die übersprungenen Zeilen mit Grund und Hinweise aus. Der Befehl braucht kein Netz und ändert nichts in Notion.
+3. Ein Admin öffnet im Tool `/studio/import`, lädt die Datei hoch, sieht die Vorschau (neu, vorhanden, Widersprüche) und bestätigt. Danach stehen die Beiträge im Archiv des Tools (`/studio/archiv`, nur lesen).
+
+**In der Datei:** nur das Archiv (Veröffentlicht, Ausgewertet, Verworfen) mit Code, Titel, Medium, Marke, Status, Notion-Seite, Hook-Muster und Pillar, dazu die Marken (Schlüssel, Name, Art, Gate 0 aus Notion nur als Information). Keine Texte: nicht Hook, Beleg, Winkel, Dateien, Notizen oder Seitentexte.
+
+**Nicht in der Datei, mit Absicht:**
+- die Beispielzeilen (Titel beginnt mit «Beispiel»);
+- laufende Zeilen (Neu, Pitch bereit, In Produktion, Entwurf fertig, Freigegeben, Geplant, Pausiert): Notion und der Prüfplatz bleiben bis zur Umstellung der **einzige Schreiber**, das Tool würde sonst einen zweiten Stand führen. Der Bericht nennt sie mit dem Grund;
+- jede Zeile, bei der in Notion ein Tor entschieden ist: Das Tool übernimmt keine Entscheide;
+- **Rohstoffe und Inspiration gar nicht.** Rohstoffe enthalten Privates von Mitarbeitenden (politische Haltung, Militärdienst, Studium; besonders schützenswert nach nDSG).
+
+**Im Tool beginnt jede Marke mit offenem Gate 0**, auch wenn Notion «freigegeben» zeigt: Ein Admin bestätigt es unter `/studio/marken` mit Namen. Der Import legt nur an, was es dort noch nicht gibt (Schlüssel: Notion-Seite, dann Code), überschreibt nie und bricht bei einem Widerspruch (gleicher Code, andere Notion-Seite oder umgekehrt) alles ab. Dieselbe Datei noch einmal ist ein Wiederholen und tut nichts. Der Vertrag der Datei steht in `docs/studio/vertrag.json` (`import`), dieselbe Datei wie im Tool.
+
+**Die Umstellung** (wer die laufenden Zeilen führt) ist damit nicht entschieden. Entscheidet Andrej, dass das Tool sie führt, kommt eine Option für laufende Zeilen dazu, und `abgleich.ts` hört auf, Entscheidfelder in Notion zu schreiben. Das Prüfplatz-Artifact bleibt bis dahin und wird nur mit seinem Ja abgeschaltet.
+
 ## Nicht geprüft
 
 - Die Warteschlange gegen ein echtes Tool: Alle Tests laufen gegen einen Ersatz-Server. Ob PostgREST `ST409` und `ST403` bis zum Mac durchreicht (409 und 403), zeigt erst der erste Lauf gegen die Cloud; kommen sie als 503 an, behandelt der Mac sie wie einen Ausfall und der Auftrag bleibt liegen, bis die Lease abläuft.
@@ -111,3 +131,5 @@ Ein Admin reiht im Tool einen Auftrag ein (Seite «Warteschlange» im Studio, au
 - Der macOS-Schlüsselbund: getestet ist, dass die richtigen Argumente an `security` gehen (`add-generic-password -U`, `find-generic-password -w`), nicht ein echter Zugriff.
 - Die unsichtbare Abfrage des Tokens im Terminal (`frageTokenStandard`).
 - Eine Zeitüberschreitung beim Beenden: Mit 1,5 Sekunden gewartet wird nur, wenn noch etwas im Korb liegt und die Wartezeit nicht läuft; wie sich das auf einem Rechner mit schlechtem Netz anfühlt, ist nicht gemessen.
+
+- Ein Durchlauf des Exports mit den echten Notion-Zeilen: Getestet ist er mit 98 nachgebauten Zeilen (3 Beispiele, 75 ausgewertet, 9 verworfen, 11 neu). Ob die Ansichten die Felder genau so liefern (Verknüpfung zur Marke, Hook-Muster im Winkel, Tor-Felder), zeigt erst der erste Lauf in einer Sitzung mit Notion.

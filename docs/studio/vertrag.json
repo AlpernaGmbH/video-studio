@@ -933,5 +933,708 @@
         "replayed": false
       }
     }
+  },
+  "import": {
+    "beschreibung": "Einmal-Import des Altbestands aus Notion. Der Mac schreibt die Datei (./studio inhalte tool-export), ein Admin lädt sie im Tool unter /studio/import hoch und bestätigt. Die Datei ist höchstens 512 KiB gross (eine Server Action nimmt standardmässig höchstens 1 MB an). Es geht kein Gerätetoken über diesen Weg: Der Import setzt einen Status, und ein Gerät entscheidet nie. Nur das Archiv (published, evaluated, discarded), nur Stammdaten, keine Texte, keine Tor-Entscheide. Das Tool legt an, was es noch nicht gibt (Schlüssel: notion_id, dann code), überschreibt nie und bricht bei einem Widerspruch alles ab. Marken beginnen im Tool immer mit offenem Gate 0; notion_gate0 ist nur eine Information.",
+    "schema": 1,
+    "grenzen": {
+      "max_inhalte": 500,
+      "max_marken": 100,
+      "max_bytes": 524288,
+      "stati": ["published", "evaluated", "discarded"],
+      "titel": {
+        "min": 2,
+        "max": 200
+      },
+      "markenname": {
+        "min": 2,
+        "max": 80
+      },
+      "muster_max": 60,
+      "inhaltstyp_max": 60
+    },
+    "gueltig": [
+      {
+        "name": "leere Datei",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": []
+        }
+      },
+      {
+        "name": "ein Beitrag mit Marke",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "verworfen, ohne Marke, ohne Muster und Pillar",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0005",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": null,
+              "status": "discarded",
+              "notion_id": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "pattern": null,
+              "content_type": null
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "veröffentlicht, Reel, Kundenmarke mit Änderung",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0006",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "reel",
+              "brand": "malerei-keller",
+              "status": "published",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": [
+            {
+              "key": "malerei-keller",
+              "name": "Malerei Keller",
+              "kind": "client",
+              "notion_gate0": "change"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Code mit fünf Ziffern",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-10000",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Zeitpunkt mit Offset statt Z",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T11:00:00+02:00",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      }
+    ],
+    "ungueltig": [
+      {
+        "name": "andere Version",
+        "datei": {
+          "schema": 2,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": []
+        }
+      },
+      {
+        "name": "Version fehlt",
+        "datei": {
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": []
+        }
+      },
+      {
+        "name": "Zeitpunkt ohne Zone",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22 09:00:00",
+          "contents": [],
+          "brands": []
+        }
+      },
+      {
+        "name": "Zeitpunkt mit T, aber ohne Zone",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00",
+          "contents": [],
+          "brands": []
+        }
+      },
+      {
+        "name": "Zeitpunkt kein Datum",
+        "datei": {
+          "schema": 1,
+          "created_at": "gestern",
+          "contents": [],
+          "brands": []
+        }
+      },
+      {
+        "name": "unbekanntes Feld oben",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": [],
+          "tor_i": "approved"
+        }
+      },
+      {
+        "name": "Beiträge fehlen",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "brands": []
+        }
+      },
+      {
+        "name": "Marken fehlen",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": []
+        }
+      },
+      {
+        "name": "Status new",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "new",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Status approved",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "approved",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Status paused",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "paused",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Status deutsch",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "Ausgewertet",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Tor-Entscheid im Beitrag",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "tor_i": "approved"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Fassung im Beitrag",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "version": 3
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Code zu kurz",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-12",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Code ohne Bindestrich",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Notion-Kennung zu kurz",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be18",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Notion-Kennung mit Grossbuchstaben",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3FC6BE186E9B81DF9141EBE5778A86FF",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Notion-Kennung mit Bindestrichen",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be18-6e9b-81df-9141-ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Medium unbekannt",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "podcast",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Medium deutsch",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "Reel",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Marke mit Grossbuchstaben",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "Alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Marke leer",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Titel mit einem Zeichen",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "x",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Muster leer",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Pillar leer",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": ""
+            }
+          ],
+          "brands": []
+        }
+      },
+      {
+        "name": "Beitrag kein Objekt",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": ["c-0004"],
+          "brands": []
+        }
+      },
+      {
+        "name": "Marke: Art unbekannt",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "fremd",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Marke: Gate 0 deutsch",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "freigegeben"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Marke: Schlüssel mit Grossbuchstaben",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": [
+            {
+              "key": "Alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Marke: Name mit einem Zeichen",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "A",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Marke: unbekanntes Feld",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved",
+              "company_id": "x"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Zeitpunkt mit Leerzeichen statt T",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22 09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      }
+    ]
   }
 }

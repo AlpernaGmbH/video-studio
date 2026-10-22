@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Args } from "../args";
@@ -12,6 +13,7 @@ import { medienOrdner, studioHome } from "../setup";
 import { gate0Funktion, markenNachSeite, zeileZuMarke } from "./marken";
 import { ladeStand, speichereStand } from "./stand";
 import { textBestanden, textpruefung } from "./textpruefung";
+import { baueImport, importText } from "./tool-export";
 
 /** Befehle `studio inhalte …`. Sie lesen JSON-Dateien (Ergebnis der Notion-Ansichten) und schreiben nur den lokalen Stand, nie nach Notion. */
 
@@ -30,6 +32,10 @@ export const INHALTE_HILFE = `Inhalte (Plan v3; die Sitzung holt die Zeilen und 
                                       Der Bestand für die Ideenfindung: Archiv (veröffentlicht, ausgewertet) je Pillar, Hook-Muster, Format und Plattform, und wann jeder Pillar
                                       zuletzt dran war. Mit --thema die ähnlichen Beiträge jeden Alters, mit Datum, Alter, Status und bei Verworfenen dem Grund.
                                       Zeigt, was es schon gibt; entscheiden tut ein Mensch. Leistungszahlen stehen im Cockpit «Beiträge · Archiv & Analytics».
+  inhalte tool-export --inhalte zeilen.json --marken marken.json --out import.json
+                                      Altbestand für den Einmal-Import ins Alperna-Tool als Datei: nur das Archiv (veröffentlicht, ausgewertet, verworfen), ohne Texte,
+                                      ohne Beispielzeilen, ohne laufende Zeilen und ohne Zeilen mit entschiedenem Tor, dazu die Marken. Schreibt nur die Datei und sendet nichts:
+                                      Ein Admin lädt sie im Tool unter /studio/import hoch und bestätigt. Gibt Prüfsumme, Zahlen und die übersprungenen Zeilen mit Grund aus.
   inhalte pruefung <id> (--bestanden | --nicht-bestanden) [--text "…"]
                                       Ergebnis der Prüfung eines Entwurfs (zum Beispiel Render-Prüfung) im Stand vermerken.
 `;
@@ -126,6 +132,36 @@ export function inhalteBefehl(sub: string, a: Args, env: Umgebung, jetzt: () => 
       if (max !== undefined && (!Number.isInteger(max) || max < 1)) throw new Error("--max erwartet eine ganze Zahl ab 1");
       const thema = typeof a.opt["thema"] === "string" ? a.opt["thema"] : undefined;
       console.log(JSON.stringify(archivBericht(zeilen.map((z) => zeileZuInhalt(z)), jetzt(), { thema, max }), null, 2));
+      return 0;
+    }
+    case "tool-export": {
+      const zeilen = zeilenAusAbfrage(lesJson(pflicht(a, "inhalte", "Ergebnis der Ansicht «Inhalte», Modus view")));
+      const marken = zeilenAusAbfrage(lesJson(pflicht(a, "marken", "Ergebnis der Ansicht «Marken», Modus view"))).map(zeileZuMarke);
+      const ziel = path.resolve(pflicht(a, "out", "Datei für den Import, zum Beispiel import.json"));
+      const r = baueImport(
+        zeilen.map((z) => zeileZuInhalt(z, markenNachSeite(marken))),
+        marken,
+        jetzt(),
+      );
+      const text = importText(r.datei);
+      const tmp = `${ziel}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, text);
+      fs.renameSync(tmp, ziel);
+      console.log(
+        JSON.stringify(
+          {
+            geschrieben: ziel,
+            pruefsumme: createHash("sha256").update(text).digest("hex"),
+            inhalte: r.datei.contents.length,
+            marken: r.datei.brands.length,
+            uebersprungen: r.uebersprungen,
+            hinweise: r.hinweise,
+            naechsterSchritt: "Im Tool unter /studio/import die Datei hochladen. Der Import braucht einen Admin mit 2FA und legt nur an, was es dort noch nicht gibt.",
+          },
+          null,
+          2,
+        ),
+      );
       return 0;
     }
     case "pruefung": {

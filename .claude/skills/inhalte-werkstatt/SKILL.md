@@ -50,6 +50,10 @@ Die Ausgabe zeigt, **was es schon gibt**: ähnliche Beiträge jeden Alters mit D
 - Der Überblick zeigt Zahlen und Abstände, kein Urteil. Ob ein Pillar zu kurz kommt, entscheidet ein Mensch. Leistungszahlen (Likes, Reichweite) hat dieser Befehl nicht; sie stehen im Cockpit «Beiträge · Archiv & Analytics» (`notion.json`, `archiv`). Wenn du sie brauchst, lies sie dort und nenne die Quelle, sonst gibt es keine Zahl.
 Altbeiträge gelten nie als freigegeben (kein Tor-Entscheid) und werden nicht verändert.
 
+## Altbestand ins Alperna-Tool (einmalig, nur auf Wunsch)
+
+Nur wenn ein Mensch sagt, dass der Altbestand ins Tool soll: Ansichten «Inhalte» und «Marken» lesen (Modus `view`), als Dateien speichern, dann `./studio inhalte tool-export --inhalte … --marken … --out import.json` und dem Menschen den Bericht zeigen (übersprungene Zeilen mit Grund, Hinweise, Prüfsumme). **Du lädst die Datei nicht hoch:** Ein Admin tut das im Tool unter `/studio/import`. Rohstoffe und Inspiration gehören nie in diese Datei (Privates von Mitarbeitenden). Anleitung: `docs/studio-tool.md`.
+
 ## Gate 0 ins Profil übernehmen
 
 Gate 0 gibt ein Mensch im Prüfplatz frei (Ansicht «Marken»). Damit der finale Export freigeschaltet wird, muss das Profil im Repo nachziehen:

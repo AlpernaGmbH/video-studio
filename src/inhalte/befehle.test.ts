@@ -1,11 +1,13 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseArgs } from "../args";
 import { umgebung, type Umgebung } from "../motion/werkstatt";
-import { inhalteBefehl, markenBefehl } from "./befehle";
+import { INHALTE_HILFE, inhalteBefehl, markenBefehl } from "./befehle";
 import { ladeStand } from "./stand";
+import { ImportDateiSchema } from "./tool-export";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..");
 let tmp: string;
@@ -223,5 +225,107 @@ describe("inhalte material", () => {
     } finally {
       if (altConfig === undefined) delete process.env["STUDIO_CONFIG"]; else process.env["STUDIO_CONFIG"] = altConfig;
     }
+  });
+});
+
+describe("inhalte tool-export", () => {
+  const seite = (i: number): string => i.toString(16).padStart(32, "0");
+  /** 98 Zeilen wie in Notion: 3 Beispiele, 95 Altbeiträge (75 ausgewertet, 9 verworfen, 11 neu). */
+  const notion = () => {
+    const zeilen: Record<string, unknown>[] = [];
+    for (let n = 1; n <= 98; n++) {
+      const status = n <= 3 ? (n === 3 ? "Entwurf fertig" : "Pitch bereit") : n <= 78 ? "Ausgewertet" : n <= 87 ? "Verworfen" : "Neu";
+      zeilen.push(
+        zeile({
+          url: `https://app.notion.com/p/${seite(n)}`,
+          "Inhalt-ID": `c-${String(n).padStart(4, "0")}`,
+          Titel: n <= 3 ? `Beispiel: Zeile ${n}` : `Beitrag ${n}`,
+          Format: n % 2 ? "LinkedIn-Post" : "Reel",
+          Status: status,
+          Winkel: "Pillar: B Gruender-Journey · Hook-Muster: Curiosity Gap · CTA: keiner",
+          "Tor I Entscheid": "",
+          "Tor P Entscheid": "",
+        }),
+      );
+    }
+    return { results: zeilen, has_more: false };
+  };
+  const dateien = (): { z: string; m: string; out: string } => ({ z: schreibe("zeilen.json", notion()), m: schreibe("marken.json", marken()), out: path.join(tmp, "import.json") });
+
+  it("schreibt die Datei: 84 Beiträge (75 ausgewertet, 9 verworfen), die 3 Beispiele und die 11 laufenden Zeilen bleiben draussen, mit Grund", () => {
+    const { z, m, out } = dateien();
+    expect(lauf("inhalte", "tool-export", "--inhalte", z, "--marken", m, "--out", out)).toBe(0);
+    const bericht = json();
+    expect(bericht).toMatchObject({ geschrieben: out, inhalte: 84, marken: 1 });
+    expect(bericht.uebersprungen).toHaveLength(14);
+    expect(bericht.uebersprungen.filter((u: { grund: string }) => u.grund === "Beispielzeile").map((u: { id: string }) => u.id)).toEqual(["c-0001", "c-0002", "c-0003"]);
+    expect(bericht.uebersprungen.filter((u: { grund: string }) => u.grund.startsWith("Laufende Arbeit"))).toHaveLength(11);
+    expect(bericht.hinweise).toEqual([]);
+    expect(bericht.naechsterSchritt).toContain("/studio/import");
+
+    const datei = ImportDateiSchema.parse(JSON.parse(fs.readFileSync(out, "utf8")));
+    expect(datei.contents).toHaveLength(84);
+    expect(datei.contents.filter((c) => c.status === "evaluated")).toHaveLength(75);
+    expect(datei.contents.filter((c) => c.status === "discarded")).toHaveLength(9);
+    expect(datei.contents.every((c) => c.brand === "alperna" && c.pattern === "Curiosity Gap" && c.content_type === "B Gruender-Journey")).toBe(true);
+    expect(datei.contents[0]).toMatchObject({ code: "c-0004", notion_id: seite(4), medium: "reel" });
+    expect(datei.brands).toEqual([{ key: "alperna", name: "Alperna", kind: "own", notion_gate0: "open" }]);
+  });
+
+  it("Besonderheiten stehen als Hinweise im Bericht: eine Marke, die sich nicht auflösen lässt", () => {
+    const z = schreibe("zeilen.json", { results: [zeile({ Status: "Ausgewertet", "Inhalt-ID": "c-0004", Marke: '["https://app.notion.com/p/00000000000000000000000000000000"]', "Tor I Entscheid": "", "Tor P Entscheid": "" })] });
+    const m = schreibe("marken.json", marken());
+    const out = path.join(tmp, "import.json");
+    expect(lauf("inhalte", "tool-export", "--inhalte", z, "--marken", m, "--out", out)).toBe(0);
+    const bericht = json();
+    expect(bericht.inhalte).toBe(1);
+    expect(bericht.hinweise).toHaveLength(1);
+    expect(bericht.hinweise[0]).toContain("c-0004");
+    expect(ImportDateiSchema.parse(JSON.parse(fs.readFileSync(out, "utf8"))).contents[0]!.brand).toBeNull();
+  });
+
+  it("die Prüfsumme im Bericht ist die der Datei, und es bleibt keine halbe Datei liegen", () => {
+    const { z, m, out } = dateien();
+    lauf("inhalte", "tool-export", "--inhalte", z, "--marken", m, "--out", out);
+    expect(json().pruefsumme).toBe(createHash("sha256").update(fs.readFileSync(out)).digest("hex"));
+    expect(fs.readdirSync(tmp).filter((f) => f.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("zweimal gleich: dieselbe Datei, dieselbe Prüfsumme (der Zeitpunkt kommt von aussen)", () => {
+    const { z, m, out } = dateien();
+    lauf("inhalte", "tool-export", "--inhalte", z, "--marken", m, "--out", out);
+    const erste = json().pruefsumme;
+    ausgabe.length = 0;
+    lauf("inhalte", "tool-export", "--inhalte", z, "--marken", m, "--out", out);
+    expect(json().pruefsumme).toBe(erste);
+  });
+
+  it("eine vorhandene Datei wird ersetzt", () => {
+    const { z, m, out } = dateien();
+    fs.writeFileSync(out, "alt");
+    lauf("inhalte", "tool-export", "--inhalte", z, "--marken", m, "--out", out);
+    expect(fs.readFileSync(out, "utf8")).not.toBe("alt");
+  });
+
+  it.each([
+    ["--out fehlt", (z: string, m: string) => ["--inhalte", z, "--marken", m]],
+    ["--marken fehlt", (z: string, _m: string, out: string) => ["--inhalte", z, "--out", out]],
+    ["--inhalte fehlt", (_z: string, m: string, out: string) => ["--marken", m, "--out", out]],
+  ])("%s: Fehler mit Hinweis, nichts geschrieben", (_n, args) => {
+    const { z, m, out } = dateien();
+    expect(() => lauf("inhalte", "tool-export", ...args(z, m, out))).toThrow(/fehlt/);
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it("sendet nichts: kein Netzaufruf (Regel 11)", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("kein Netz erlaubt"));
+    const { z, m, out } = dateien();
+    lauf("inhalte", "tool-export", "--inhalte", z, "--marken", m, "--out", out);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("die Hilfe nennt den Befehl", () => {
+    expect(INHALTE_HILFE).toContain("inhalte tool-export");
+    expect(INHALTE_HILFE).toContain("/studio/import");
   });
 });
