@@ -8,6 +8,9 @@ import { z } from "zod";
 /** Der Umschlag einer Sendung: 1 bis 50 Einträge, sonst nichts. Jeden Eintrag prüft das Tool einzeln. */
 export const SendungSchema = z.strictObject({ events: z.array(z.unknown()).min(1).max(50) });
 
+/** Die Medien, die das Tool kennt (dieselbe Liste steht in `docs/studio/vertrag.json` und im Tool in `lib/studio/constants.ts`). */
+export const MEDIEN: readonly string[] = ["reel", "carousel", "linkedin_post", "blog", "google_post", "story", "other", "unclear"];
+
 const ZUSTAENDE = ["start", "ok", "error", "info"];
 const TAG = 24 * 3600_000;
 

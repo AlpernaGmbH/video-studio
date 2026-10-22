@@ -36,7 +36,10 @@
               "span": "sp-1",
               "ms": 91000,
               "code": "c-1000",
-              "detail": { "modell": "large-v3", "dateien": 4 }
+              "detail": {
+                "modell": "large-v3",
+                "dateien": 4
+              }
             }
           ]
         }
@@ -51,16 +54,31 @@
               "state": "error",
               "at": "2026-10-22T08:05:00.000Z",
               "job": "3f8a1c2e-5b7d-4e90-8a11-0c2d4e6f8a10",
-              "detail": { "code": "ton-fehlt" }
+              "detail": {
+                "code": "ton-fehlt"
+              }
             }
           ]
         }
       }
     ],
     "ungueltig": [
-      { "name": "kein events", "body": {} },
-      { "name": "leere Liste", "body": { "events": [] } },
-      { "name": "events ist keine Liste", "body": { "events": "a" } },
+      {
+        "name": "kein events",
+        "body": {}
+      },
+      {
+        "name": "leere Liste",
+        "body": {
+          "events": []
+        }
+      },
+      {
+        "name": "events ist keine Liste",
+        "body": {
+          "events": "a"
+        }
+      },
       {
         "name": "fremder Schlüssel im Umschlag",
         "body": {
@@ -133,7 +151,11 @@
       },
       {
         "grund": "at fehlt",
-        "eintrag": { "id": "a", "step": "x", "state": "ok" }
+        "eintrag": {
+          "id": "a",
+          "step": "x",
+          "state": "ok"
+        }
       },
       {
         "grund": "ms negativ",
@@ -176,13 +198,19 @@
         }
       }
     ],
-    "antwort": { "accepted": 2, "duplicates": 0, "rejected": [] }
+    "antwort": {
+      "accepted": 2,
+      "duplicates": 0,
+      "rejected": []
+    }
   },
   "contents": {
     "gueltig": [
       {
         "name": "neuer Inhalt, nur Titel",
-        "body": { "title": "Hook zu Mythos" }
+        "body": {
+          "title": "Hook zu Mythos"
+        }
       },
       {
         "name": "neuer Inhalt mit Stammdaten",
@@ -198,42 +226,91 @@
       },
       {
         "name": "Stammdaten ergänzen, ein Feld löschen",
-        "body": { "code": "c-1000", "pattern": "zahl", "funnel": null }
+        "body": {
+          "code": "c-1000",
+          "pattern": "zahl",
+          "funnel": null
+        }
       }
     ],
     "ungueltig": [
-      { "name": "neuer Inhalt ohne Titel", "body": { "medium": "reel" } },
-      { "name": "leerer Body", "body": {} },
-      { "name": "Titel mit einem Zeichen", "body": { "title": "A" } },
+      {
+        "name": "neuer Inhalt ohne Titel",
+        "body": {
+          "medium": "reel"
+        }
+      },
+      {
+        "name": "leerer Body",
+        "body": {}
+      },
+      {
+        "name": "Titel mit einem Zeichen",
+        "body": {
+          "title": "A"
+        }
+      },
       {
         "name": "unbekanntes Medium",
-        "body": { "title": "Hook zu Mythos", "medium": "podcast" }
+        "body": {
+          "title": "Hook zu Mythos",
+          "medium": "podcast"
+        }
       },
       {
         "name": "Marke ist kein Schlüssel",
-        "body": { "title": "Hook zu Mythos", "brand": "Alperna Gross" }
+        "body": {
+          "title": "Hook zu Mythos",
+          "brand": "Alperna Gross"
+        }
       },
-      { "name": "Code in Grossbuchstaben", "body": { "code": "C-1000" } },
+      {
+        "name": "Code in Grossbuchstaben",
+        "body": {
+          "code": "C-1000"
+        }
+      },
       {
         "name": "Status setzen",
-        "body": { "code": "c-1000", "status": "approved" }
+        "body": {
+          "code": "c-1000",
+          "status": "approved"
+        }
       },
       {
         "name": "Tor I setzen",
-        "body": { "code": "c-1000", "tor_i": "approved" }
+        "body": {
+          "code": "c-1000",
+          "tor_i": "approved"
+        }
       },
       {
         "name": "Tor P setzen",
-        "body": { "code": "c-1000", "tor_p": "approved" }
+        "body": {
+          "code": "c-1000",
+          "tor_p": "approved"
+        }
       },
-      { "name": "Fassung setzen", "body": { "code": "c-1000", "version": 2 } },
+      {
+        "name": "Fassung setzen",
+        "body": {
+          "code": "c-1000",
+          "version": 2
+        }
+      },
       {
         "name": "Vorschau freischalten",
-        "body": { "code": "c-1000", "preview_allowed": true }
+        "body": {
+          "code": "c-1000",
+          "preview_allowed": true
+        }
       },
       {
         "name": "Archiv setzen",
-        "body": { "code": "c-1000", "archived": true }
+        "body": {
+          "code": "c-1000",
+          "archived": true
+        }
       },
       {
         "name": "Kunde zuordnen",
@@ -244,16 +321,25 @@
       },
       {
         "name": "Schreibfehler im Schlüssel",
-        "body": { "title": "Hook zu Mythos", "titel": "x" }
+        "body": {
+          "title": "Hook zu Mythos",
+          "titel": "x"
+        }
       }
     ],
     "antwort_neu": {
       "status": 201,
-      "body": { "code": "c-1000", "created": true }
+      "body": {
+        "code": "c-1000",
+        "created": true
+      }
     },
     "antwort_aenderung": {
       "status": 200,
-      "body": { "code": "c-1000", "created": false }
+      "body": {
+        "code": "c-1000",
+        "created": false
+      }
     },
     "stand": {
       "status": 200,
@@ -279,5 +365,15 @@
     "422": "Eingabe ungültig: nie wiederholen",
     "429": "zu viele Anfragen: später wieder, mit Retry-After",
     "503": "Datenbank nicht erreichbar: später wieder, mit Retry-After"
-  }
+  },
+  "medien": [
+    "reel",
+    "carousel",
+    "linkedin_post",
+    "blog",
+    "google_post",
+    "story",
+    "other",
+    "unclear"
+  ]
 }

@@ -2,13 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { baueEreignis } from "./melder";
-import { ereignisFehler, SendungSchema } from "./vertrag";
+import { ereignisFehler, MEDIEN, SendungSchema } from "./vertrag";
 
 interface Fall {
   name: string;
   body: unknown;
 }
 const vertrag = JSON.parse(fs.readFileSync(path.join(__dirname, "../../docs/studio/vertrag.json"), "utf8")) as {
+  medien: string[];
   events: { gueltig: Fall[]; ungueltig: Fall[]; eintrag_gueltig: unknown[]; eintrag_ungueltig: { grund: string; eintrag: unknown }[] };
 };
 const JETZT = Date.parse("2026-10-22T09:00:00.000Z");
@@ -71,5 +72,11 @@ describe("Was der Melder baut, nimmt das Tool an", () => {
       const e = baueEreignis({ ...eingabe, at }, id, jetzt)!;
       expect(e).toEqual({ ...eintrag, step: eintrag.step.trim() });
     }
+  });
+});
+
+describe("Vertrag mit dem Tool: Medien", () => {
+  it("die Liste im Code ist die des Vertrags (und damit die der Datenbank)", () => {
+    expect([...MEDIEN]).toEqual(vertrag.medien);
   });
 });

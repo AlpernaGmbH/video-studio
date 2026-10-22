@@ -17,7 +17,7 @@ interface Anfrage {
   method: string;
   url: string;
   authorization?: string;
-  body?: { events: { step: string; state: string; code?: string; detail?: Record<string, unknown> }[] };
+  body?: { events: { step: string; state: string; code?: string; detail?: Record<string, unknown> }[] } & Record<string, unknown>;
 }
 let tmp: string;
 let srv: http.Server;
@@ -45,7 +45,7 @@ beforeEach(async () => {
       anfragen.push(a);
       const r = antwort(a);
       res.writeHead(r.status, { "content-type": "application/json" });
-      res.end(JSON.stringify(r.body ?? { accepted: a.body?.events.length ?? 0, duplicates: 0, rejected: [] }));
+      res.end(JSON.stringify(r.body ?? { accepted: a.body?.events?.length ?? 0, duplicates: 0, rejected: [] }));
     });
   });
   await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
@@ -298,6 +298,78 @@ describe("tool sync", () => {
     await new Promise<void>((r) => srv.close(() => r()));
     expect(await lauf("tool sync c-0007", deps({ home }))).toBe(1);
     expect(fehler.join("\n")).toMatch(/nicht erreichbar/);
+    srv = http.createServer();
+    await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
+  });
+});
+
+describe("tool inhalt neu", () => {
+  beforeEach(async () => {
+    await lauf(`tool verbinden ${url} --token-stdin`);
+    anfragen.length = 0;
+    ausgabe.length = 0;
+  });
+
+  it("legt einen Inhalt an, nennt den Code und den nächsten Schritt, und sagt, dass Freigeben ein Mensch tut", async () => {
+    antwort = () => ({ status: 201, body: { code: "c-1000", created: true } });
+    expect(await lauf(`tool inhalt neu Küche-Gossau --medium reel --marke alperna --funnel awareness --absicht Vertrauen --typ erklaerung --muster mythos`)).toBe(0);
+    expect(anfragen).toHaveLength(1);
+    expect(anfragen[0]).toMatchObject({ method: "POST", url: "/api/studio-geraet/contents", authorization: `Bearer ${TOKEN}` });
+    expect(anfragen[0]!.body).toEqual({ title: "Küche-Gossau", medium: "reel", brand: "alperna", funnel: "awareness", intent: "Vertrauen", content_type: "erklaerung", pattern: "mythos" });
+    expect(alles()).toContain("Angelegt: c-1000");
+    expect(alles()).toContain("Freigeben kann nur ein Mensch");
+    expect(alles()).toContain("./studio reel neu c-1000 --marke alperna --zwischenablage");
+  });
+
+  it("sendet nur, was angegeben ist, und nie Status, Tore oder Fassung", async () => {
+    antwort = () => ({ status: 201, body: { code: "c-1001", created: true } });
+    await lauf("tool inhalt neu Nur-Titel");
+    expect(anfragen[0]!.body).toEqual({ title: "Nur-Titel" });
+    expect(JSON.stringify(anfragen[0]!.body)).not.toMatch(/status|tor_|version|archived|preview/);
+  });
+
+  it("der Titel darf Leerzeichen haben, wenn er als ein Argument kommt", async () => {
+    antwort = () => ({ status: 201, body: { code: "c-1002", created: true } });
+    const a = parseArgs(["tool", "inhalt", "neu", "Küche in Gossau"]);
+    expect(await toolBefehl("inhalt", a, deps())).toBe(0);
+    expect(anfragen[0]!.body?.["title"]).toBe("Küche in Gossau");
+  });
+
+  it.each([
+    ["ohne Titel", "tool inhalt neu", 2],
+    ["mit unbekanntem Medium", "tool inhalt neu Titel --medium podcast", 2],
+    ["mit unbekannter Unterfunktion", "tool inhalt loeschen c-1000", 2],
+  ])("%s: Exit-Code %i, kein Netzaufruf", async (_n, befehl, rc) => {
+    expect(await lauf(befehl)).toBe(rc);
+    expect(anfragen).toHaveLength(0);
+  });
+
+  it("das Tool lehnt ab (422): die Gründe stehen in der Ausgabe", async () => {
+    antwort = () => ({ status: 422, body: { error: "Ungültige Daten.", issues: [{ path: "brand", message: "Invalid" }] } });
+    expect(await lauf("tool inhalt neu Titel --marke Alperna-Gross")).toBe(1);
+    expect(alles()).toMatch(/brand: Invalid/);
+  });
+
+  it.each([
+    [401, /lehnt das Token ab/],
+    [404, /ausgeschaltet/],
+    [503, /antwortete 503/],
+  ])("Status %i: Exit-Code 1 mit Grund", async (status, muster) => {
+    antwort = () => ({ status });
+    expect(await lauf("tool inhalt neu Titel")).toBe(1);
+    expect(alles()).toMatch(muster);
+  });
+
+  it("ohne Verbindung: Exit-Code 1", async () => {
+    expect(await lauf("tool inhalt neu Titel", deps({ ort: { ...ort(), dir: path.join(tmp, "leer"), schluessel: { ...bund, lies: () => undefined } } }))).toBe(1);
+    expect(anfragen).toHaveLength(0);
+  });
+
+  it("das Tool ist nicht erreichbar: Exit-Code 1, kein Wurf", async () => {
+    srv.closeAllConnections();
+    await new Promise<void>((r) => srv.close(() => r()));
+    expect(await lauf("tool inhalt neu Titel")).toBe(1);
+    expect(alles()).toMatch(/nicht erreichbar/);
     srv = http.createServer();
     await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
   });

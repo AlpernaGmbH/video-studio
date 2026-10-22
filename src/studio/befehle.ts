@@ -4,6 +4,7 @@ import type { StudioHome } from "../setup";
 import { pruefeInhaltId, reelStand } from "../schnitt/reel";
 import { geraeteIdAusToken, ladeToolKonfig, pruefeToken, pruefeUrl, speichereToolKonfig, trenneTool, type KonfigOrt, type ToolKonfig } from "./konfig";
 import { ENDPUNKT, entsperre, erzeugeMelder, setzeWartezeitZurueck } from "./melder";
+import { MEDIEN } from "./vertrag";
 
 export const TOOL_HILFE = `Alperna-Tool (Fortschritt der Arbeit sichtbar machen; freiwillig, ohne Tool läuft alles wie bisher)
   tool verbinden <Adresse> [--token-stdin]   Geräte-Token im Schlüsselbund ablegen und die Verbindung prüfen. Das Token kommt von «node scripts/studio-geraet.mjs anlegen» im Repo alperna-tool.
@@ -11,6 +12,8 @@ export const TOOL_HILFE = `Alperna-Tool (Fortschritt der Arbeit sichtbar machen;
   tool status                         Verbunden? Wie viele Ereignisse warten im Ausgangskorb, wie viele wurden abgelehnt?
   tool senden                         Den Ausgangskorb jetzt senden (auch wenn gerade Wartezeit gilt)
   tool sync <ID>                      Stand eines Inhalts aus dem Tool lesen und den Stand dieses Rechners melden
+  tool inhalt neu "<Titel>" [--medium reel] [--marke key] [--funnel …] [--absicht …] [--typ …] [--muster …]
+                                      Einen neuen Inhalt im Tool anlegen (Status «Neu», Tore offen); der Code (c-1000, c-1001 …) ist die ID für «reel neu»
   tool trennen                        Token und Adresse löschen (der Ausgangskorb bleibt)
 `;
 
@@ -223,6 +226,48 @@ export async function toolBefehl(sub: string, a: Args, d: ToolDeps): Promise<num
       await m.leeren(8000);
       aus(m.stand().wartend ? "Der Stand dieses Rechners wartet im Ausgangskorb." : "Der Stand dieses Rechners ist gemeldet.");
       return 0;
+    }
+    case "inhalt": {
+      if (a.pos[2] !== "neu") {
+        fehl(`Unbekannter Befehl «tool inhalt ${a.pos[2] ?? ""}»\n\n${TOOL_HILFE}`);
+        return 2;
+      }
+      const titel = a.pos[3]?.trim();
+      if (!titel) {
+        fehl('Der Titel fehlt, zum Beispiel: ./studio tool inhalt neu "Küche Gossau" --medium reel');
+        return 2;
+      }
+      const medium = typeof a.opt["medium"] === "string" ? a.opt["medium"] : undefined;
+      if (medium !== undefined && !MEDIEN.includes(medium)) {
+        fehl(`Unbekanntes Medium «${medium}». Erlaubt: ${MEDIEN.join(", ")}`);
+        return 2;
+      }
+      const text = (n: string): string | undefined => (typeof a.opt[n] === "string" && a.opt[n] !== "" ? (a.opt[n] as string) : undefined);
+      const body = { title: titel, ...(medium ? { medium } : {}), ...(text("marke") ? { brand: text("marke") } : {}), ...(text("funnel") ? { funnel: text("funnel") } : {}), ...(text("absicht") ? { intent: text("absicht") } : {}), ...(text("typ") ? { content_type: text("typ") } : {}), ...(text("muster") ? { pattern: text("muster") } : {}) };
+      const g = ladeToolKonfig(d.ort);
+      if (!g.konfig) {
+        fehl(g.hinweis ?? "Nicht mit dem Tool verbunden: ./studio tool verbinden <Adresse> --token-stdin");
+        return 1;
+      }
+      try {
+        const r = await anfrage(g.konfig, f, "/api/studio-geraet/contents", { method: "POST", body });
+        if (r.status === 201 || r.status === 200) {
+          const code = (r.json as { code?: string }).code;
+          aus(`Angelegt: ${code}, «${titel}». Status «Neu», Tor I und Tor P offen: Freigeben kann nur ein Mensch im Tool.`);
+          aus(`Weiter mit: ./studio reel neu ${code} --marke ${text("marke") ?? "<Marke>"} --zwischenablage`);
+          return 0;
+        }
+        if (r.status === 401) fehl(VERBINDUNGSTEXT.abgelehnt);
+        else if (r.status === 404) fehl(VERBINDUNGSTEXT.aus);
+        else if (r.status === 422) {
+          const j = r.json as { error?: string; issues?: { path: string; message: string }[] };
+          fehl(`Das Tool lehnt die Angaben ab: ${j.issues?.length ? j.issues.map((i) => `${i.path || "Angaben"}: ${i.message}`).join("; ") : (j.error ?? "ungültig")}`);
+        } else fehl(`Das Tool antwortete ${r.status}.`);
+        return 1;
+      } catch {
+        fehl(VERBINDUNGSTEXT["nicht-erreichbar"]);
+        return 1;
+      }
     }
     case "trennen": {
       trenneTool(d.ort);

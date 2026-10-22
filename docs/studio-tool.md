@@ -51,6 +51,8 @@ Am Ende eines `reel`-Befehls wartet der Mac höchstens 1,5 Sekunden auf den Rest
 ./studio tool verbinden <Adresse> [--token-stdin]
 ./studio tool status
 ./studio tool senden        # Korb jetzt senden, auch während einer Wartezeit
+./studio tool inhalt neu "Titel" [--medium reel] [--marke key] [--funnel …] [--absicht …] [--typ …] [--muster …]
+                            # neuen Inhalt im Tool anlegen (Status «Neu», Tore offen); der Code ist die ID für «reel neu»
 ./studio tool sync <ID>     # Stand im Tool lesen und den Stand dieses Rechners melden (nur Ja und Nein und Zahlen)
 ./studio tool trennen       # Token und Adresse löschen, der Korb bleibt
 ```
