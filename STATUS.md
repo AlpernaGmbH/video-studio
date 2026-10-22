@@ -6,6 +6,15 @@ Phase 0 des Bauplans (Tests T1 bis T6) ist **nicht** gelaufen, weil sie M4/M5-Ma
 `npm run check`: 1276 Tests in 78 Dateien grün (3 übersprungen, brauchen Apples DTD und Python mit OpenTimelineIO), Lint der Bibliothek ohne Fehler. `npm run selftest:render`: besteht (Linux, siehe «Gemessen»).
 Prüfplatz: `scripts/pruefplatz-test.cjs` (Headless-Chrome, nachgebautes Notion, Modus `view`), 14 Prüfungen bestanden. Er gehört nicht zu `npm run check`, weil er Playwright braucht.
 
+## Entscheide von Andrej am 22.10.2026
+
+- **Kamera:** Lumix S1IIE und S5II (gleicher Sensor), Profil **V-Log**. Clips liefert er noch nicht: Alles, was vom echten Material abhängt (Datenbereich, Etikett, Belichtung), bleibt bis dahin Annahme (Test T11).
+- **Regel 2 «Looks je Familie»:** Auf seine erste Antwort («bro was redest du checke ihc ned») habe ich die Frage einfach gestellt: «Für eine Gruppe gleicher Grafiken (zum Beispiel Handy-Mockups) zeige ich einmal drei Stile, du wählst einen, danach entstehen alle Stücke der Gruppe in diesem Stil.» Seine Antwort: **«Ja, je Gruppe».** Damit gilt Regel 2 seit 22.10.2026 je Familie (`CLAUDE.md`). Jedes Stück wird weiterhin einzeln abgenommen (Regel 1).
+- **Schnittprofil Alperna** (Pause 0,4 s, Einstellung bis 5 s, Zoom höchstens 4 je Minute, Mindest-Clip 0,7 s): «ja gut». Das ersetzt die offene Gate-0-Bestätigung der neuen Werte.
+- **Datenmodell** (Plan v4, Anhang B) und **Phase 2 (Studio im Alperna-Tool)**: «ja machen». Phase 2 war im Plan an das Urteil «sieht hochwertig aus» geknüpft; dieses Urteil steht aus, Andrej hat die Phase trotzdem freigegeben.
+- **Entscheider im Tool:** nur Admins (Andrej, Leander). Mitarbeitende sehen alles und schreiben Notizen.
+- Nichts davon gibt Claude frei: Einspielen der Datenbank-Migration, `NEXT_PUBLIC_FEATURE_STUDIO=1` auf Vercel, Merge auf `main` des Tools und das Abschalten des Prüfplatz-Artifacts brauchen jeweils ein eigenes Ja.
+
 ## Plan v4 (21.10.2026): Stand der Phase 1 (Schnittqualität)
 
 Auslöser war der erste echte Testlauf: Das Video wirkte billig (hektisch, 40 Zooms in 30 s, abgeschnittene Sätze, Regieanweisungen im Bild, Skripttext statt Gesprochenem in den Untertiteln). Entscheid: nur ruhig und hochwertig, Tempo ist nicht das Problem.
@@ -30,7 +39,7 @@ Auslöser war der erste echte Testlauf: Das Video wirkte billig (hektisch, 40 Zo
 - Der Look ist eine **Näherung aus Zahlen** (Startwerte, Vermutung), keine Kamera-LUT: Welche Kamera und welches Log-Profil das Material hat, ist nicht bekannt, die Umrechnung des Herstellers fehlt. Die Schwellen der Log-Erkennung (Sättigung unter 0,08 und Helligkeitsspanne unter 0,45) sind Annahmen (T10). Hauttöne richtet ein Mensch am Vectorscope aus. Wie das Ergebnis aussieht, ist nie gesehen worden: Bilder kann ich nicht ansehen, nur messen.
 - Die Aufnahme wird pro Video als Stück transkribiert: Läuft eine lange Aufnahme über mehrere Videos, hört Whisper jedes Stück einzeln (dafür nie mehr als die Länge der Videos).
 
-**Noch offen in Phase 1:** 1.5 Premium-Look und Grafikfamilien (braucht die Look-Wahl eines Menschen, Regel 2). Phase 2 bis 5 (Alperna-Tool, Supabase, Bibliothek, Videoanalyse) sind nicht begonnen: Sie warten auf das bestätigte Datenmodell (Plan v4, Anhang B) und geprüften Schreibzugriff auf `AlpernaGmbH/tool`.
+**Noch offen in Phase 1:** 1.5 Premium-Look und Grafikfamilien (braucht die Look-Wahl eines Menschen je Familie, Regel 2; der Familien-Look im Code ist seit 22.10. in Arbeit). Phase 2 bis 5 (Alperna-Tool, Supabase, Bibliothek, Videoanalyse) sind nicht begonnen: Sie warten auf das bestätigte Datenmodell (Plan v4, Anhang B) und geprüften Schreibzugriff auf `AlpernaGmbH/tool`.
 
 ## Entscheide aus dem Chat (17.10.)
 

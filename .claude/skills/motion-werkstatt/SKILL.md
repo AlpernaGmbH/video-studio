@@ -17,7 +17,7 @@ warum nichts Bestehendes passt. Konzept und Regeln: `docs/motion-werkstatt.md`. 
 1. **Du gibst nie frei.** Freigabe des Pitchs, Wahl des Looks, Änderungswunsch, Aufnahme in die Bibliothek und Ablehnung
    nach dem Pitch sind Entscheide von Menschen. Trage dich nie als Mensch ein (`--mensch` nur, wenn ein Mensch dir den Befehl
    ausdrücklich diktiert hat, mit seinem Namen). Das Protokoll verweigert es ohnehin, aber der Versuch zählt als Fehler.
-2. **Nach der Freigabe wird noch nichts gebaut.** Zuerst drei Looks als Standbilder, ein Mensch wählt, dann erst Animation.
+2. **Nach der Freigabe wird noch nichts gebaut.** Zuerst drei Looks als Standbilder **für die Familie des Stücks**, ein Mensch wählt einmal je Familie, dann erst Animation. Weitere Stücke derselben Familie erben den gewählten Look, jedes Stück wird trotzdem einzeln abgenommen. Gültige Familien stehen in `library/motion/_familien.json`; erfinde keine neue.
 3. **Höchstens zwei Stücke gleichzeitig im Bau, höchstens fünf offene Pitches.** Das Protokoll erzwingt es. Wirst du abgewiesen:
    nicht umgehen, dem Menschen sagen, was offen ist.
 4. **Der genaue Satz steht wörtlich in der Idee.** Nie umformulieren.
