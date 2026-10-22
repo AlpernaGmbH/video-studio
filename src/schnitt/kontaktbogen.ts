@@ -124,7 +124,7 @@ export interface BogenOptionen {
   werkzeuge?: BogenWerkzeuge;
 }
 
-export async function erzeugeBogen(o: BogenOptionen): Promise<{ html: string; eintraege: BogenEintrag[]; ohneBild: number[]; nichtGerendert: number[] }> {
+export async function erzeugeBogen(o: BogenOptionen): Promise<{ html: string; eintraege: BogenEintrag[]; ohneBild: number[]; nichtGerendert: number[]; bilder: Map<number, string> }> {
   const w = o.werkzeuge ?? echterBogen;
   const eintraege = planeBogen(o.plan);
   const bilder = new Map<number, string>();
@@ -151,5 +151,45 @@ export async function erzeugeBogen(o: BogenOptionen): Promise<{ html: string; ei
       if (!hinweise.has(e.nr)) hinweise.set(e.nr, "Das Standbild liess sich nicht erzeugen");
     }
   }
-  return { html: bogenHtml(o.plan, eintraege, bilder, hinweise), eintraege, ohneBild, nichtGerendert };
+  return { html: bogenHtml(o.plan, eintraege, bilder, hinweise), eintraege, ohneBild, nichtGerendert, bilder };
+}
+
+/** Spalten der Collage: bis drei Bilder nebeneinander, darüber vier (eine Zelle ist 270 Pixel breit, vier ergeben etwa 1100 Pixel: am Handy lesbar, als Datei klein). */
+export function collageSpalten(anzahl: number): number {
+  return Math.max(1, Math.min(anzahl, 4));
+}
+
+export type Ausfuehrer = (cmd: string, args: string[]) => Promise<{ code: number | null; stdout: string; stderr: string }>;
+
+/** Qualitätsstufen der Collage: zuerst scharf, bei Überschreitung der Grenze halb so gross und gröber. */
+const COLLAGE_STUFEN = [
+  { q: "4", vorher: "" },
+  { q: "8", vorher: "scale=iw/2:ih/2," },
+];
+
+/**
+ * Setzt die Standbilder des Kontaktbogens (Nummer → JPEG in Base64, wie `erzeugeBogen` sie liefert) zu einem einzigen JPEG zusammen, in der Reihenfolge der Nummern, vier Bilder nebeneinander.
+ * Das ist die Datei, die ans Alperna-Tool geht (Handy-Ansicht): ohne Beschriftung, die Reihenfolge ist die der Liste im HTML-Kontaktbogen. Gibt `undefined`, wenn kein Bild da ist oder
+ * auch die kleinere Stufe über `maxBytes` liegt.
+ */
+export async function bogenCollage(bilder: Map<number, string>, o: { maxBytes: number; lauf?: Ausfuehrer } = { maxBytes: 8 * 1024 * 1024 }): Promise<Buffer | undefined> {
+  const nummern = [...bilder.keys()].sort((x, y) => x - y);
+  if (nummern.length === 0) return undefined;
+  const ausfuehren = o.lauf ?? lauf;
+  const spalten = collageSpalten(nummern.length);
+  const zeilen = Math.ceil(nummern.length / spalten);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "studio-collage-"));
+  try {
+    nummern.forEach((nr, i) => fs.writeFileSync(path.join(tmp, `z${String(i + 1).padStart(3, "0")}.jpg`), Buffer.from(bilder.get(nr)!, "base64")));
+    const aus = path.join(tmp, "collage.jpg");
+    for (const stufe of COLLAGE_STUFEN) {
+      const r = await ausfuehren("ffmpeg", ["-loglevel", "error", "-y", "-framerate", "1", "-start_number", "1", "-i", path.join(tmp, "z%03d.jpg"), "-vf", `${stufe.vorher}tile=${spalten}x${zeilen}:padding=8:margin=8:color=0x111111`, "-frames:v", "1", "-q:v", stufe.q, aus]);
+      if (r.code !== 0 || !fs.existsSync(aus)) return undefined;
+      const bytes = fs.readFileSync(aus);
+      if (bytes.length <= o.maxBytes) return bytes;
+    }
+    return undefined;
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }

@@ -736,7 +736,7 @@ async function schritt(name: string, f: () => Promise<number>): Promise<number> 
 }
 
 /** Die jüngste Vorschau-Datei des Ergebnis-Ordners (vorschau.mp4, vorschau-v2.mp4 …). */
-function juengsteVorschau(ergebnis: string): string | undefined {
+export function juengsteVorschau(ergebnis: string): string | undefined {
   if (!fs.existsSync(ergebnis)) return undefined;
   const treffer = fs.readdirSync(ergebnis).filter((n) => /^vorschau(-v\d+)?\.mp4$/.test(n)).map((n) => path.join(ergebnis, n));
   return treffer.sort((x, y) => fs.statSync(y).mtimeMs - fs.statSync(x).mtimeMs)[0];

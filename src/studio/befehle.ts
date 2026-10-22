@@ -4,6 +4,9 @@ import type { StudioHome } from "../setup";
 import { pruefeInhaltId, reelStand } from "../schnitt/reel";
 import { geraeteIdAusToken, ladeToolKonfig, pruefeToken, pruefeUrl, speichereToolKonfig, trenneTool, type KonfigOrt, type ToolKonfig } from "./konfig";
 import { ENDPUNKT, entsperre, erzeugeMelder, setzeWartezeitZurueck } from "./melder";
+import { hochladen, leseArten, type Art, type Quellen } from "./hochladen";
+import { reelQuellen } from "./reel-quellen";
+import { VERBINDUNGSTEXT, type Verbindung } from "./texte";
 import { MEDIEN } from "./vertrag";
 
 export const TOOL_HILFE = `Alperna-Tool (Fortschritt der Arbeit sichtbar machen; freiwillig, ohne Tool läuft alles wie bisher)
@@ -14,8 +17,13 @@ export const TOOL_HILFE = `Alperna-Tool (Fortschritt der Arbeit sichtbar machen;
   tool sync <ID>                      Stand eines Inhalts aus dem Tool lesen und den Stand dieses Rechners melden
   tool inhalt neu "<Titel>" [--medium reel] [--marke key] [--funnel …] [--absicht …] [--typ …] [--muster …]
                                       Einen neuen Inhalt im Tool anlegen (Status «Neu», Tore offen); der Code (c-1000, c-1001 …) ist die ID für «reel neu»
+  tool hochladen <ID> [--art vorschau,kontaktbogen,gegenlesen,qualitaet]
+                                      Vorschau-Video, Kontaktbogen (ein Bild), Gegenlesen-Text und Messwerte des Reels ans Tool hochladen, damit sie am Handy zu sehen sind.
+                                      Nur wenn ein Admin im Tool «Vorschauen erlauben» für diesen Inhalt eingeschaltet hat (die Messwerte brauchen das nicht). Plan, Storyboard und Auftrag gehen nie hoch.
   tool trennen                        Token und Adresse löschen (der Ausgangskorb bleibt)
 `;
+
+export type { Verbindung } from "./texte";
 
 export interface ToolDeps {
   ort: KonfigOrt;
@@ -25,13 +33,13 @@ export interface ToolDeps {
   jetzt?: () => number;
   lesStdin?: () => Promise<string>;
   frageToken?: () => Promise<string>;
-  /** Der Studio-Ordner dieses Rechners, für `tool sync`. */
+  /** Der Studio-Ordner dieses Rechners, für `tool sync` und `tool hochladen`. */
   home?: StudioHome | undefined;
+  /** Woher `tool hochladen` die Dateien nimmt (Tests geben eigene). Standard: der Reel-Ordner. */
+  quellen?: (id: string) => Quellen;
   ausgabe?: (zeile: string) => void;
   fehler?: (zeile: string) => void;
 }
-
-export type Verbindung = { art: "ok" } | { art: "abgelehnt" } | { art: "aus" } | { art: "nicht-erreichbar"; status?: number };
 
 const ZEITLIMIT = 8000;
 
@@ -107,13 +115,6 @@ export function frageTokenStandard(): Promise<string> {
     stdin.on("data", daten);
   });
 }
-
-const VERBINDUNGSTEXT: Record<Verbindung["art"], string> = {
-  ok: "Das Tool nimmt das Token an.",
-  abgelehnt: "Das Tool lehnt das Token ab (falsch, widerrufen oder abgelaufen).",
-  aus: "Das Tool antwortet mit «nicht gefunden»: Das Studio ist dort ausgeschaltet (NEXT_PUBLIC_FEATURE_STUDIO) oder die Adresse stimmt nicht.",
-  "nicht-erreichbar": "Das Tool ist im Moment nicht erreichbar.",
-};
 
 export async function toolBefehl(sub: string, a: Args, d: ToolDeps): Promise<number> {
   const aus = d.ausgabe ?? ((z: string) => console.log(z));
@@ -268,6 +269,47 @@ export async function toolBefehl(sub: string, a: Args, d: ToolDeps): Promise<num
         fehl(VERBINDUNGSTEXT["nicht-erreichbar"]);
         return 1;
       }
+    }
+    case "hochladen": {
+      const id = a.pos[2];
+      try {
+        pruefeInhaltId(id);
+      } catch (e) {
+        fehl((e as Error).message);
+        return 2;
+      }
+      let arten: Art[] | undefined;
+      if (a.opt["art"] !== undefined) {
+        const gelesen = typeof a.opt["art"] === "string" ? leseArten(a.opt["art"]) : "Nach --art fehlt die Liste, zum Beispiel --art vorschau,qualitaet";
+        if (typeof gelesen === "string") {
+          fehl(gelesen);
+          return 2;
+        }
+        arten = gelesen;
+      }
+      if (!d.home) {
+        fehl("Der Studio-Ordner ist auf diesem Rechner nicht eingerichtet: «./studio init» ausführen");
+        return 1;
+      }
+      const g = ladeToolKonfig(d.ort);
+      if (!g.konfig) {
+        fehl(g.hinweis ?? "Nicht mit dem Tool verbunden: ./studio tool verbinden <Adresse> --token-stdin");
+        return 1;
+      }
+      const konfig = g.konfig;
+      const m = erzeugeMelder({ konfig, ausgang: d.ausgang, fetch: f, jetzt, zeitlimit: ZEITLIMIT, verzoegerung: 0 });
+      const code = await hochladen({
+        id: id!,
+        ...(arten ? { arten } : {}),
+        konfig,
+        fetch: f,
+        quellen: d.quellen ? d.quellen(id!) : reelQuellen(d.home, id!),
+        aus,
+        fehl,
+        melde: (e) => m.melde({ step: "Hochladen", state: e.state, code: id!, detail: e.detail }),
+      });
+      await m.leeren(5000);
+      return code;
     }
     case "trennen": {
       trenneTool(d.ort);

@@ -360,6 +360,7 @@
     "200": "angenommen",
     "201": "neu angelegt",
     "401": "Token fehlt, ist falsch, widerrufen oder abgelaufen: nie wiederholen, einmal melden",
+    "403": "Dateien zu diesem Inhalt sind nicht erlaubt (der Datenschutz-Schalter im Tool ist aus): nie wiederholen, nichts hochladen",
     "404": "Funktion ausgeschaltet oder Inhalt unbekannt: nie wiederholen",
     "413": "Body zu gross: nie wiederholen",
     "422": "Eingabe ungültig: nie wiederholen",
@@ -375,5 +376,325 @@
     "story",
     "other",
     "unclear"
-  ]
+  ],
+  "artifacts": {
+    "beschreibung": "Dateien zu einem Inhalt. Ablauf: POST artifacts/target (Art, Fassung, Typ, Grösse) gibt einen Upload-Link, das Gerät lädt mit PUT hoch und schickt genau die Header der Antwort, danach POST artifacts/register (code, kind, version). Typ, Grösse und Kennung liest der Server am Objekt. Der Typ im Header ist genau der Typ der Art, ohne Zusatz.",
+    "arten": {
+      "vorschau": {
+        "mime": "video/mp4",
+        "max_bytes": 52428800,
+        "schalter": true
+      },
+      "kontaktbogen": {
+        "mime": "image/jpeg",
+        "max_bytes": 8388608,
+        "schalter": true
+      },
+      "gegenlesen": {
+        "mime": "text/plain",
+        "max_bytes": 1048576,
+        "schalter": true
+      },
+      "plan": {
+        "mime": "application/json",
+        "max_bytes": 4194304,
+        "schalter": true
+      },
+      "storyboard": {
+        "mime": "application/json",
+        "max_bytes": 4194304,
+        "schalter": true
+      },
+      "auftrag": {
+        "mime": "text/plain",
+        "max_bytes": 1048576,
+        "schalter": true
+      },
+      "qualitaet": {
+        "mime": "application/json",
+        "max_bytes": 1048576,
+        "schalter": false
+      }
+    },
+    "target": {
+      "gueltig": [
+        {
+          "name": "Vorschau, Fassung 1",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 1,
+            "mime": "video/mp4",
+            "size": 1234567
+          }
+        },
+        {
+          "name": "Messwerte ohne Schalter",
+          "body": {
+            "code": "c-1000",
+            "kind": "qualitaet",
+            "version": 3,
+            "mime": "application/json",
+            "size": 512
+          }
+        }
+      ],
+      "ungueltig": [
+        {
+          "name": "unbekannte Art",
+          "body": {
+            "code": "c-1000",
+            "kind": "video",
+            "version": 1,
+            "mime": "video/mp4",
+            "size": 5
+          }
+        },
+        {
+          "name": "Fassung 0",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 0,
+            "mime": "video/mp4",
+            "size": 5
+          }
+        },
+        {
+          "name": "Grösse 0",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 1,
+            "mime": "video/mp4",
+            "size": 0
+          }
+        },
+        {
+          "name": "Grösse über 50 MiB",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 1,
+            "mime": "video/mp4",
+            "size": 52428801
+          }
+        },
+        {
+          "name": "Code in Grossbuchstaben",
+          "body": {
+            "code": "C-1000",
+            "kind": "vorschau",
+            "version": 1,
+            "mime": "video/mp4",
+            "size": 5
+          }
+        },
+        {
+          "name": "fremder Schlüssel (Pfad)",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 1,
+            "mime": "video/mp4",
+            "size": 5,
+            "path": "studio/x/y-1"
+          }
+        },
+        {
+          "name": "Typ fehlt",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 1,
+            "size": 5
+          }
+        }
+      ],
+      "antwort": {
+        "path": "studio/9b2f4e6a-1c3d-4a5b-8c7d-0e1f2a3b4c5d/vorschau-1",
+        "uploadUrl": "https://<projekt>.supabase.co/storage/v1/object/upload/sign/studio-files/studio/<inhalt>/vorschau-1?token=<einmal>",
+        "method": "PUT",
+        "headers": {
+          "apikey": "<öffentlicher Schlüssel>",
+          "content-type": "video/mp4",
+          "cache-control": "max-age=3600",
+          "x-upsert": "true"
+        },
+        "maxBytes": 52428800,
+        "expiresInSeconds": 7200
+      }
+    },
+    "register": {
+      "gueltig": [
+        {
+          "name": "Vorschau, Fassung 1",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 1
+          }
+        }
+      ],
+      "ungueltig": [
+        {
+          "name": "unbekannte Art",
+          "body": {
+            "code": "c-1000",
+            "kind": "video",
+            "version": 1
+          }
+        },
+        {
+          "name": "Fassung fehlt",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau"
+          }
+        },
+        {
+          "name": "Typ darf das Gerät hier nicht nennen",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 1,
+            "mime": "video/mp4"
+          }
+        },
+        {
+          "name": "Grösse darf das Gerät hier nicht nennen",
+          "body": {
+            "code": "c-1000",
+            "kind": "vorschau",
+            "version": 1,
+            "size": 5
+          }
+        }
+      ],
+      "antwort": {
+        "id": "<uuid>",
+        "path": "studio/<inhalt>/vorschau-1",
+        "size": 1234567
+      }
+    },
+    "qualitaet": {
+      "beschreibung": "Die Messwerte (qualitaet.json) verlassen den Rechner nur in der bereinigten Form: Pfad der Datei, volle Messung und die Stufe der Hinweise bleiben zurück. Der Mac bereinigt (roh wird bereinigt), das Tool liest nur diese Felder (bereinigt wird gelesen und bleibt unverändert).",
+      "roh": {
+        "datei": "/Users/andrej/OneDrive/Kunde Müller/export/video-final.mp4",
+        "gemessen": "2026-10-22T09:00:00.000Z",
+        "messung": {
+          "breite": 1080,
+          "hoehe": 1920,
+          "fps": 30,
+          "videoCodec": "h264",
+          "pixFmt": "yuv420p",
+          "videoMbit": 12.4,
+          "dauer": 42.3,
+          "gigabyte": 0.07,
+          "audioCodec": "aac",
+          "audioKbit": 256,
+          "audioRate": 48000,
+          "farbe": {
+            "primaries": "bt709",
+            "transfer": "bt709",
+            "matrix": "bt709"
+          },
+          "lufs": -14.2,
+          "truePeak": -1.3
+        },
+        "planHinweis": "Der Plan (40,0 s) passt nicht zum Video (42,3 s): Es wurde nach dem Plan geschnitten. Die Zahlen stammen aus dem Bild und dem Ton, nicht aus dem Plan",
+        "dauer": 42.3,
+        "breite": 1080,
+        "hoehe": 1920,
+        "fps": 30,
+        "videoMbit": 12.4,
+        "lufs": -14.2,
+        "truePeak": -1.3,
+        "schnitte": {
+          "anzahl": 6,
+          "proMinute": 8.5,
+          "quelle": "bild"
+        },
+        "zooms": {
+          "anzahl": 2,
+          "proMinute": 2.8
+        },
+        "grafikAnteil": 0.12,
+        "brollAnteil": 0.31,
+        "farbe": {
+          "saettigung": 0.23,
+          "yLow": 0.05,
+          "yHigh": 0.92,
+          "spanne": 0.87
+        },
+        "stille": {
+          "anteil": 0.08,
+          "laengste": 0.6
+        },
+        "ersteAussage": {
+          "sekunden": 0.4,
+          "quelle": "ton"
+        },
+        "abweichungen": [
+          {
+            "code": "lufs",
+            "text": "Lautheit -14,2 LUFS, Ziel -14 ±1"
+          }
+        ],
+        "hinweise": [
+          {
+            "stufe": "hinweis",
+            "code": "bild-flach",
+            "text": "Das Bild wirkt flach: Sättigung 0,23, Helligkeitsspanne 0,87"
+          }
+        ]
+      },
+      "bereinigt": {
+        "gemessen": "2026-10-22T09:00:00.000Z",
+        "dauer": 42.3,
+        "breite": 1080,
+        "hoehe": 1920,
+        "fps": 30,
+        "videoMbit": 12.4,
+        "lufs": -14.2,
+        "truePeak": -1.3,
+        "schnitte": {
+          "anzahl": 6,
+          "proMinute": 8.5,
+          "quelle": "bild"
+        },
+        "zooms": {
+          "anzahl": 2,
+          "proMinute": 2.8
+        },
+        "grafikAnteil": 0.12,
+        "brollAnteil": 0.31,
+        "farbe": {
+          "saettigung": 0.23,
+          "spanne": 0.87
+        },
+        "stille": {
+          "anteil": 0.08,
+          "laengste": 0.6
+        },
+        "ersteAussage": {
+          "sekunden": 0.4,
+          "quelle": "ton"
+        },
+        "planHinweis": "Der Plan (40,0 s) passt nicht zum Video (42,3 s): Es wurde nach dem Plan geschnitten. Die Zahlen stammen aus dem Bild und dem Ton, nicht aus dem Plan",
+        "abweichungen": [
+          {
+            "code": "lufs",
+            "text": "Lautheit -14,2 LUFS, Ziel -14 ±1"
+          }
+        ],
+        "hinweise": [
+          {
+            "code": "bild-flach",
+            "text": "Das Bild wirkt flach: Sättigung 0,23, Helligkeitsspanne 0,87"
+          }
+        ]
+      }
+    }
+  }
 }

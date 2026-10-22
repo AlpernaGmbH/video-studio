@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { bogenHtml, echterBogen, erzeugeBogen, planeBogen, type BogenWerkzeuge } from "./kontaktbogen";
+import { bogenCollage, bogenHtml, collageSpalten, echterBogen, erzeugeBogen, planeBogen, type Ausfuehrer, type BogenWerkzeuge } from "./kontaktbogen";
 import { leseSchnittplan } from "./plan";
 
 const plan = (extra: Record<string, unknown> = {}) =>
@@ -201,4 +201,120 @@ describe.skipIf(!hatFfmpeg)("echterBogen mit ffmpeg", () => {
     expect(p.stdout.toString().trim()).toBe("270,480");
     expect(await echterBogen.bild(undefined, undefined)).toBeUndefined();
   }, 60_000);
+});
+
+describe("bogenCollage", () => {
+  const ffmpegDa = spawnSync("ffmpeg", ["-version"]).status === 0;
+  const jpeg = (breite: number, hoehe: number, farbe: string): string => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vs-jpg-"));
+    try {
+      const f = path.join(tmp, "x.jpg");
+      const r = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", `color=c=${farbe}:s=${breite}x${hoehe}`, "-frames:v", "1", f]);
+      if (r.status !== 0) throw new Error("ffmpeg");
+      return fs.readFileSync(f).toString("base64");
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  };
+  const ausmasse = (b: Buffer): { w: number; h: number } => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vs-jpg-"));
+    try {
+      fs.writeFileSync(path.join(tmp, "c.jpg"), b);
+      const r = spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", path.join(tmp, "c.jpg")], { encoding: "utf8" });
+      const [w, h] = r.stdout.trim().split(",").map(Number);
+      return { w: w!, h: h! };
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  };
+
+  it("collageSpalten: bis drei nebeneinander, darüber vier", () => {
+    expect([1, 2, 3, 4, 5, 20].map(collageSpalten)).toEqual([1, 2, 3, 4, 4, 4]);
+    expect(collageSpalten(0)).toBe(1);
+  });
+
+  it("ohne Bilder gibt es keine Collage und ffmpeg wird nicht aufgerufen", async () => {
+    const aufrufe: string[][] = [];
+    const lauf: Ausfuehrer = async (_c, a) => (aufrufe.push(a), { code: 0, stdout: "", stderr: "" });
+    expect(await bogenCollage(new Map(), { maxBytes: 100, lauf })).toBeUndefined();
+    expect(aufrufe).toHaveLength(0);
+  });
+
+  it("ruft ffmpeg mit der Kachelung und den Bildern in der Reihenfolge der Nummern auf", async () => {
+    const gesehen: { args: string[]; dateien: string[]; inhalt: string[] }[] = [];
+    const lauf: Ausfuehrer = async (_c, args) => {
+      const i = args.indexOf("-i");
+      const dir = path.dirname(args[i + 1]!);
+      const dateien = fs.readdirSync(dir).sort();
+      gesehen.push({ args, dateien, inhalt: dateien.map((n) => fs.readFileSync(path.join(dir, n), "utf8")) });
+      fs.writeFileSync(args[args.length - 1]!, "KLEIN");
+      return { code: 0, stdout: "", stderr: "" };
+    };
+    const bilder = new Map([
+      [3, Buffer.from("drei").toString("base64")],
+      [1, Buffer.from("eins").toString("base64")],
+      [7, Buffer.from("sieben").toString("base64")],
+      [2, Buffer.from("zwei").toString("base64")],
+      [9, Buffer.from("neun").toString("base64")],
+    ]);
+    const r = await bogenCollage(bilder, { maxBytes: 100, lauf });
+    expect(r?.toString()).toBe("KLEIN");
+    expect(gesehen).toHaveLength(1);
+    expect(gesehen[0]!.inhalt.filter((x) => x !== "KLEIN")).toEqual(["eins", "zwei", "drei", "sieben", "neun"]);
+    const vf = gesehen[0]!.args[gesehen[0]!.args.indexOf("-vf") + 1]!;
+    expect(vf).toContain("tile=4x2");
+    expect(gesehen[0]!.args).toContain("-frames:v");
+  });
+
+  it("ist die Datei zu gross, wird eine halb so grosse und gröbere Stufe versucht; passt auch die nicht, gibt es nichts", async () => {
+    const stufen: string[] = [];
+    const lauf: Ausfuehrer = async (_c, args) => {
+      stufen.push(args[args.indexOf("-vf") + 1]!);
+      fs.writeFileSync(args[args.length - 1]!, Buffer.alloc(stufen.length === 1 ? 500 : 50));
+      return { code: 0, stdout: "", stderr: "" };
+    };
+    const einBild = new Map([[1, Buffer.from("x").toString("base64")]]);
+    expect((await bogenCollage(einBild, { maxBytes: 100, lauf }))?.length).toBe(50);
+    expect(stufen).toHaveLength(2);
+    expect(stufen[0]).not.toContain("scale");
+    expect(stufen[1]).toContain("scale=iw/2:ih/2");
+    stufen.length = 0;
+    const zuGross: Ausfuehrer = async (_c, args) => (fs.writeFileSync(args[args.length - 1]!, Buffer.alloc(500)), { code: 0, stdout: "", stderr: "" });
+    expect(await bogenCollage(einBild, { maxBytes: 100, lauf: zuGross })).toBeUndefined();
+  });
+
+  it("eine Datei genau an der Grenze ist erlaubt, ein Byte mehr nicht", async () => {
+    const einBild = new Map([[1, Buffer.from("x").toString("base64")]]);
+    const schreibt = (n: number): Ausfuehrer => async (_c, args) => (fs.writeFileSync(args[args.length - 1]!, Buffer.alloc(n)), { code: 0, stdout: "", stderr: "" });
+    expect((await bogenCollage(einBild, { maxBytes: 100, lauf: schreibt(100) }))?.length).toBe(100);
+    expect(await bogenCollage(einBild, { maxBytes: 99, lauf: schreibt(100) })).toBeUndefined();
+  });
+
+  it("schlägt ffmpeg fehl oder entsteht keine Datei, gibt es keine Collage und keinen Fehler", async () => {
+    const einBild = new Map([[1, Buffer.from("x").toString("base64")]]);
+    expect(await bogenCollage(einBild, { maxBytes: 100, lauf: async () => ({ code: 1, stdout: "", stderr: "kaputt" }) })).toBeUndefined();
+    expect(await bogenCollage(einBild, { maxBytes: 100, lauf: async () => ({ code: 0, stdout: "", stderr: "" }) })).toBeUndefined();
+  });
+
+  it("räumt den Arbeitsordner auf, auch bei einem Fehler", async () => {
+    let dir = "";
+    const lauf: Ausfuehrer = async (_c, args) => {
+      dir = path.dirname(args[args.indexOf("-i") + 1]!);
+      throw new Error("ffmpeg fehlt");
+    };
+    await expect(bogenCollage(new Map([[1, "eA=="]]), { maxBytes: 100, lauf })).rejects.toThrow("ffmpeg fehlt");
+    expect(fs.existsSync(dir)).toBe(false);
+  });
+
+  it.skipIf(!ffmpegDa)("mit echtem ffmpeg: fünf Zellen ergeben ein JPEG aus vier Spalten und zwei Zeilen", async () => {
+    const farben = ["red", "green", "blue", "yellow", "white"];
+    const bilder = new Map(farben.map((f, i) => [i + 1, jpeg(270, 480, f)] as const));
+    const b = await bogenCollage(bilder, { maxBytes: 8 * 1024 * 1024 });
+    expect(b).toBeDefined();
+    expect([b![0], b![1], b![2]]).toEqual([0xff, 0xd8, 0xff]);
+    const { w, h } = ausmasse(b!);
+    // vier Zellen à 270 Pixel, drei Abstände und zwei Ränder zu je 8 Pixel; zwei Zeilen à 480
+    expect(w).toBe(4 * 270 + 3 * 8 + 2 * 8);
+    expect(h).toBe(2 * 480 + 1 * 8 + 2 * 8);
+  });
 });

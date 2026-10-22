@@ -19,6 +19,14 @@ interface Anfrage {
   authorization?: string;
   body?: { events: { step: string; state: string; code?: string; detail?: Record<string, unknown> }[] } & Record<string, unknown>;
 }
+/** Der Hochlade-Test schickt auch Bytes, die kein JSON sind (die Datei selbst). */
+function jsonOderNichts(roh: string): unknown {
+  try {
+    return JSON.parse(roh);
+  } catch {
+    return undefined;
+  }
+}
 let tmp: string;
 let srv: http.Server;
 let anfragen: Anfrage[];
@@ -41,7 +49,7 @@ beforeEach(async () => {
     req.on("data", (c: Buffer) => teile.push(c));
     req.on("end", () => {
       const roh = Buffer.concat(teile).toString("utf8");
-      const a: Anfrage = { method: req.method ?? "", url: req.url ?? "", ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}), ...(roh ? { body: JSON.parse(roh) as Anfrage["body"] } : {}) };
+      const a: Anfrage = { method: req.method ?? "", url: req.url ?? "", ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}), ...(roh && jsonOderNichts(roh) ? { body: jsonOderNichts(roh) as Anfrage["body"] } : {}) };
       anfragen.push(a);
       const r = antwort(a);
       res.writeHead(r.status, { "content-type": "application/json" });
@@ -372,5 +380,62 @@ describe("tool inhalt neu", () => {
     expect(alles()).toMatch(/nicht erreichbar/);
     srv = http.createServer();
     await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
+  });
+});
+
+describe("tool hochladen", () => {
+  const quellen = { bereit: async (art: string) => ({ bytes: Buffer.from(`inhalt-${art}`) }) };
+  const vorlauf = async (): Promise<void> => {
+    expect(await lauf(`tool verbinden ${url} --token-stdin`)).toBe(0);
+    anfragen.length = 0;
+  };
+  const home = (): ToolDeps["home"] => ({ pfad: path.join(tmp, "Studio"), quelle: "STUDIO_HOME" });
+  const mitQuellen = (o: Partial<ToolDeps> = {}): ToolDeps => deps({ home: home(), quellen: () => quellen, ...o });
+
+  it("lädt über die Geräte-API hoch und meldet das Ergebnis als Ereignis «Hochladen»", async () => {
+    await vorlauf();
+    const gesehen: string[] = [];
+    antwort = (a) => {
+      gesehen.push(`${a.method} ${a.url}`);
+      if (a.method === "GET") return { status: 200, body: { version: 2, preview_allowed: true } };
+      if (a.url.endsWith("/target")) return { status: 200, body: { path: "p", uploadUrl: `${url}/speicher/x?token=t`, method: "PUT", headers: { apikey: "a" } } };
+      if (a.url.endsWith("/register")) return { status: 201, body: { id: "1" } };
+      return { status: 200 };
+    };
+    expect(await lauf(`tool hochladen c-1000 --art qualitaet`, mitQuellen())).toBe(0);
+    expect(gesehen.slice(0, 4)).toEqual(["GET /api/studio-geraet/contents/c-1000", "POST /api/studio-geraet/artifacts/target", expect.stringContaining("PUT /speicher/x"), "POST /api/studio-geraet/artifacts/register"]);
+    expect(alles()).toContain("Messwerte: hochgeladen");
+    const ereignis = anfragen.flatMap((x) => x.body?.events ?? []).find((e) => e.step === "Hochladen");
+    expect(ereignis).toMatchObject({ state: "ok", code: "c-1000", detail: { hochgeladen: ["qualitaet"], fehlgeschlagen: [] } });
+    expect(alles()).not.toContain(GEHEIMNIS);
+    expect(alles()).not.toContain("token=t");
+  });
+
+  it.each([
+    ["ohne ID", "tool hochladen", 2],
+    ["ungültige ID", "tool hochladen ../etc", 2],
+    ["unbekannte Art", "tool hochladen c-1000 --art video", 2],
+    ["nicht erlaubte Art", "tool hochladen c-1000 --art plan", 2],
+    ["--art ohne Liste", "tool hochladen c-1000 --art", 2],
+  ])("%s: Hinweis, Exit-Code %i, keine Anfrage", async (_n, befehl, code) => {
+    await vorlauf();
+    expect(await lauf(befehl, mitQuellen())).toBe(code);
+    expect(anfragen).toHaveLength(0);
+    expect(fehler.length).toBeGreaterThan(0);
+  });
+
+  it("ohne Studio-Ordner oder ohne Verbindung: Hinweis und Exit-Code 1", async () => {
+    expect(await lauf("tool hochladen c-1000", deps({ quellen: () => quellen }))).toBe(1);
+    expect(fehler.join("\n")).toContain("./studio init");
+    fehler.length = 0;
+    expect(await lauf("tool hochladen c-1000", mitQuellen())).toBe(1);
+    expect(alles()).toMatch(/Nicht mit dem Tool verbunden/);
+    expect(anfragen).toHaveLength(0);
+  });
+
+  it("der Hilfetext nennt den Befehl", async () => {
+    const { TOOL_HILFE } = await import("./befehle");
+    expect(TOOL_HILFE).toContain("tool hochladen <ID>");
+    expect(TOOL_HILFE).toMatch(/Plan, Storyboard und Auftrag gehen nie hoch/);
   });
 });
