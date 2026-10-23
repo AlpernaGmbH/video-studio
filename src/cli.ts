@@ -26,6 +26,7 @@ import { auftragBefehl, AUFTRAG_HILFE } from "./studio/auftraege";
 import { toolBefehl, TOOL_HILFE } from "./studio/befehle";
 import { ausgangsordner, beendeMelder, standardMelder, standardOrt } from "./studio/standard";
 import { whisperBefehl, WHISPER_HILFE } from "./schnitt/whisper-setup";
+import { INSPIRATION_HILFE, inspirationBefehl } from "./inspiration/befehle";
 import { formatiere, hatFehler, initialisiere, pruefeUmgebung, studioHome, type Sonde } from "./setup";
 import { pruefeRender, messeRender, parseHfCheck } from "./motion/render-pruefung";
 import { SIGNAL_TYPEN, type SignalTyp } from "./motion/stueck";
@@ -88,6 +89,7 @@ ${INHALTE_HILFE}
 ${MARKEN_HILFE}
 ${KATALOG_HILFE}
 ${WHISPER_HILFE}
+${INSPIRATION_HILFE}
 ${REEL_HILFE}
 ${SCHNITT_HILFE}
 ${PRESETS_HILFE}
@@ -571,6 +573,7 @@ async function main(): Promise<number> {
   if (gruppe === "marken" && sub) return markenBefehl(sub, a, env, jetzt);
   if (gruppe === "katalog" && sub) return katalogBefehl(sub, a, env);
   if (gruppe === "whisper" && sub) return whisperBefehl(sub, a);
+  if (gruppe === "inspiration" && sub) return inspirationBefehl(sub, a, studioRoot);
   if (gruppe === "reel" && sub) {
     // Fortschritt an das Alperna-Tool (freiwillig): Der Melder stört den Befehl nie. Vor dem Exit wartet er höchstens 1,5 s auf den Rest, der Korb behält, was dann noch aussteht.
     const melder = standardMelder();
@@ -587,7 +590,7 @@ async function main(): Promise<number> {
   if (gruppe === "warteschlange" && sub) return auftragBefehl(sub, a, { ort: standardOrt() });
   if (gruppe === "schnitt" && sub) return schnittBefehl(sub, a, env);
   if (gruppe === "presets" && sub) return presetsBefehl(sub, a, env);
-  console.error(`Unbekannter Befehl «${[gruppe, sub].filter(Boolean).join(" ")}».\nGruppen: init, doctor, motion, ideen, inhalte, marken, katalog, whisper, reel, schnitt, presets, tool, warteschlange, pruefplatz. Alle Befehle: ./studio hilfe\nIst dein Stand alt? ./studio update`);
+  console.error(`Unbekannter Befehl «${[gruppe, sub].filter(Boolean).join(" ")}».\nGruppen: init, doctor, motion, ideen, inhalte, marken, katalog, whisper, inspiration, reel, schnitt, presets, tool, warteschlange, pruefplatz. Alle Befehle: ./studio hilfe\nIst dein Stand alt? ./studio update`);
   return 2;
 }
 
