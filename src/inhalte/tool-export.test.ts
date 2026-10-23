@@ -192,7 +192,7 @@ describe("baueImport: was ins Archiv gehört", () => {
   });
 
   it("das Medium folgt dem Format; ohne Format ist es «unclear»", () => {
-    const erwartet: Record<string, string> = { Reel: "reel", Carousel: "carousel", "LinkedIn-Post": "linkedin_post", Blog: "blog", "Google-Maps-Beitrag": "google_post", Story: "story", Sonstiges: "other", ungeklärt: "unclear" };
+    const erwartet: Record<string, string> = { Reel: "reel", Carousel: "carousel", "LinkedIn-Post": "linkedin_post", Blog: "blog", "Google-Maps-Beitrag": "google_post", Story: "story", Anzeige: "ad", Sonstiges: "other", ungeklärt: "unclear" };
     expect(Object.keys(erwartet).sort()).toEqual([...FORMATE].sort());
     for (const f of FORMATE) expect(baueImport([archiv({ format: f })], [marke()], JETZT).datei.contents[0]!.medium, f).toBe(erwartet[f]);
     expect(baueImport([archiv({ format: undefined })], [marke()], JETZT).datei.contents[0]!.medium).toBe("unclear");

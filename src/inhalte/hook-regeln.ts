@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { Slug } from "../core/schemas";
+import { ANZEIGE_NAMEN, ANZEIGE_TEILE, leseAnzeige } from "./anzeige";
 import { FORMATE, type Format } from "./inhalt";
 
 /**
@@ -60,7 +61,7 @@ export interface HookPruefung {
 }
 
 /** Formate mit einem Hook: Reel und Carousel (Titelfolie), Story, LinkedIn-Post (erste Zeile). */
-const FORMATE_MIT_HOOK: readonly Format[] = ["Reel", "Carousel", "Story", "LinkedIn-Post"];
+const FORMATE_MIT_HOOK: readonly Format[] = ["Reel", "Carousel", "Story", "LinkedIn-Post", "Anzeige"];
 
 const woerter = (s: string): number => s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
 
@@ -89,7 +90,20 @@ export function hookPruefung(o: HookPruefOptionen): HookPruefung {
   const hook = (o.hook ?? "").trim();
   const text = o.text;
 
-  if (o.format && FORMATE_MIT_HOOK.includes(o.format) && !hook) add("hook_fehlt", `Die Idee hat keinen Hook. Für ${o.format} lohnt sich ein Satz oder Titeltext, der die ersten Sekunden trägt`);
+  // Eine Anzeige besteht aus Varianten für Hook, Körper und Aufruf (`anzeige.ts`); ihr erster Satz ist der Hook jeder Variante, nicht die erste Zeile des Entwurfs.
+  const anzeige = o.format === "Anzeige" ? leseAnzeige(o.text) : undefined;
+
+  if (o.format && FORMATE_MIT_HOOK.includes(o.format) && !hook && !(anzeige && anzeige.hook.length > 0)) {
+    add("hook_fehlt", `Die Idee hat keinen Hook. Für ${o.format} lohnt sich ein Satz oder Titeltext, der die ersten Sekunden trägt`);
+  }
+
+  if (anzeige) {
+    for (const t of ANZEIGE_TEILE) {
+      if (!anzeige.gefunden.includes(t)) add("anzeige_teil_fehlt", `Im Entwurf fehlt der Teil «${ANZEIGE_NAMEN[t]}». Eine Anzeige hat je eine Überschrift (## Hook, ## Körper, ## Aufruf) mit Varianten darunter`);
+      else if (anzeige[t].length === 0) add("anzeige_teil_leer", `Unter «${ANZEIGE_NAMEN[t]}» steht keine Variante`);
+    }
+    if (anzeige.hook.length === 1) add("anzeige_eine_hook_variante", "Es gibt nur eine Hook-Variante. Mit mindestens zwei Hooks lässt sich später prüfen, welcher trägt");
+  }
 
   if (hook) {
     const zeilen = hook.split(/\r?\n/).filter((z) => z.trim()).length;
@@ -98,9 +112,12 @@ export function hookPruefung(o: HookPruefOptionen): HookPruefung {
     if (belegHatZahl && !/\d/.test(hook)) add("hook_ohne_zahl", "Der Beleg nennt eine Zahl, der Hook keine. Eine konkrete Zahl aus dem Beleg macht den Hook greifbar (die Quelle bleibt im Beleg)");
   }
 
-  const erster = ersterSatz(text);
-  const n = woerter(erster);
-  if (n > p.ersterSatzMaxWoerter) add("erster_satz_lang", `Der erste Satz hat ${n} Wörter, empfohlen sind höchstens ${p.ersterSatzMaxWoerter}. Bei normalem Sprechtempo verzögert ein langer Einstieg den Hook`);
+  // Der erste Satz: bei einer Anzeige der jeder Hook-Variante, sonst der des Entwurfs
+  const einstiege = anzeige ? anzeige.hook.map((h, i) => ({ satz: ersterSatz(h), wo: `Hook-Variante ${i + 1}` })) : [{ satz: ersterSatz(text), wo: "Der erste Satz" }];
+  for (const { satz, wo } of einstiege) {
+    const n = woerter(satz);
+    if (n > p.ersterSatzMaxWoerter) add("erster_satz_lang", `${wo} hat ${n} Wörter, empfohlen sind höchstens ${p.ersterSatzMaxWoerter}. Bei normalem Sprechtempo verzögert ein langer Einstieg den Hook`);
+  }
 
   for (const muster of p.kommentarKoeder) {
     const treffer = new RegExp(muster, "iu").exec(text);

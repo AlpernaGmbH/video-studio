@@ -114,6 +114,50 @@ describe("hookPruefung", () => {
   });
 });
 
+describe("Anzeige: Varianten für Hook, Körper und Aufruf", () => {
+  const gut = ["## Hook", "- Wartezeit von 32 auf 14 Minuten", "- Warum Ihre Kundschaft nicht mehr wartet", "", "## Körper", "- Ein Körper", "", "## Aufruf", "- Jetzt anfragen"].join("\n");
+  const anzeige = { ...basis, format: "Anzeige" as const, text: gut, hook: "" };
+
+  it("ein vollständiger Entwurf mit zwei Hooks ergibt keine Empfehlung", () => {
+    expect(codes(anzeige)).toEqual([]);
+  });
+
+  it("jeder fehlende Teil und jeder leere Teil wird benannt", () => {
+    const r = hookPruefung({ ...anzeige, text: "## Hook\n- a\n- b\n## Körper\n" });
+    expect(r.empfehlungen.map((e) => e.code)).toEqual(["anzeige_teil_leer", "anzeige_teil_fehlt"]);
+    expect(r.empfehlungen[0]!.text).toContain("«Körper»");
+    expect(r.empfehlungen[1]!.text).toContain("«Aufruf»");
+  });
+
+  it("eine einzige Hook-Variante wird zum Testen mit einer zweiten empfohlen", () => {
+    expect(codes({ ...anzeige, text: gut.replace("- Warum Ihre Kundschaft nicht mehr wartet\n", "") })).toEqual(["anzeige_eine_hook_variante"]);
+  });
+
+  it("der erste Satz zählt je Hook-Variante, nicht die erste Zeile des Entwurfs", () => {
+    const lang = `${worte(regeln.pruefungen.ersterSatzMaxWoerter + 3)}.`;
+    const r = hookPruefung({ ...anzeige, text: gut.replace("- Warum Ihre Kundschaft nicht mehr wartet", `- ${lang}`) });
+    const treffer = r.empfehlungen.filter((e) => e.code === "erster_satz_lang");
+    expect(treffer).toHaveLength(1);
+    expect(treffer[0]!.text).toContain("Hook-Variante 2");
+    expect(treffer[0]!.text).toContain(`${regeln.pruefungen.ersterSatzMaxWoerter + 3} Wörter`);
+  });
+
+  it("der Hook der Idee oder eine Hook-Variante im Entwurf genügt gegen «hook_fehlt»", () => {
+    expect(codes({ ...anzeige, text: "## Körper\n- x\n## Aufruf\n- y", hook: "" })).toContain("hook_fehlt");
+    expect(codes({ ...anzeige, text: "## Körper\n- x\n## Aufruf\n- y", hook: "Ein Hook der Idee" })).not.toContain("hook_fehlt");
+    expect(codes(anzeige)).not.toContain("hook_fehlt");
+  });
+
+  it("Kommentar-Köder in einer Anzeige werden wie sonst erkannt", () => {
+    expect(codes({ ...anzeige, text: `${gut}\n- Kommentiere Hook und ich schicke dir den Link.` })).toContain("kommentar_koeder");
+  });
+
+  it("andere Formate bekommen die Prüfung der Teile nicht", () => {
+    expect(codes({ ...basis, format: "LinkedIn-Post", text: gut })).not.toContain("anzeige_teil_fehlt");
+    expect(codes({ ...basis, format: "Reel", text: "Nur ein Satz." })).not.toContain("anzeige_teil_fehlt");
+  });
+});
+
 describe("Empfehlungen sind nie Fehler", () => {
   it("die Textprüfung selbst bleibt unverändert: derselbe Entwurf besteht, auch wenn alle Empfehlungen anschlagen", () => {
     const text = `${worte(40)}. Kommentiere Hook und ich schicke dir den Link.`;

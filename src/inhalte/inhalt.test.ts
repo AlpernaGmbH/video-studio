@@ -163,3 +163,17 @@ describe("Status vor Pause", () => {
     expect(zeileZuInhalt({ "Inhalt-ID": "c-0001", Status: "Pausiert", "Status vor Pause": "irgendwas" }).statusVorPause).toBe("");
   });
 });
+
+describe("Textformate", () => {
+  it("LinkedIn-Post, Blog, Google-Maps-Beitrag und Anzeige gelten als Textentwurf (Textprüfung vor Tor P), Reel, Carousel und Story nicht", async () => {
+    const { istTextformat, TEXTFORMATE, FORMATE } = await import("./inhalt");
+    for (const f of ["LinkedIn-Post", "Blog", "Google-Maps-Beitrag", "Anzeige"] as const) expect(istTextformat(f), f).toBe(true);
+    for (const f of ["Reel", "Carousel", "Story", "Sonstiges", "ungeklärt"] as const) expect(istTextformat(f), f).toBe(false);
+    expect(istTextformat(undefined)).toBe(false);
+    for (const f of TEXTFORMATE) expect(FORMATE).toContain(f);
+  });
+  it("«Anzeige» ist ein Format, das Notion als Auswahlwert kennen muss", async () => {
+    const { FORMATE } = await import("./inhalt");
+    expect(FORMATE).toContain("Anzeige");
+  });
+});

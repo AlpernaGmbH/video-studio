@@ -9,7 +9,7 @@ import type { Zeile } from "../notion/abbild";
  * Tor P schreibt nur der Prüfplatz. Claude setzt dort höchstens «offen».
  */
 
-export const FORMATE = ["Reel", "Carousel", "LinkedIn-Post", "Blog", "Google-Maps-Beitrag", "Story", "Sonstiges", "ungeklärt"] as const;
+export const FORMATE = ["Reel", "Carousel", "LinkedIn-Post", "Blog", "Google-Maps-Beitrag", "Story", "Anzeige", "Sonstiges", "ungeklärt"] as const;
 export const PLATTFORMEN = ["Instagram", "LinkedIn", "Blog", "Google", "weitere"] as const;
 export const PROFILE = ["Andrej", "Leander", "Alperna", "Kunde"] as const;
 export const QUELLEN = ["Manuell", "Rohstoff", "Viral-Liste", "Kundenwunsch", "Scraping", "Performance"] as const;
@@ -26,7 +26,8 @@ export type TorIEntscheid = (typeof TOR_I)[number];
 export type TorPEntscheid = (typeof TOR_P)[number];
 
 /** Formate, die ohne Render auskommen: Claude schreibt den Entwurf selbst in die Seite (Plan v3, 3.1). */
-export const TEXTFORMATE: readonly Format[] = ["LinkedIn-Post", "Blog", "Google-Maps-Beitrag"];
+/** Formate, deren Entwurf ein Text ist und mit `inhalte textpruefen` geprüft wird. Eine Anzeige ist hier ein Textentwurf (Hook, Körper, Aufruf); Video-Anzeigen sind Reels. */
+export const TEXTFORMATE: readonly Format[] = ["LinkedIn-Post", "Blog", "Google-Maps-Beitrag", "Anzeige"];
 export const istTextformat = (f: Format | undefined): boolean => !!f && TEXTFORMATE.includes(f);
 
 export interface Tor<E extends string> {

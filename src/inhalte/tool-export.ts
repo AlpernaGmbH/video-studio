@@ -80,6 +80,7 @@ const MEDIUM: Record<Format, string> = {
   Blog: "blog",
   "Google-Maps-Beitrag": "google_post",
   Story: "story",
+  Anzeige: "ad",
   Sonstiges: "other",
   ungeklärt: "unclear",
 };

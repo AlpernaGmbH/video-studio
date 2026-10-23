@@ -40,6 +40,11 @@ Exit-Code 1 heisst: Fehler beheben, nicht abschwächen. Erst bei bestandener Pr�
 Mit `--hook "…"` (oder `--hook-datei`) liefert dieselbe Ausgabe unter `empfehlungen` Hinweise zum Hook und unter `pruefFragen` drei Fragen. **Empfehlungen sind keine Fehler**: Sie stammen aus gesichteten Reels, sind nicht belegt und ändern weder `bestanden` noch den Exit-Code (`library/hook-regeln.json`, `docs/inspiration/hooks.md`). Lies sie, entscheide begründet und schreib in die Notiz zum Entwurf, was du geändert oder bewusst gelassen hast. Die drei Fragen (Was verpasse ich? Ist das für mich? Warum soll es mich kümmern?) beantwortest du für jeden Hook in einem Satz, für dich und den Menschen, der den Entwurf prüft: Sie lassen sich nicht automatisch prüfen.
 Bei Reels und Carousels vermerkt die Render-Prüfung das Ergebnis: `inhalte pruefung c-0007 --bestanden` oder `--nicht-bestanden --text "…"`.
 
+## Anzeigen schreiben (Format «Anzeige»)
+
+Eine Anzeige (Bild-, Karussell- oder Textanzeige) hat drei Teile mit je mehreren Varianten, als Markdown im Entwurf: `## Hook` (mindestens zwei Varianten), `## Körper`, `## Aufruf`, darunter eine Liste oder je Variante ein Absatz. **Video-Anzeigen sind Reels** (Format Reel, Plattform «Anzeigen» im Tool), nicht dieses Format: Für sie gilt die Vorschau vor Tor P.
+Prüfen wie jeden Text: `./studio inhalte textpruefen --marke … --format "Anzeige" --text-datei entwurf.txt --beleg-datei beleg.txt --hook "…"`. Die harten Regeln (verbotene Wörter, Zahl ohne Beleg, Zeichenlänge der Marke) gelten wie sonst. Die Aufteilung in Teile und Varianten und der Hook je Variante sind **Empfehlungen** (`empfehlungen`, nie Fehler). Vorgaben der Anzeigenplattformen (Zeichenlängen, Bildformate) sind hier nicht hinterlegt, weil dafür keine Quelle im Repo liegt: Frag den Menschen oder nimm sie aus der aktuellen Anleitung der Plattform und nenne die Quelle im Beleg. Geschaltet wird nie von hier aus, und freigeben tut ein Mensch (Tor I und Tor P wie bei jedem Inhalt).
+
 ## Ideenfindung mit dem Bestand (Altbeiträge)
 
 Die Altbeiträge bleiben in Notion (Entscheid Andrej, 18.10.2026) und sind Teil jeder Ideenfindung. Bevor du eine Idee vorschlägst:
