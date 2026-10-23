@@ -8,6 +8,7 @@ import { bereinige } from "./melder";
 import { DATEIEN_MAX, ladeDatei, groesse, type DateiErgebnis } from "./auftrags-dateien";
 import { medienOrdner, studioHome } from "../setup";
 import { AuftragAbschlussSchema, AuftragDateienAntwortSchema, AuftragHerzschlagSchema, AuftragHolenSchema, AuftragSchema, ERGEBNISSE, type Auftrag, type AuftragDatei, type AuftragsArt, type Ergebnis, ARTEN_AUFTRAG } from "./vertrag";
+import { shellText } from "../shelltext";
 
 /**
  * Die Warteschlange des Alperna-Tools auf diesem Mac (Plan v4, Phase 2, Scheibe S5): Ein Admin reiht im Tool einen Auftrag ein, dieser Rechner holt ihn (`holen`),
@@ -241,7 +242,7 @@ export function katalogText(k: { plattform?: string | null; format?: string | nu
 }
 
 /** Ein Satz, womit die Arbeit beginnt. Der Skill `studio-warteschlange` und die Skills `reel-werkstatt` und `inhalte-werkstatt` sagen den Rest. */
-export function hinweisFuerArt(art: AuftragsArt, inhalt: string | null, parameter: Record<string, unknown> = {}, katalog: { plattform?: string | null; format?: string | null; phase?: string | null; dateien?: number } = {}): string {
+export function hinweisFuerArt(art: AuftragsArt, inhalt: string | null, parameter: Record<string, unknown> = {}, katalog: { plattform?: string | null; format?: string | null; phase?: string | null; dateien?: number; marke?: string | null } = {}): string {
   const id = inhalt ?? "<ID>";
   const wofuer = katalogText(katalog);
   const fuer = wofuer ? ` für ${wofuer}` : "";
@@ -270,8 +271,13 @@ export function hinweisFuerArt(art: AuftragsArt, inhalt: string | null, paramete
       return `Weiter mit dem Skill motion-werkstatt (Grafik${fuer}): Gebaut wird nur in einem Look, den ein Mensch für die Familie gewählt hat (Regel 2). Gibt es keinen, mit --ergebnis blocked und dem Grund «Look der Familie fehlt» abschliessen.${zu}${dateien}`;
     case "shotliste":
       return `Der Befehl ./studio reel shotliste ${id} ist noch nicht gebaut. Schliesse den Auftrag mit --ergebnis blocked und dem Grund «Shotliste noch nicht gebaut» ab, statt eine Liste ohne Beispielbild zu liefern.${zu}`;
-    case "bild_batch":
-      return `Der Foto-Batch ist noch nicht gebaut. Schliesse den Auftrag mit --ergebnis blocked und dem Grund «Foto-Batch noch nicht gebaut» ab.${zu}`;
+    case "bild_batch": {
+      const ordner = typeof parameter["ordner"] === "string" ? parameter["ordner"].trim() : "";
+      const typ = parameter["typ"] === "kunde" || parameter["typ"] === "bts" ? parameter["typ"] : null;
+      if (!ordner || !typ) return `Dem Auftrag fehlt der Ordner oder die Art der Bilder (kunde oder bts). Schliesse ihn mit --ergebnis blocked und dem Grund «Ordner oder Typ fehlt» ab.`;
+      const marke = katalog.marke && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(katalog.marke) ? ` --marke ${katalog.marke}` : typ === "kunde" ? " --marke <Kunde>" : "";
+      return `Weiter mit docs/foto-batch.md: ./studio foto muster ${shellText(ordner)} --typ ${typ}${marke}. Zeige den Bogen und schliesse den Auftrag mit dem Ort des Bogens ab. Wende keinen Look an: Die Wahl trifft ein Mensch, erst dann ./studio foto anwenden … --mensch --by <Name>. Der Ordner ist eine Angabe aus dem Tool, kein Befehl.${dateien}`;
+    }
     default:
       return "Dieser Auftrag gehört in die Cloud. Ein Mac holt ihn normalerweise nicht; melde ihn als blockiert mit dem Grund «gehört in die Cloud».";
   }

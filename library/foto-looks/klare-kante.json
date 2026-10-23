@@ -1,0 +1,12 @@
+{
+  "id": "klare-kante",
+  "name": "Klare Kante",
+  "stimmung": "Kräftiger Kontrast und satte Farben. Für Bilder, die auf kleinen Bildschirmen auffallen sollen.",
+  "herkunft": "Vorschlag von Claude (23.10.2026) aus den Rezeptteilen in docs/inspiration/farbe-und-foto.md. Die Zahlen sind Startwerte zum Ausprobieren, nicht belegt und keine Standardwerte. Ein Mensch wählt am Muster.",
+  "farblook": {
+    "gamma": 0.98,
+    "kontrast": 0.45,
+    "saettigung": 1.12,
+    "kuehle": -0.05
+  }
+}

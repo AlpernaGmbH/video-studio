@@ -20,6 +20,8 @@ Ein Look hat einen **Namen mit Stimmung** statt eines Zahlencodes (DeUFkeYir-x: 
 
 ## Foto-Batch mit V-Log-Looks (M4, Stufe 1)
 
+**Gebaut am 23.10.2026** (`./studio foto …`, `docs/foto-batch.md`). Zwei Abweichungen vom Vorschlag unten: Es sind drei Muster mit der reinen Umrechnung und den Looks nebeneinander (die Looks stehen als Dateien unter `library/foto-looks/`, mit Farbpaar und Korn), und die Wahl trifft ein Mensch im Befehl (`--mensch --by Name`), nicht im Tool. Der Vorschlag im Wortlaut:
+
 Vorschlag nach Wunsch von Andrej:
 
 1. **Eingabe:** ein Ordner mit Fotos (JPEG in V-Log). Die **Trennung Kunde oder Behind the Scenes** geben wir über den Ordner oder eine Liste vor (`--typ kunde|bts`), **nicht** über Bilderkennung: Eine Fehlzuordnung bei Kundenbildern kostet mehr als ein Ordner.

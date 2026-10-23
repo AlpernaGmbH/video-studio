@@ -86,7 +86,7 @@ Ein Admin reiht im Tool einen Auftrag ein (Seite «Warteschlange» im Studio, au
 
 **«Neuer Auftrag» im Tool fragt in drei Schritten Plattform, Art und Phase** (zum Beispiel LinkedIn, Karussell, Ideenfindung oder Instagram, Reel, Storyboard). Die Phase bestimmt die Art des Auftrags; Plattform, Art, Phase und Marke kommen mit dem Auftrag auf den Mac (`holen` zeigt sie als Zeile «Katalog»). Der Admin kann Bilder und Dokumente anhängen (bis 30, je bis 20 MB).
 
-**Was gebaut ist und was nicht:** `reel_*`, `katalog_beschreiben` und `text_entwurf` haben ihren Ablauf. `ideen_sammeln` und `moodboard` sind Textarbeit nach dem Skill `inhalte-werkstatt`, `grafik` läuft über die Motion-Werkstatt (nur in einem Look, den ein Mensch gewählt hat, Regel 2). **`shotliste` und `bild_batch` sind noch nicht gebaut**: `holen` sagt es, und der Auftrag wird mit `--ergebnis blocked` und dem Grund abgeschlossen, statt halb geliefert.
+**Was gebaut ist und was nicht:** `reel_*`, `katalog_beschreiben` und `text_entwurf` haben ihren Ablauf. `ideen_sammeln` und `moodboard` sind Textarbeit nach dem Skill `inhalte-werkstatt`, `grafik` läuft über die Motion-Werkstatt (nur in einem Look, den ein Mensch gewählt hat, Regel 2). `bild_batch` ruft `./studio foto muster …` auf (`docs/foto-batch.md`); angewendet wird erst, wenn ein Mensch den Look mit Namen wählt. **`shotliste` ist noch nicht gebaut**: `holen` sagt es, und der Auftrag wird mit `--ergebnis blocked` und dem Grund abgeschlossen, statt halb geliefert.
 
 **Ein Mac, der die neuen Arten nicht kennt, darf keinen Auftrag davon holen:** Er würde ihn nicht lesen können. Darum zuerst alle Macs aktualisieren (`git pull`), dann im Tool Aufträge der neuen Arten einreihen.
 

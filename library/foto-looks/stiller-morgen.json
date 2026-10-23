@@ -1,0 +1,17 @@
+{
+  "id": "stiller-morgen",
+  "name": "Stiller Morgen",
+  "stimmung": "Dezent kühl, ruhiger Kontrast, leicht entsättigt. Passt zu Beratung und Büro.",
+  "herkunft": "Vorschlag von Claude (23.10.2026) aus den Rezeptteilen in docs/inspiration/farbe-und-foto.md. Die Zahlen sind Startwerte zum Ausprobieren, nicht belegt und keine Standardwerte. Ein Mensch wählt am Muster.",
+  "farblook": {
+    "gamma": 1.0,
+    "kontrast": 0.3,
+    "saettigung": 0.92,
+    "kuehle": 0.3
+  },
+  "farbpaar": {
+    "schatten": "#1F4D5C",
+    "lichter": "#F3EBD8",
+    "staerke": 0.1
+  }
+}

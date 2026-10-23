@@ -1,0 +1,12 @@
+{
+  "id": "klare-luft",
+  "name": "Klare Luft",
+  "stimmung": "Hell und klar, ohne Farbstimmung. Für Räume, Produkte und Fassaden.",
+  "herkunft": "Vorschlag von Claude (23.10.2026) aus den Rezeptteilen in docs/inspiration/farbe-und-foto.md. Die Zahlen sind Startwerte zum Ausprobieren, nicht belegt und keine Standardwerte. Ein Mensch wählt am Muster.",
+  "farblook": {
+    "gamma": 1.1,
+    "kontrast": 0.25,
+    "saettigung": 1.05,
+    "kuehle": 0.0
+  }
+}

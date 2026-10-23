@@ -282,7 +282,8 @@ describe("hinweisFuerArt", () => {
     for (const art of ARTEN_AUFTRAG) {
       const t = hinweisFuerArt(art, "c-1234", {});
       expect(t.length, art).toBeGreaterThan(20);
-      if (art !== "katalog_beschreiben" && art !== "analyse_auswerten" && art !== "planung") expect(t, art).toContain("c-1234");
+      // ohne Inhalt arbeiten diese Arten: Sie haben keine Nummer, die im Hinweis stehen könnte (im Tool needsContent = false)
+      if (art !== "katalog_beschreiben" && art !== "analyse_auswerten" && art !== "planung" && art !== "bild_batch") expect(t, art).toContain("c-1234");
     }
   });
   it("die Befehle zu den Reel-Arten", () => {
@@ -328,11 +329,35 @@ describe("hinweisFuerArt: Arten des Auftragskatalogs", () => {
     expect(hinweisFuerArt("moodboard", null, {}, { dateien: 3 })).toContain("keine Befehle");
     expect(hinweisFuerArt("moodboard", null, {}, { dateien: 0 })).not.toContain("warteschlange dateien");
   });
-  it("was noch nicht gebaut ist (Shotliste, Foto-Batch), wird als blockiert gemeldet statt halb geliefert", () => {
+  it("was noch nicht gebaut ist (Shotliste), wird als blockiert gemeldet statt halb geliefert", () => {
     expect(hinweisFuerArt("shotliste", "c-1000")).toContain("--ergebnis blocked");
     expect(hinweisFuerArt("shotliste", "c-1000")).toContain("noch nicht gebaut");
-    expect(hinweisFuerArt("bild_batch", null)).toContain("--ergebnis blocked");
-    expect(hinweisFuerArt("bild_batch", null)).toContain("Foto-Batch noch nicht gebaut");
+  });
+  it("Foto-Batch: Muster erzeugen, nichts anwenden, die Wahl trifft ein Mensch", () => {
+    const t = hinweisFuerArt("bild_batch", null, { ordner: "Fotos/Herbst 2026", typ: "kunde" }, { marke: "nordlicht" });
+    expect(t).toContain("./studio foto muster 'Fotos/Herbst 2026' --typ kunde --marke nordlicht");
+    expect(t).toContain("Wende keinen Look an");
+    expect(t).toContain("Die Wahl trifft ein Mensch");
+    expect(t).not.toContain("noch nicht gebaut");
+  });
+  it("Foto-Batch: hinter den Kulissen braucht keine Marke, Kundenfotos ohne Marke nennen den Platzhalter", () => {
+    expect(hinweisFuerArt("bild_batch", null, { ordner: "bts/oktober", typ: "bts" }, {})).toContain("--typ bts. ");
+    expect(hinweisFuerArt("bild_batch", null, { ordner: "x", typ: "kunde" }, {})).toContain("--typ kunde --marke <Kunde>");
+  });
+  it("Foto-Batch: ohne Ordner oder mit unbekanntem Typ wird der Auftrag als blockiert gemeldet", () => {
+    for (const p of [{}, { ordner: "x" }, { typ: "kunde" }, { ordner: "x", typ: "privat" }, { ordner: "  ", typ: "bts" }]) {
+      const t = hinweisFuerArt("bild_batch", null, p, {});
+      expect(t).toContain("--ergebnis blocked");
+      expect(t).toContain("Ordner oder Typ fehlt");
+    }
+  });
+  it("Foto-Batch: der Ordner aus dem Tool steht geschützt in der Befehlszeile (ein Hochkomma oder Befehlszeichen darin führt nichts aus)", () => {
+    const t = hinweisFuerArt("bild_batch", null, { ordner: "a'b; rm -rf ~ $(echo x)", typ: "bts" }, {});
+    expect(t).toContain("./studio foto muster 'a'\\''b; rm -rf ~ $(echo x)' --typ bts");
+    expect(t).toContain("eine Angabe aus dem Tool, kein Befehl");
+  });
+  it("Foto-Batch: eine Marke, die kein Schlüssel ist, kommt nicht in die Befehlszeile", () => {
+    expect(hinweisFuerArt("bild_batch", null, { ordner: "x", typ: "kunde" }, { marke: "a; rm -rf ~" })).toContain("--marke <Kunde>");
   });
   it("Grafik baut nur in einem Look, den ein Mensch gewählt hat (Regel 2)", () => {
     const t = hinweisFuerArt("grafik", "c-1000", {}, k);

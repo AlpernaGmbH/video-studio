@@ -1,5 +1,5 @@
 import type { Farblook } from "../core/schemas";
-import { baueCube } from "./lut";
+import { baueCube, type Nachstufe } from "./lut";
 import { vlogZuRec709, type VlogBasis } from "./vlog";
 
 /**
@@ -11,8 +11,8 @@ import { vlogZuRec709, type VlogBasis } from "./vlog";
  */
 export const VLOG_LUT_GROESSE = 65;
 
-export function baueVlogCube(titel: string, look: Farblook | undefined, o: VlogBasis & { groesse?: number } = {}): string {
+export function baueVlogCube(titel: string, look: Farblook | undefined, o: VlogBasis & { groesse?: number; nachstufe?: Nachstufe } = {}): string {
   const ohneLook: Farblook = { gamma: 1, kontrast: 0, saettigung: 1, kuehle: 0 };
   const aufgeloest = { ...(look ?? ohneLook), schwarz: look?.schwarz ?? 0, weiss: look?.weiss ?? 1 };
-  return baueCube(titel, aufgeloest, o.groesse ?? VLOG_LUT_GROESSE, (c) => vlogZuRec709(c, { belichtung: o.belichtung, knie: o.knie }));
+  return baueCube(titel, aufgeloest, o.groesse ?? VLOG_LUT_GROESSE, (c) => vlogZuRec709(c, { belichtung: o.belichtung, knie: o.knie }), o.nachstufe);
 }

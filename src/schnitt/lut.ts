@@ -43,11 +43,14 @@ export function rechneFarbe(rgb: Rgb, p: Farblook & { schwarz: number; weiss: nu
 /** Eine Umrechnung vor dem Look, zum Beispiel von Log nach Rec. 709 (`vlogZuRec709`). Eingang und Ausgang je 0 bis 1. */
 export type Vorstufe = (rgb: Rgb) => Rgb;
 
+/** Eine Veränderung nach dem Look, zum Beispiel ein Farbpaar in Schatten und Lichtern (`src/foto/farbpaar.ts`). Eingang und Ausgang je 0 bis 1. */
+export type Nachstufe = (rgb: Rgb) => Rgb;
+
 /**
  * Der Look als Text einer .cube-Datei. Reihenfolge der Einträge: Rot läuft am schnellsten, dann Grün, dann Blau.
- * Mit `vorstufe` wird jedes Gitterpunkt-Pixel zuerst umgerechnet und erst dann mit dem Look versehen.
+ * Mit `vorstufe` wird jedes Gitterpunkt-Pixel zuerst umgerechnet und erst dann mit dem Look versehen; mit `nachstufe` wird das Ergebnis danach noch verändert (Ausgang bleibt in 0 bis 1).
  */
-export function baueCube(titel: string, p: Farblook & { schwarz: number; weiss: number }, groesse = 33, vorstufe?: Vorstufe): string {
+export function baueCube(titel: string, p: Farblook & { schwarz: number; weiss: number }, groesse = 33, vorstufe?: Vorstufe, nachstufe?: Nachstufe): string {
   if (!Number.isInteger(groesse) || groesse < 2 || groesse > 65) throw new Error(`LUT-Grösse ${groesse} ist nicht zulässig (2 bis 65)`);
   const zeilen: string[] = [`TITLE "${titel.replace(/"/g, "'")}"`, `LUT_3D_SIZE ${groesse}`, "DOMAIN_MIN 0.0 0.0 0.0", "DOMAIN_MAX 1.0 1.0 1.0"];
   const schritt = 1 / (groesse - 1);
@@ -56,8 +59,9 @@ export function baueCube(titel: string, p: Farblook & { schwarz: number; weiss: 
     for (let g = 0; g < groesse; g++) {
       for (let r = 0; r < groesse; r++) {
         const eingang = { r: r * schritt, g: g * schritt, b: b * schritt };
-        const o = rechneFarbe(vorstufe ? vorstufe(eingang) : eingang, p);
-        zeilen.push(`${f(o.r)} ${f(o.g)} ${f(o.b)}`);
+        const l = rechneFarbe(vorstufe ? vorstufe(eingang) : eingang, p);
+        const o = nachstufe ? nachstufe(l) : l;
+        zeilen.push(`${f(klemme(o.r))} ${f(klemme(o.g))} ${f(klemme(o.b))}`);
       }
     }
   }
