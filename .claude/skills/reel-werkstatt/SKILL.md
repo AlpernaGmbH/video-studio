@@ -53,6 +53,16 @@ Läuft die Sitzung nicht auf dem Mac (Chat, Cloud), geht es nur über die Zwisch
 9. **Prüfen und übergeben.** `schnitt pruefe --plan plan-storyboard.json`, dann `schnitt resolve --plan plan-storyboard.json`. Der Ordner liegt unter `inhalte/<ID>/ergebnis/resolve`, ein vorhandener wird nie überschrieben. `LIESMICH.md` nennt die Schritte in Resolve und die Stellen, die auffielen.
 10. **Nach dem Schnitt in Resolve.** Das Video exportiert ein Mensch. `schnitt export-pruefen <datei>` misst es gegen Export- und Audio-Preset. Ist das Video fertig, trägt `./studio katalog genutzt --plan plan-storyboard.json` die B-Roll als «zuletzt genutzt» ein (erst dann, nie vor dem Ja des Menschen).
 
+## Shotliste mit Beispielbildern
+
+Vor dem Dreh: was zu filmen ist, Einstellung für Einstellung, mit einem Beispielbild aus dem eigenen Katalog (`docs/shotliste.md`).
+1. `./studio reel shotliste <ID> --geruest` teilt das Skript in Einstellungen und schreibt `ergebnis/shotliste.json`. Die Dauer ist aus der Wortzahl geschätzt (Annahme: 150 Wörter je Minute); sag das, wenn du die Liste vorstellst.
+2. Du füllst in jeder Einstellung `bild` (was zu sehen ist, mindestens acht Zeichen, **keine Pfade, keine Dateinamen, kein «und/oder»**: Das Tool bekommt nie Dateinamen), `groesse` (totale, halbtotale, halbnah, nah, gross, detail), wenn es hilft `bewegung`, `ort`, `hinweis`, und wählst `beispiel` aus dem Katalog (`./studio katalog liste --suche "Wörter"`). `sprechtext` bleibt wörtlich, wie das Gerüst ihn setzt (Regel 6). Nimm nur Schlüssel, die du im Katalog gesehen hast; ein erfundener Schlüssel ist ein Fehler.
+3. **Passt kein Bild, lass `beispiel` weg.** Das ist eine Lücke im Katalog und steht so auf dem Bogen, es ist kein Fehler. Setz kein unpassendes Bild ein, damit die Liste voll aussieht, und hol nie ein Bild aus dem Netz (Regel 5).
+4. `./studio reel shotliste <ID>` prüft gegen den Katalog (Fehler stoppen, es wird nichts geschrieben), schreibt `shotliste.md` und `shotliste-bogen.jpg` und nennt bei Einstellungen ohne Bild Vorschläge nach Wörtern. Ein Vorschlag ist eine Wortsuche, kein Urteil: Du siehst dir die Vorschaubilder an, bevor du einen übernimmst.
+5. Aufs Handy: `./studio tool hochladen <ID> --art shotliste,shotliste_bogen`, nur wenn ein Admin im Tool Vorschauen für diesen Inhalt erlaubt hat. Du schaltest das nie ein.
+Eine Shotliste gibt nichts frei und ersetzt kein Storyboard: Sie entsteht vor dem Dreh, das Storyboard nach dem Schnittplan.
+
 ## B-Roll beschreiben (Katalog)
 
 Läuft die Sitzung auf dem Mac: `./studio katalog offen --limit 10` liefert Metadaten und Pfade der Vorschaubilder, sieh dir die Bilder an (Datei lesen).

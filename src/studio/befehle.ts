@@ -17,8 +17,8 @@ export const TOOL_HILFE = `Alperna-Tool (Fortschritt der Arbeit sichtbar machen;
   tool sync <ID>                      Stand eines Inhalts aus dem Tool lesen und den Stand dieses Rechners melden
   tool inhalt neu "<Titel>" [--medium reel] [--marke key] [--funnel …] [--absicht …] [--typ …] [--muster …]
                                       Einen neuen Inhalt im Tool anlegen (Status «Neu», Tore offen); der Code (c-1000, c-1001 …) ist die ID für «reel neu»
-  tool hochladen <ID> [--art vorschau,kontaktbogen,gegenlesen,qualitaet]
-                                      Vorschau-Video, Kontaktbogen (ein Bild), Gegenlesen-Text und Messwerte des Reels ans Tool hochladen, damit sie am Handy zu sehen sind.
+  tool hochladen <ID> [--art vorschau,kontaktbogen,gegenlesen,qualitaet,shotliste,shotliste_bogen]
+                                      Vorschau-Video, Kontaktbogen (ein Bild), Gegenlesen-Text, Messwerte und die Shotliste samt Beispielbildern des Reels ans Tool hochladen, damit sie am Handy zu sehen sind.
                                       Nur wenn ein Admin im Tool «Vorschauen erlauben» für diesen Inhalt eingeschaltet hat (die Messwerte brauchen das nicht). Plan, Storyboard und Auftrag gehen nie hoch.
   tool trennen                        Token und Adresse löschen (der Ausgangskorb bleibt)
 `;

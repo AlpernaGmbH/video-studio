@@ -54,6 +54,7 @@ Feste Ordner: Skript und Ergebnisse unter `Studio/inhalte/<ID>/`, die Videos unt
 ./studio reel storyboard c-0007 --zwischenablage            # Grafiken, B-Roll, Betonung, Zooms; rendert, macht Kontaktbogen und Vorschau-Video
 ./studio reel uebergabe c-0007                              # Ordner für DaVinci Resolve
 ./studio reel messe c-0007                                 # misst den Export aus Resolve (ergebnis/export/): Schnitte, Zooms, Bild, Ton, erste Aussage; qualitaet.json
+./studio reel shotliste c-0007 --geruest                   # Shotliste aus dem Skript; Claude beschreibt, wählt Beispielbilder aus dem Katalog; dann ohne --geruest prüfen (docs/shotliste.md)
 ./studio reel status                                        # wo steht welcher Inhalt, was ist der nächste Schritt
 ```
 

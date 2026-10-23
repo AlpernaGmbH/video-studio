@@ -416,6 +416,16 @@
         "mime": "application/json",
         "max_bytes": 1048576,
         "schalter": false
+      },
+      "shotliste": {
+        "mime": "text/plain",
+        "max_bytes": 1048576,
+        "schalter": true
+      },
+      "shotliste_bogen": {
+        "mime": "image/jpeg",
+        "max_bytes": 8388608,
+        "schalter": true
       }
     },
     "target": {
@@ -438,6 +448,26 @@
             "version": 3,
             "mime": "application/json",
             "size": 512
+          }
+        },
+        {
+          "name": "Shotliste, Fassung 1",
+          "body": {
+            "code": "c-1000",
+            "kind": "shotliste",
+            "version": 1,
+            "mime": "text/plain",
+            "size": 4096
+          }
+        },
+        {
+          "name": "Beispielbilder zur Shotliste, Fassung 1",
+          "body": {
+            "code": "c-1000",
+            "kind": "shotliste_bogen",
+            "version": 1,
+            "mime": "image/jpeg",
+            "size": 612345
           }
         }
       ],
@@ -535,6 +565,14 @@
             "code": "c-1000",
             "kind": "vorschau",
             "version": 1
+          }
+        },
+        {
+          "name": "Beispielbilder zur Shotliste, Fassung 2",
+          "body": {
+            "code": "c-1000",
+            "kind": "shotliste_bogen",
+            "version": 2
           }
         }
       ],

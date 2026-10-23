@@ -27,6 +27,7 @@ import { leseTranskript } from "./transkript";
 import { relativierePfad } from "./uebergabe";
 import { STANDARD_MODELL, transkribiere } from "./whisper";
 import { fuehreZuordnungAus } from "./zuordnen";
+import { fuehreShotlisteAus } from "./shotliste-befehl";
 
 /**
  * Der Reel-Ablauf mit festen Ordnern: vom Rohmaterial zum Ordner für DaVinci Resolve in vier Befehlen.
@@ -60,6 +61,10 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
                                       Misst das fertige Video (aus Resolve exportiert, Standard: die jüngste Datei in ergebnis/export/): Dauer, Bitrate, Schnitte je Minute, Zooms, Sättigung und
                                       Helligkeitsspanne, Lautheit, Spitze, Stille, Zeit bis zur ersten Aussage. Prüft gegen Export- und Audio-Preset und das Schnittprofil der Marke und
                                       schreibt ergebnis/qualitaet.json. Die Messung zeigt, wo ein Mensch hinschauen soll; «hochwertig» sagt sie nicht.
+  reel shotliste <ID> [--geruest] [--neu] [--datei shotliste.json] [--katalog katalog.json]
+                                      Shotliste mit Beispielbildern: was zu filmen ist, Einstellung für Einstellung. --geruest teilt das Skript in Einstellungen und schreibt ergebnis/shotliste.json
+                                      (Claude beschreibt danach das Bild, die Grösse und wählt ein Beispielbild aus dem Katalog). Ohne --geruest prüft der Befehl die Liste gegen den Katalog
+                                      und schreibt ergebnis/shotliste.md und ergebnis/shotliste-bogen.jpg. Beispielbilder gibt es nur aus dem eigenen Katalog; fehlt eines, steht es als Lücke da.
   reel status [<ID>]                  Zeigt, was für einen Inhalt schon da ist und was der nächste Schritt wäre (ohne ID: alle Inhalte).
 `;
 
@@ -112,6 +117,10 @@ export interface ReelPfade {
   /** Hier liegt der Export aus Resolve, den `reel messe` misst. */
   export: string;
   qualitaet: string;
+  /** Die Shotliste, die Claude schreibt (JSON), der Text daraus und der Bogen mit den Beispielbildern. */
+  shotliste: string;
+  shotlisteText: string;
+  shotlisteBogen: string;
 }
 
 export function reelPfade(home: StudioHome, id: string): ReelPfade {
@@ -140,6 +149,9 @@ export function reelPfade(home: StudioHome, id: string): ReelPfade {
     resolve: path.join(ergebnis, "resolve"),
     export: path.join(ergebnis, "export"),
     qualitaet: path.join(ergebnis, "qualitaet.json"),
+    shotliste: path.join(ergebnis, "shotliste.json"),
+    shotlisteText: path.join(ergebnis, "shotliste.md"),
+    shotlisteBogen: path.join(ergebnis, "shotliste-bogen.jpg"),
   };
 }
 
@@ -934,6 +946,28 @@ async function status(a: Args): Promise<number> {
 
 /* ---------- Einstieg ---------- */
 
+/* ---------- reel shotliste ---------- */
+
+async function shotliste(a: Args, env: Umgebung): Promise<number> {
+  const home = braucheHome();
+  const id = pruefeInhaltId(a.pos[2]);
+  const p = reelPfade(home, id);
+  const alt = leseReel(p);
+  const skriptDatei = path.resolve(alt?.skript ?? p.skript);
+  const titel = str(a, "name") ?? alt?.name ?? (fs.existsSync(skriptDatei) ? skriptTitel(fs.readFileSync(skriptDatei, "utf8"), id) : id);
+  return fuehreShotlisteAus({
+    id,
+    pfade: p,
+    skriptDatei,
+    titel,
+    datenDir: env.datenDir,
+    ...(str(a, "katalog") ? { katalogDatei: str(a, "katalog")! } : {}),
+    geruest: a.opt["geruest"] === true,
+    neu: a.opt["neu"] === true,
+    ...(str(a, "datei") ? { datei: str(a, "datei")! } : {}),
+  });
+}
+
 export async function reelBefehl(sub: string, a: Args, env: Umgebung, geraete: ReelGeraete = {}): Promise<number> {
   const g = { ...standardGeraete(), ...geraete };
   const lauf = async (): Promise<number> => {
@@ -952,6 +986,8 @@ export async function reelBefehl(sub: string, a: Args, env: Umgebung, geraete: R
         return uebergabe(a, env);
       case "messe":
         return messe(a, env);
+      case "shotliste":
+        return shotliste(a, env);
       case "status":
         return status(a);
       default:
@@ -965,4 +1001,4 @@ export async function reelBefehl(sub: string, a: Args, env: Umgebung, geraete: R
   return alsSchritt(g.melder, `reel ${sub}`, codeVon(a), lauf);
 }
 
-const BEFEHLE_MIT_MELDUNG = new Set(["neu", "vorbereiten", "transkript", "gegenlesen", "storyboard", "uebergabe", "messe"]);
+const BEFEHLE_MIT_MELDUNG = new Set(["neu", "vorbereiten", "transkript", "gegenlesen", "storyboard", "uebergabe", "messe", "shotliste"]);

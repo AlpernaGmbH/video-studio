@@ -37,7 +37,7 @@ export function ereignisFehler(e: unknown, jetzt: number = Date.now()): string |
 /** Dateien zu einem Inhalt: Vorbereiten (Art, Fassung, Typ und Grösse). Das Tool prüft dieselben Grenzen (`artifactTargetSchema` in `lib/studio/device/schemas.ts`). */
 export const DateiVorbereitenSchema = z.strictObject({
   code: z.string().regex(/^c-[0-9]{4,}$/),
-  kind: z.enum(["vorschau", "kontaktbogen", "gegenlesen", "plan", "storyboard", "auftrag", "qualitaet"]),
+  kind: z.enum(["vorschau", "kontaktbogen", "gegenlesen", "plan", "storyboard", "auftrag", "qualitaet", "shotliste", "shotliste_bogen"]),
   version: z.number().int().min(1).max(1_000_000),
   mime: z.string().min(1).max(100),
   size: z.number().int().min(1).max(52_428_800),
@@ -46,7 +46,7 @@ export const DateiVorbereitenSchema = z.strictObject({
 /** Dateien zu einem Inhalt: Eintragen (Typ, Grösse und Kennung liest das Tool am Objekt). */
 export const DateiEintragenSchema = z.strictObject({
   code: z.string().regex(/^c-[0-9]{4,}$/),
-  kind: z.enum(["vorschau", "kontaktbogen", "gegenlesen", "plan", "storyboard", "auftrag", "qualitaet"]),
+  kind: z.enum(["vorschau", "kontaktbogen", "gegenlesen", "plan", "storyboard", "auftrag", "qualitaet", "shotliste", "shotliste_bogen"]),
   version: z.number().int().min(1).max(1_000_000),
 });
 

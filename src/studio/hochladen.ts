@@ -3,7 +3,7 @@ import { bereinige } from "./melder";
 import { VERBINDUNGSTEXT } from "./texte";
 
 /**
- * Dateien zu einem Inhalt ans Alperna-Tool hochladen (Plan v4, Phase 2, Scheibe S3): Vorschau-Video, Kontaktbogen, Gegenlesen-Text und Messwerte.
+ * Dateien zu einem Inhalt ans Alperna-Tool hochladen (Plan v4, Phase 2, Scheibe S3): Vorschau-Video, Kontaktbogen, Gegenlesen-Text, Messwerte, Shotliste (Text) und die Beispielbilder dazu.
  * Das Tool bestimmt den Pfad und prüft alles (Art, Typ, Grösse, Fassung, Datenschutz-Schalter); der Rechner lädt nur auf den Link hoch, den das Tool für genau diese Datei gibt,
  * und meldet danach, dass er fertig ist. Der Typ im Header ist immer der der Art, nie einer, den das Tool nennt. Die Adresse des Links und das Token stehen nie in einer Ausgabe.
  * Regel 11: Das Tool ist freiwillig. Dieser Befehl ist ausdrücklich, nicht Teil eines anderen Ablaufs; ein Ausfall des Tools lässt ihn mit Hinweis enden, ändert aber nie etwas an der Arbeit.
@@ -11,7 +11,7 @@ import { VERBINDUNGSTEXT } from "./texte";
 
 const MiB = 1024 * 1024;
 
-export type Art = "vorschau" | "kontaktbogen" | "gegenlesen" | "qualitaet";
+export type Art = "vorschau" | "kontaktbogen" | "gegenlesen" | "qualitaet" | "shotliste" | "shotliste_bogen";
 
 /** Dieselben Werte stehen in `docs/studio/vertrag.json` (`artifacts.arten`); der Test `hochladen.test.ts` vergleicht. */
 export const ARTEN: Record<Art, { name: string; mime: string; maxBytes: number; schalter: boolean }> = {
@@ -19,8 +19,10 @@ export const ARTEN: Record<Art, { name: string; mime: string; maxBytes: number; 
   kontaktbogen: { name: "Kontaktbogen", mime: "image/jpeg", maxBytes: 8 * MiB, schalter: true },
   gegenlesen: { name: "Gegenlesen", mime: "text/plain", maxBytes: 1 * MiB, schalter: true },
   qualitaet: { name: "Messwerte", mime: "application/json", maxBytes: 1 * MiB, schalter: false },
+  shotliste: { name: "Shotliste", mime: "text/plain", maxBytes: 1 * MiB, schalter: true },
+  shotliste_bogen: { name: "Beispielbilder zur Shotliste", mime: "image/jpeg", maxBytes: 8 * MiB, schalter: true },
 };
-export const ALLE_ARTEN: readonly Art[] = ["vorschau", "kontaktbogen", "gegenlesen", "qualitaet"];
+export const ALLE_ARTEN: readonly Art[] = ["vorschau", "kontaktbogen", "gegenlesen", "qualitaet", "shotliste", "shotliste_bogen"];
 
 /** «vorschau,kontaktbogen» → Liste, oder der Text eines Fehlers. */
 export function leseArten(text: string): Art[] | string {

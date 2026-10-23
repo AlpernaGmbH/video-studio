@@ -186,3 +186,46 @@ describe("Kontaktbogen", () => {
     expect(r).toEqual({ fehlt: expect.stringContaining("zusammensetzen") });
   });
 });
+
+describe("Shotliste und ihr Bogen", () => {
+  it("ohne Dateien ein Hinweis, der den Befehl nennt (mit --geruest als erstem Schritt)", async () => {
+    for (const art of ["shotliste", "shotliste_bogen"] as const) {
+      const r = await reelQuellen(home, ID).bereit(art);
+      expect(r, art).toEqual({ fehlt: expect.stringContaining("reel shotliste c-0007") });
+      expect(r, art).toEqual({ fehlt: expect.stringContaining("--geruest") });
+    }
+  });
+
+  it("nimmt den Text und den Bogen, wie `reel shotliste` sie schrieb", async () => {
+    schreibe("shotliste.json", "{}", 20);
+    schreibe("shotliste.md", "# Shotliste", 10);
+    schreibe("shotliste-bogen.jpg", Buffer.from([0xff, 0xd8, 0xff]), 10);
+    expect(await reelQuellen(home, ID).bereit("shotliste")).toEqual({ bytes: Buffer.from("# Shotliste") });
+    expect(await reelQuellen(home, ID).bereit("shotliste_bogen")).toEqual({ bytes: Buffer.from([0xff, 0xd8, 0xff]) });
+  });
+
+  it("ist die Liste neuer als der Text oder der Bogen, wird nichts hochgeladen: Er wäre veraltet", async () => {
+    schreibe("shotliste.md", "alt", 100);
+    schreibe("shotliste-bogen.jpg", Buffer.from([0xff, 0xd8, 0xff]), 100);
+    schreibe("shotliste.json", "{}", 10);
+    for (const art of ["shotliste", "shotliste_bogen"] as const) {
+      expect(await reelQuellen(home, ID).bereit(art), art).toEqual({ fehlt: expect.stringContaining("älter als die Liste") });
+    }
+  });
+
+  it("ein Text über 1 MB und ein Bogen über 8 MB werden nicht gelesen", async () => {
+    schreibe("shotliste.md", "");
+    fs.truncateSync(path.join(ergebnis, "shotliste.md"), 1024 * 1024 + 1);
+    schreibe("shotliste-bogen.jpg", "");
+    fs.truncateSync(path.join(ergebnis, "shotliste-bogen.jpg"), 8 * 1024 * 1024 + 1);
+    expect(await reelQuellen(home, ID).bereit("shotliste")).toEqual({ fehlt: expect.stringContaining("grösser als 1 MB") });
+    expect(await reelQuellen(home, ID).bereit("shotliste_bogen")).toEqual({ fehlt: expect.stringContaining("grösser als 8 MB") });
+  });
+
+  it("shotliste.json selbst geht nie ans Tool (nur der Text und der Bogen)", async () => {
+    const { ALLE_ARTEN } = await import("./hochladen");
+    expect(ALLE_ARTEN as readonly string[]).not.toContain("shotliste_json");
+    schreibe("shotliste.json", '{"geheim": 1}');
+    expect(await reelQuellen(home, ID).bereit("shotliste")).toEqual({ fehlt: expect.stringContaining("gibt es noch nicht") });
+  });
+});

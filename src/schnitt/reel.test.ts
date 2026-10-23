@@ -10,6 +10,7 @@ import { pruefeSchnittplan } from "./pruefung";
 import { schnittBefehl } from "./befehle";
 import { findeStille } from "./stille";
 import { juengsterExport, listeAufnahmen, naechsterSchritt, pruefeInhaltId, quellenId, reelBefehl, reelPfade, skriptTitel, transkriptMarkdown, type ReelGeraete, type ReelZustand } from "./reel";
+import { findeSchrift } from "../katalog/bogen";
 import { leseCube } from "./lut";
 import { testSatz } from "./testdaten";
 import type { Segment } from "./transkript";
@@ -1012,4 +1013,67 @@ describe.skipIf(!hatFfmpeg)("reel messe", () => {
     expect(q.planHinweis).toContain("passt nicht zum Video");
     expect(q.schnitte.quelle).toBe("bild");
   }, 180_000);
+});
+
+describe("reel shotliste (Verdrahtung)", () => {
+  const skript = "# Fassade streichen\n\nDie meisten Fassaden werden im falschen Monat gestrichen. Das kostet Jahre.\nWir sagen dir, wann es sich lohnt.\nMelde dich bei uns und lass dich beraten.\n";
+  const katalog = [
+    {
+      schluessel: "k-0001",
+      art: "foto",
+      pfad: "rohmaterial/foto.jpg",
+      titel: "Werkstatt_Gossau_Hände_2026",
+      beschreibung: "Hände mit Pinsel",
+      tags: ["hände"],
+      zeitlupe: false,
+      log: false,
+      personen: false,
+      freigabe: "alles erlaubt",
+      sicherheit: "hoch",
+    },
+  ];
+
+  it("--geruest schreibt ergebnis/shotliste.json aus dem Skript, mit dem Titel der ersten Überschrift", async () => {
+    fs.mkdirSync(studio("inhalte", "c-0007"), { recursive: true });
+    fs.writeFileSync(studio("inhalte", "c-0007", "skript.md"), skript);
+    expect(await lauf("reel", "shotliste", "c-0007", "--geruest")).toBe(0);
+    const g = JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "shotliste.json"), "utf8"));
+    expect(g).toMatchObject({ schema: 1, inhalt: "c-0007", titel: "Fassade streichen" });
+    expect(g.einstellungen.length).toBeGreaterThan(0);
+    expect(text()).toContain("Gerüst geschrieben");
+  });
+
+  it.skipIf(!hatFfmpeg || !findeSchrift())("ohne --geruest prüft er die Liste gegen den Katalog im Datenordner und schreibt Text und Bogen nach ergebnis/", async () => {
+    fs.mkdirSync(env.datenDir, { recursive: true });
+    fs.writeFileSync(path.join(env.datenDir, "katalog.json"), JSON.stringify(katalog));
+    fs.mkdirSync(path.join(env.datenDir, "katalog", "vorschau"), { recursive: true });
+    ff("-f", "lavfi", "-i", "testsrc2=size=270x480:rate=1:duration=1", "-frames:v", "1", path.join(env.datenDir, "katalog", "vorschau", "k-0001-a.jpg"));
+    fs.mkdirSync(studio("inhalte", "c-0007", "ergebnis"), { recursive: true });
+    fs.writeFileSync(
+      studio("inhalte", "c-0007", "ergebnis", "shotliste.json"),
+      JSON.stringify({
+        schema: 1,
+        inhalt: "c-0007",
+        titel: "Fassade streichen",
+        einstellungen: [
+          { nr: 1, bild: "Nahaufnahme Hände mit Pinsel", groesse: "nah", dauer: 3, beispiel: "k-0001" },
+          { nr: 2, bild: "Fassade im Morgenlicht", groesse: "totale", dauer: 4 },
+        ],
+      }),
+    );
+    expect(await lauf("reel", "shotliste", "c-0007")).toBe(0);
+    expect(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "shotliste.md"), "utf8")).toContain("Beispielbild: k-0001 «Werkstatt_Gossau_Hände_2026»");
+    expect(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "shotliste-bogen.jpg")).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+    expect(text()).toContain("2 Einstellungen, 1 mit Beispielbild, 1 ohne");
+  }, 60_000);
+
+  it("eine ungültige Inhalt-ID wird abgewiesen, bevor etwas geschrieben wird", async () => {
+    await expect(lauf("reel", "shotliste", "../x", "--geruest")).rejects.toThrow(/gültige Inhalt-ID/);
+    await expect(lauf("reel", "shotliste")).rejects.toThrow(/ID fehlt/);
+  });
+
+  it("steht in der Hilfe", async () => {
+    const { REEL_HILFE } = await import("./reel");
+    expect(REEL_HILFE).toContain("reel shotliste <ID>");
+  });
 });

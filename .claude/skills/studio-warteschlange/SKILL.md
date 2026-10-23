@@ -30,7 +30,7 @@ Ein Admin reiht im Alperna-Tool Aufträge ein. Du holst sie auf diesem Mac, arbe
    | `ideen_sammeln` | Ideen für Plattform und Art aus dem Katalog des Auftrags sammeln und aufschreiben, nichts freigeben | `inhalte-werkstatt` |
    | `moodboard` | `./studio warteschlange dateien`, die Bilder ansehen und das Moodboard beschreiben (Farben, Licht, Stimmung, Bildsprache) | `inhalte-werkstatt` |
    | `grafik` | nur in einem Look, den ein Mensch für die Familie gewählt hat (Regel 2); sonst blockiert melden | `motion-werkstatt` |
-   | `shotliste` | **noch nicht gebaut**: mit `--ergebnis blocked --grund "Shotliste noch nicht gebaut"` abschliessen | |
+   | `shotliste` | `./studio reel shotliste <ID> --geruest`, in `ergebnis/shotliste.json` Bild, Grösse und Beispielbild aus dem Katalog eintragen, dann `./studio reel shotliste <ID>` (Abschnitt «Shotliste» im Skill). Ohne Inhalt blockiert melden | `reel-werkstatt` |
    | `bild_batch` | `./studio foto muster <ordner> --typ kunde\|bts [--marke key]` (Ordner und Typ stehen in den Parametern; `docs/foto-batch.md`). **Nur das Muster erzeugen** und den Auftrag mit dem Ort des Bogens abschliessen. `foto anwenden` erst, wenn ein Mensch den Look mit Namen nennt (`--mensch --by Name`). Fehlen Ordner oder Typ, blockiert melden | |
 
    `analyse_auswerten` und `planung` gehören in die Cloud. Holst du einen, schliesse ihn mit `--ergebnis blocked --grund "Gehört in die Cloud"` ab.

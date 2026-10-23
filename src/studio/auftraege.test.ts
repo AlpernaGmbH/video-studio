@@ -329,9 +329,21 @@ describe("hinweisFuerArt: Arten des Auftragskatalogs", () => {
     expect(hinweisFuerArt("moodboard", null, {}, { dateien: 3 })).toContain("keine Befehle");
     expect(hinweisFuerArt("moodboard", null, {}, { dateien: 0 })).not.toContain("warteschlange dateien");
   });
-  it("was noch nicht gebaut ist (Shotliste), wird als blockiert gemeldet statt halb geliefert", () => {
-    expect(hinweisFuerArt("shotliste", "c-1000")).toContain("--ergebnis blocked");
-    expect(hinweisFuerArt("shotliste", "c-1000")).toContain("noch nicht gebaut");
+  it("Shotliste: Gerüst, Bilder beschreiben, Beispielbild aus dem Katalog, dann prüfen; nichts freigeben", () => {
+    const t = hinweisFuerArt("shotliste", "c-1000", {}, { plattform: "Instagram", format: "Reel", phase: "Shotliste" });
+    expect(t).toContain("./studio reel shotliste c-1000 --geruest");
+    expect(t).toContain("ergebnis/shotliste.json");
+    expect(t).toContain("./studio katalog liste --suche");
+    expect(t).toContain("Lücke, kein Fehler");
+    expect(t).toContain("Nichts freigeben");
+    expect(t).toContain("für Instagram, Reel, Shotliste");
+    expect(t).not.toContain("noch nicht gebaut");
+  });
+  it("Shotliste ohne Inhalt wird als blockiert gemeldet statt erfunden", () => {
+    const t = hinweisFuerArt("shotliste", null);
+    expect(t).toContain("--ergebnis blocked");
+    expect(t).toContain("Inhalt fehlt");
+    expect(t).not.toContain("<ID>");
   });
   it("Foto-Batch: Muster erzeugen, nichts anwenden, die Wahl trifft ein Mensch", () => {
     const t = hinweisFuerArt("bild_batch", null, { ordner: "Fotos/Herbst 2026", typ: "kunde" }, { marke: "nordlicht" });

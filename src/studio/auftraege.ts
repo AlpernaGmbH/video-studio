@@ -269,8 +269,10 @@ export function hinweisFuerArt(art: AuftragsArt, inhalt: string | null, paramete
       return `Weiter mit dem Skill inhalte-werkstatt: Aus den angehängten Dateien ein Moodboard beschreiben (Farben, Licht, Stimmung, Bildsprache)${fuer}. Nichts freigeben.${zu}${dateien}`;
     case "grafik":
       return `Weiter mit dem Skill motion-werkstatt (Grafik${fuer}): Gebaut wird nur in einem Look, den ein Mensch für die Familie gewählt hat (Regel 2). Gibt es keinen, mit --ergebnis blocked und dem Grund «Look der Familie fehlt» abschliessen.${zu}${dateien}`;
-    case "shotliste":
-      return `Der Befehl ./studio reel shotliste ${id} ist noch nicht gebaut. Schliesse den Auftrag mit --ergebnis blocked und dem Grund «Shotliste noch nicht gebaut» ab, statt eine Liste ohne Beispielbild zu liefern.${zu}`;
+    case "shotliste": {
+      if (!inhalt) return `Dem Auftrag fehlt der Inhalt. Eine Shotliste gehört zu einem Reel mit Skript: Schliesse ihn mit --ergebnis blocked und dem Grund «Inhalt fehlt» ab.${dateien}`;
+      return `Weiter mit dem Skill reel-werkstatt (Shotliste${fuer}): ./studio reel shotliste ${id} --geruest schreibt das Gerüst aus dem Skript. Beschreibe in ergebnis/shotliste.json zu jeder Einstellung das Bild, setze die Grösse und wähle ein Beispielbild aus dem Katalog (./studio katalog liste --suche "…"), dann ./studio reel shotliste ${id}. Passt kein Bild im Katalog, lass «beispiel» weg: Das ist eine Lücke, kein Fehler. Nichts freigeben.${zu}${dateien}`;
+    }
     case "bild_batch": {
       const ordner = typeof parameter["ordner"] === "string" ? parameter["ordner"].trim() : "";
       const typ = parameter["typ"] === "kunde" || parameter["typ"] === "bts" ? parameter["typ"] : null;

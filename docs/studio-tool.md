@@ -54,7 +54,7 @@ Am Ende eines `reel`-Befehls wartet der Mac höchstens 1,5 Sekunden auf den Rest
 ./studio tool inhalt neu "Titel" [--medium reel] [--marke key] [--funnel …] [--absicht …] [--typ …] [--muster …]
                             # neuen Inhalt im Tool anlegen (Status «Neu», Tore offen); der Code ist die ID für «reel neu»
 ./studio tool sync <ID>     # Stand im Tool lesen und den Stand dieses Rechners melden (nur Ja und Nein und Zahlen)
-./studio tool hochladen <ID> [--art vorschau,kontaktbogen,gegenlesen,qualitaet]
+./studio tool hochladen <ID> [--art vorschau,kontaktbogen,gegenlesen,qualitaet,shotliste,shotliste_bogen]
                             # Dateien des Reels ans Tool hochladen (Handy-Ansicht), siehe unten
 ./studio tool trennen       # Token und Adresse löschen, der Korb bleibt
 ```
@@ -63,7 +63,7 @@ Cloud-Sitzungen (kein Schlüsselbund) setzen `STUDIO_TOOL_URL` und `STUDIO_TOOL_
 
 ## Dateien hochladen (Scheibe S3)
 
-`./studio tool hochladen <ID>` schickt vier Dateien des Reels ans Tool, damit ein Mensch sie am Handy ansehen kann:
+`./studio tool hochladen <ID>` schickt bis zu sechs Dateien des Reels ans Tool, damit ein Mensch sie am Handy ansehen kann:
 
 | Art            | Quelle im Reel-Ordner (`inhalte/<ID>/ergebnis/`)      | Typ                | Grenze | Braucht die Erlaubnis im Tool |
 | -------------- | ------------------------------------------------------ | ------------------ | ------ | ----------------------------- |
@@ -71,6 +71,8 @@ Cloud-Sitzungen (kein Schlüsselbund) setzen `STUDIO_TOOL_URL` und `STUDIO_TOOL_
 | `kontaktbogen` | alle Standbilder von Grafik und B-Roll, zu einem Bild  | `image/jpeg`       | 8 MB   | ja                            |
 | `gegenlesen`   | `gegenlesen.md` (gesprochener Text, Regie-Liste)       | `text/plain`       | 1 MB   | ja                            |
 | `qualitaet`    | `qualitaet.json` aus `reel messe`, bereinigt           | `application/json` | 1 MB   | nein                          |
+| `shotliste`    | `shotliste.md` aus `reel shotliste` (`docs/shotliste.md`) | `text/plain`    | 1 MB   | ja                            |
+| `shotliste_bogen` | `shotliste-bogen.jpg`, Beispielbilder aus dem Katalog | `image/jpeg`    | 8 MB   | ja                            |
 
 - **Die Erlaubnis gibt ein Mensch im Tool** (ein Admin, Schalter «Vorschauen erlauben» auf der Seite des Inhalts). Standard aus, weil Vorschau, Kontaktbogen und Gegenlesen Gesichter und Stimmen von Kundenpersonen enthalten können. Ist der Schalter aus, überspringt der Befehl diese Arten mit einem Hinweis (Exit-Code 0) und lädt nur die Messwerte hoch. Der Mac liest den Schalter vorher (`tool sync` zeigt ihn) und das Tool prüft ihn bei jedem Hochladen noch einmal.
 - **Ablauf je Datei:** Das Tool prüft Art, Typ, Grösse, Fassung und Erlaubnis und gibt einen Link für genau diese Datei; der Mac lädt dorthin (ohne das Token) und meldet danach, dass er fertig ist; das Tool liest Typ, Grösse und Kennung am Objekt, prüft die ersten Bytes und trägt die Datei ein. Eine Datei gehört zur **Fassung** des Inhalts, die das Tool gerade führt (`tool sync`). Dieselbe Fassung zweimal hochgeladen ersetzt die erste.
@@ -86,7 +88,7 @@ Ein Admin reiht im Tool einen Auftrag ein (Seite «Warteschlange» im Studio, au
 
 **«Neuer Auftrag» im Tool fragt in drei Schritten Plattform, Art und Phase** (zum Beispiel LinkedIn, Karussell, Ideenfindung oder Instagram, Reel, Storyboard). Die Phase bestimmt die Art des Auftrags; Plattform, Art, Phase und Marke kommen mit dem Auftrag auf den Mac (`holen` zeigt sie als Zeile «Katalog»). Der Admin kann Bilder und Dokumente anhängen (bis 30, je bis 20 MB).
 
-**Was gebaut ist und was nicht:** `reel_*`, `katalog_beschreiben` und `text_entwurf` haben ihren Ablauf. `ideen_sammeln` und `moodboard` sind Textarbeit nach dem Skill `inhalte-werkstatt`, `grafik` läuft über die Motion-Werkstatt (nur in einem Look, den ein Mensch gewählt hat, Regel 2). `bild_batch` ruft `./studio foto muster …` auf (`docs/foto-batch.md`); angewendet wird erst, wenn ein Mensch den Look mit Namen wählt. **`shotliste` ist noch nicht gebaut**: `holen` sagt es, und der Auftrag wird mit `--ergebnis blocked` und dem Grund abgeschlossen, statt halb geliefert.
+**Was gebaut ist und was nicht:** `reel_*`, `katalog_beschreiben` und `text_entwurf` haben ihren Ablauf. `ideen_sammeln` und `moodboard` sind Textarbeit nach dem Skill `inhalte-werkstatt`, `grafik` läuft über die Motion-Werkstatt (nur in einem Look, den ein Mensch gewählt hat, Regel 2). `bild_batch` ruft `./studio foto muster …` auf (`docs/foto-batch.md`); angewendet wird erst, wenn ein Mensch den Look mit Namen wählt. `shotliste` läuft über `./studio reel shotliste <ID>` (`docs/shotliste.md`): Gerüst aus dem Skript, Beschreibung und Beispielbilder aus dem Katalog durch Claude, Prüfung, Text und Bogen; ein Auftrag ohne Inhalt wird mit `--ergebnis blocked` und dem Grund «Inhalt fehlt» abgeschlossen.
 
 **Ein Mac, der die neuen Arten nicht kennt, darf keinen Auftrag davon holen:** Er würde ihn nicht lesen können. Darum zuerst alle Macs aktualisieren (`git pull`), dann im Tool Aufträge der neuen Arten einreihen.
 

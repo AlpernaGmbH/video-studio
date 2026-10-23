@@ -100,7 +100,7 @@ describe("Arten und Vertrag", () => {
   });
 
   it("nur die Arten, die ohne Pfade auskommen, gehen ans Tool", () => {
-    expect([...ALLE_ARTEN].sort()).toEqual(["gegenlesen", "kontaktbogen", "qualitaet", "vorschau"]);
+    expect([...ALLE_ARTEN].sort()).toEqual(["gegenlesen", "kontaktbogen", "qualitaet", "shotliste", "shotliste_bogen", "vorschau"]);
     for (const nie of ["plan", "storyboard", "auftrag"]) expect(ALLE_ARTEN as readonly string[]).not.toContain(nie);
   });
 
@@ -346,14 +346,14 @@ describe("ladeDateiHoch", () => {
 });
 
 describe("hochladen (der Befehl)", () => {
-  it("lädt alle vier Arten hoch, in fester Reihenfolge, meldet es und gibt 0 zurück", async () => {
+  it("lädt alle sechs Arten hoch, in fester Reihenfolge, meldet es und gibt 0 zurück", async () => {
     const { e, aus, fehl, melde } = eingabe();
     expect(await hochladen(e)).toBe(0);
     expect(fehl).toEqual([]);
-    expect(gesehen.filter((g) => g.url.includes("/target")).map((g) => (JSON.parse(g.body.toString()) as { kind: string }).kind)).toEqual(["vorschau", "kontaktbogen", "gegenlesen", "qualitaet"]);
+    expect(gesehen.filter((g) => g.url.includes("/target")).map((g) => (JSON.parse(g.body.toString()) as { kind: string }).kind)).toEqual(["vorschau", "kontaktbogen", "gegenlesen", "qualitaet", "shotliste", "shotliste_bogen"]);
     expect(aus.join("\n")).toContain("Fassung 3");
-    expect(aus.filter((z) => z.includes("hochgeladen"))).toHaveLength(4);
-    expect(melde).toEqual([{ state: "ok", detail: { hochgeladen: ["vorschau", "kontaktbogen", "gegenlesen", "qualitaet"], fehlgeschlagen: [] } }]);
+    expect(aus.filter((z) => z.includes("hochgeladen"))).toHaveLength(6);
+    expect(melde).toEqual([{ state: "ok", detail: { hochgeladen: ["vorschau", "kontaktbogen", "gegenlesen", "qualitaet", "shotliste", "shotliste_bogen"], fehlgeschlagen: [] } }]);
   });
 
   it("jede Datei geht mit der Fassung aus dem Tool", async () => {
@@ -369,7 +369,7 @@ describe("hochladen (der Befehl)", () => {
     expect(await hochladen(e)).toBe(0);
     expect(fehl).toEqual([]);
     expect(gesehen.filter((g) => g.url.includes("/target")).map((g) => (JSON.parse(g.body.toString()) as { kind: string }).kind)).toEqual(["qualitaet"]);
-    expect(aus.filter((z) => z.includes("übersprungen"))).toHaveLength(3);
+    expect(aus.filter((z) => z.includes("übersprungen"))).toHaveLength(5);
     expect(aus.join("\n")).toContain("nicht erlaubt");
   });
 
@@ -423,7 +423,7 @@ describe("hochladen (der Befehl)", () => {
     expect(await hochladen(e)).toBe(1);
     expect(fehl.join("\n")).toContain("Vorschau: Die Datei ist leer.");
     expect(fehl.join("\n")).toContain("Kontaktbogen: Die Datei ist grösser als 8,0 MB");
-    expect(gesehen.filter((g) => g.url.includes("/target")).map((g) => (JSON.parse(g.body.toString()) as { kind: string }).kind)).toEqual(["gegenlesen", "qualitaet"]);
+    expect(gesehen.filter((g) => g.url.includes("/target")).map((g) => (JSON.parse(g.body.toString()) as { kind: string }).kind)).toEqual(["gegenlesen", "qualitaet", "shotliste", "shotliste_bogen"]);
   });
 
   it("wirft eine Quelle, ist das ein Hinweis ohne Pfade und die übrigen Arten gehen weiter", async () => {
@@ -438,7 +438,7 @@ describe("hochladen (der Befehl)", () => {
     const text = [...aus, ...fehl].join("\n");
     expect(text).not.toContain("Müller");
     expect(text).not.toContain("/Users");
-    expect(aus.filter((z) => z.includes("hochgeladen"))).toHaveLength(3);
+    expect(aus.filter((z) => z.includes("hochgeladen"))).toHaveLength(5);
   });
 
   it("401 beim Vorbereiten: die übrigen Arten werden nicht versucht, Exit-Code 1", async () => {
@@ -460,7 +460,7 @@ describe("hochladen (der Befehl)", () => {
     };
     const { e, aus, fehl } = eingabe();
     expect(await hochladen(e)).toBe(1);
-    expect(aus.filter((z) => z.includes("hochgeladen"))).toHaveLength(3);
+    expect(aus.filter((z) => z.includes("hochgeladen"))).toHaveLength(5);
     expect(fehl.join("\n")).toContain("Vorschau: Das Tool lehnt die Datei ab");
     // eine abgewiesene Datei wird nicht nochmals versucht: kein Hinweis auf «später»
     expect(fehl.join("\n")).not.toContain("später noch einmal");

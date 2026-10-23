@@ -7,7 +7,8 @@ import { loesePfad } from "../schnitt/uebergabe";
 import { ARTEN, bereinigeQualitaet, type Art, type Quellen } from "./hochladen";
 
 /**
- * Die Dateien eines Reels, wie `tool hochladen` sie ans Tool schickt: die jüngste Vorschau, der Kontaktbogen als ein JPEG, das Gegenlesen und die bereinigten Messwerte.
+ * Die Dateien eines Reels, wie `tool hochladen` sie ans Tool schickt: die jüngste Vorschau, der Kontaktbogen als ein JPEG, das Gegenlesen, die bereinigten Messwerte
+ * und die Shotliste (Text) mit ihrem Bogen. Die Shotliste geht nur hoch, wenn sie nach der Liste von Claude geschrieben wurde (sonst ist sie veraltet).
  * Was es nicht gibt, kommt als Hinweis zurück, nie als Fehler: Wer nur eine Vorschau hat, lädt nur die hoch.
  * Plan, Storyboard und Auftrag gehen bewusst nicht ans Tool (sie tragen Pfade der Quelldateien, Regel 11).
  */
@@ -18,6 +19,14 @@ export function reelQuellen(home: StudioHome, id: string, werkzeuge: { lauf?: Au
     if (!fs.existsSync(pfad) || !fs.statSync(pfad).isFile()) return { fehlt: fehltText };
     if (fs.statSync(pfad).size > ARTEN[art].maxBytes) return { fehlt: grosseText };
     return { bytes: fs.readFileSync(pfad) };
+  };
+
+  /** Text und Bogen der Shotliste entstehen aus `shotliste.json`; ist die Liste neuer als die Datei, hat jemand sie geändert, ohne `reel shotliste` aufzurufen. */
+  const shotlisteDatei = (pfad: string, art: Art, name: string, code: string): { bytes: Buffer } | { fehlt: string } => {
+    const befehl = `«./studio reel shotliste ${code}»`;
+    if (!fs.existsSync(pfad)) return { fehlt: `${name} gibt es noch nicht. ${befehl} schreibt sie (zuerst mit --geruest das Gerüst).` };
+    if (fs.existsSync(p.shotliste) && fs.statSync(p.shotliste).mtimeMs > fs.statSync(pfad).mtimeMs) return { fehlt: `${name} ist älter als die Liste in shotliste.json. ${befehl} schreibt sie neu.` };
+    return datei(pfad, art, "", `${name} ist grösser als ${ARTEN[art].maxBytes / (1024 * 1024)} MB. Sie wird nicht hochgeladen.`);
   };
 
   return {
@@ -38,6 +47,10 @@ export function reelQuellen(home: StudioHome, id: string, werkzeuge: { lauf?: Au
             return { fehlt: `Die Messwerte lassen sich nicht lesen (${(e as Error).message}). «./studio reel messe ${id}» misst neu.` };
           }
         }
+        case "shotliste":
+          return shotlisteDatei(p.shotlisteText, "shotliste", "Die Shotliste", id);
+        case "shotliste_bogen":
+          return shotlisteDatei(p.shotlisteBogen, "shotliste_bogen", "Der Bogen der Shotliste", id);
         case "kontaktbogen": {
           const planPfad = [p.planStoryboard, p.plan].find((x) => fs.existsSync(x));
           if (!planPfad) return { fehlt: `Es gibt noch keinen Plan. «./studio reel vorbereiten ${id}» baut ihn.` };
