@@ -20,6 +20,8 @@ export interface FolienErgebnis {
   dauer?: number;
   /** Bögen dieser Folie (Dateinamen im Ordner des Links). */
   boegen: string[];
+  /** Ein Bogen mit gleichmässig verteilten Bildern über die ganze Länge (die Bögen oben enden bei schnellen Schnitten früh). */
+  ueberblick?: string;
   /** Schnitte pro Minute (nur Video). */
   schnitteProMinute?: number;
   schnitte?: number;
@@ -133,15 +135,28 @@ export function stillenAus(stderr: string): { anzahl: number; sekunden: number }
   return { anzahl: dauern.length, sekunden: Math.round(dauern.reduce((a, b) => a + b, 0) * 10) / 10 };
 }
 
+/** Zeitmarke links oben ins Bild; ohne Schrift keine Marke. */
+const zeitmarke = (schrift?: string): string => (schrift ? `,drawtext=fontfile='${schrift.replace(/\\/g, "/").replace(/:/g, "\\:")}':text='%{pts\\:hms}':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=5` : "");
+
 /** Bildfilter für die Bögen: erstes Bild, jeder Szenenwechsel, mindestens alle `abstand` Sekunden; Zeitmarke ins Bild. */
 export function bogenFilter(o: { dicht: boolean; schrift?: string; breite?: number }): string {
   const abstand = o.dicht ? 0.5 : 2.5;
   const breite = o.breite ?? 400;
   const auswahl = o.dicht ? `eq(n,0)+gte(t-prev_selected_t,${abstand})` : `eq(n,0)+gt(scene,0.25)+gte(t-prev_selected_t,${abstand})`;
-  const marke = o.schrift ? `,drawtext=fontfile='${o.schrift.replace(/\\/g, "/").replace(/:/g, "\\:")}':text='%{pts\\:hms}':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=5` : "";
+  const marke = zeitmarke(o.schrift);
   const spalten = o.dicht ? 4 : 3;
   const zeilen = o.dicht ? 3 : 2;
   return `select='${auswahl}',scale=${breite}:-2${marke},tile=${spalten}x${zeilen}:padding=4:margin=4:color=0x111111`;
+}
+
+/** Bildfilter für den Überblick: gleichmässig über die ganze Dauer, höchstens `max` Bilder, Zeitmarke ins Bild. */
+export function ueberblickFilter(o: { dauer: number; schrift?: string; max?: number; breite?: number }): { filter: string; bilder: number } {
+  const bilder = Math.max(2, Math.min(o.max ?? 12, Math.ceil(o.dauer / 3)));
+  const breite = o.breite ?? 400;
+  const marke = zeitmarke(o.schrift);
+  const spalten = Math.min(4, bilder);
+  const zeilen = Math.ceil(bilder / spalten);
+  return { filter: `fps=${bilder}/${o.dauer.toFixed(3)},scale=${breite}:-2${marke},tile=${spalten}x${zeilen}:padding=4:margin=4:color=0x111111`, bilder };
 }
 
 /* ---------- Ablauf ---------- */
@@ -178,6 +193,14 @@ async function messeVideo(ergebnis: FolienErgebnis, pfad: string, nr: string, or
   const b = await d.ffmpeg(["-y", "-i", pfad, "-an", "-vf", bogenFilter({ dicht, schrift: d.schrift() }), "-fps_mode", "vfr", "-frames:v", String(maxBoegen), "-q:v", "3", muster]);
   if (b.code !== 0) throw new Error(`Bögen von Folie ${ergebnis.nr} nicht erzeugt: ${b.stderr.trim().split("\n").pop()}`);
   ergebnis.boegen = fs.readdirSync(ordner).filter((f) => f.startsWith(`folie-${nr}-bogen-`)).sort();
+
+  // Überblick über die ganze Länge: die Bögen oben sind nach vier Blättern voll, bei vielen Schnitten also schon nach wenigen Sekunden
+  if (dauer && dauer > 8) {
+    const u = ueberblickFilter({ dauer, schrift: d.schrift() });
+    const ziel = path.join(ordner, `folie-${nr}-ueberblick.jpg`);
+    const r = await d.ffmpeg(["-y", "-i", pfad, "-an", "-vf", u.filter, "-frames:v", "1", "-q:v", "3", ziel]);
+    if (r.code === 0 && fs.existsSync(ziel)) ergebnis.ueberblick = path.basename(ziel);
+  }
 
   // Erstes Bild der Folie (für den Überblick über ein Karussell)
   await d.ffmpeg(["-y", "-i", pfad, "-frames:v", "1", "-q:v", "2", path.join(ordner, `folie-${nr}.jpg`)]);
@@ -219,11 +242,54 @@ async function sichteBild(folie: Folie, ordner: string, d: SichtDeps): Promise<F
   return { nr: folie.nr, art: "bild", datei, boegen: [] };
 }
 
-/** Überblick über alle Folien: vier Folien pro Bild, in lesbarer Grösse. */
-async function folienBoegen(ordner: string, anzahl: number, d: SichtDeps): Promise<string[]> {
-  const muster = path.join(ordner, "folien-bogen-%02d.jpg");
-  const r = await d.ffmpeg(["-y", "-framerate", "1", "-i", path.join(ordner, "folie-%02d.jpg"), "-vf", "scale=540:-2,tile=2x2:padding=6:margin=6:color=0x111111", "-fps_mode", "vfr", "-q:v", "3", muster]);
-  if (r.code !== 0 || anzahl < 2) return [];
+const FOLIEN_BREITE = 540;
+const FOLIEN_HOEHE_STANDARD = 675;
+
+/** Höhe einer Zelle im Überblick: die höchste Folie bestimmt sie, die anderen bekommen Rand. `tile` verlangt gleich grosse Bilder; bei Folien mit verschiedenem Format (Bild 4:5, Video 9:16) verwarf ffmpeg sonst die angefangenen Bögen. */
+async function zellenhoehe(ordner: string, d: SichtDeps): Promise<number> {
+  let hoechste = 0;
+  for (const f of fs.readdirSync(ordner).filter((n) => /^folie-\d{2}\.jpg$/.test(n))) {
+    const r = await d.ffprobe(["-v", "error", "-print_format", "json", "-show_streams", path.join(ordner, f)]);
+    if (r.code !== 0) continue;
+    try {
+      const s = (JSON.parse(r.stdout) as { streams?: { width?: number; height?: number }[] }).streams?.find((x) => x.width && x.height);
+      if (s) hoechste = Math.max(hoechste, Math.round((FOLIEN_BREITE * s.height!) / s.width!));
+    } catch {
+      /* unlesbare Angabe: die Standardhöhe gilt */
+    }
+  }
+  const hoehe = hoechste || FOLIEN_HOEHE_STANDARD;
+  return hoehe + (hoehe % 2);
+}
+
+/** Filter für eine einzelne Folie: auf die gemeinsame Zellengrösse bringen, Rest mit Rand füllen. */
+export function zellenFilter(hoehe: number): string {
+  return `scale=${FOLIEN_BREITE}:${hoehe}:force_original_aspect_ratio=decrease,pad=${FOLIEN_BREITE}:${hoehe}:(ow-iw)/2:(oh-ih)/2:color=0x111111,setsar=1`;
+}
+
+/**
+ * Überblick über alle Folien: vier Folien pro Bild, in lesbarer Grösse.
+ * Jede Folie wird zuerst einzeln auf die gemeinsame Zellengrösse gebracht und erst dann gekachelt: Ein Formatwechsel mitten im Strom lässt ffmpeg
+ * den Filter neu aufbauen, und das verwarf die angefangenen Bögen (Bild 4:5, Video 9:16) oder brach mit `pad` ganz ab.
+ */
+export async function folienBoegen(ordner: string, anzahl: number, d: SichtDeps): Promise<string[]> {
+  for (const alt of fs.readdirSync(ordner).filter((f) => /^folien-bogen-\d+\.jpg$/.test(f))) fs.rmSync(path.join(ordner, alt));
+  const folien = fs.readdirSync(ordner).filter((f) => /^folie-\d{2}\.jpg$/.test(f)).sort();
+  if (anzahl < 2 || folien.length < 2) return [];
+  const zellen = path.join(ordner, "zellen");
+  fs.rmSync(zellen, { recursive: true, force: true });
+  fs.mkdirSync(zellen);
+  try {
+    const hoehe = await zellenhoehe(ordner, d);
+    for (const [i, name] of folien.entries()) {
+      const r = await d.ffmpeg(["-y", "-i", path.join(ordner, name), "-vf", zellenFilter(hoehe), "-frames:v", "1", "-q:v", "2", path.join(zellen, `zelle-${zweistellig(i + 1)}.jpg`)]);
+      if (r.code !== 0) return [];
+    }
+    const r = await d.ffmpeg(["-y", "-framerate", "1", "-i", path.join(zellen, "zelle-%02d.jpg"), "-vf", "tile=2x2:padding=6:margin=6:color=0x111111", "-fps_mode", "vfr", "-q:v", "3", path.join(ordner, "folien-bogen-%02d.jpg")]);
+    if (r.code !== 0) return [];
+  } finally {
+    fs.rmSync(zellen, { recursive: true, force: true });
+  }
   return fs.readdirSync(ordner).filter((f) => /^folien-bogen-\d+\.jpg$/.test(f)).sort();
 }
 

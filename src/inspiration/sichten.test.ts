@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { leseLink } from "./embed";
-import { bogenFilter, pruefeAusgabe, schnittZeiten, sichteAlle, sichteLink, stillenAus, WARTEN_BEI_429_MS, type SichtDeps } from "./sichten";
+import { bogenFilter, folienBoegen, ueberblickFilter, zellenFilter, pruefeAusgabe, schnittZeiten, sichteAlle, sichteLink, stillenAus, WARTEN_BEI_429_MS, type SichtDeps } from "./sichten";
 
 let tmp: string;
 beforeEach(() => {
@@ -135,6 +135,23 @@ describe("sichteLink", () => {
     expect(s.folienBoegen).toEqual([]);
   });
 
+  it("legt zusätzlich einen Überblick über die ganze Länge an, weil die Szenenbögen bei vielen Schnitten früh voll sind", async () => {
+    const g = bauen({ [REEL_URL]: { status: 200, text: REEL } });
+    const s = await sichteLink(leseLink("https://www.instagram.com/reel/REELCODE01/"), { aus: aus() }, g.d);
+    expect(s.folien[0]!.ueberblick).toBe("folie-01-ueberblick.jpg");
+    const u = g.ffmpegAufrufe.find((a) => a[a.length - 1]!.endsWith("folie-01-ueberblick.jpg"))!;
+    expect(u[u.indexOf("-vf") + 1]).toContain("fps=10/30.000");
+    expect(u[u.indexOf("-vf") + 1]).toContain("tile=4x3");
+  });
+
+  it("der Überblick verteilt höchstens zwölf Bilder gleichmässig über die Dauer", () => {
+    expect(ueberblickFilter({ dauer: 55.24 })).toMatchObject({ bilder: 12 });
+    expect(ueberblickFilter({ dauer: 55.24 }).filter).toContain("fps=12/55.240");
+    expect(ueberblickFilter({ dauer: 9 })).toMatchObject({ bilder: 3 });
+    expect(ueberblickFilter({ dauer: 9 }).filter).toContain("tile=3x1");
+    expect(ueberblickFilter({ dauer: 20, schrift: "/f/a.ttf" }).filter).toContain("drawtext=fontfile='/f/a.ttf'");
+  });
+
   it("ein Video ohne Tonspur wird nicht transkribiert und bleibt ohne Lautheit", async () => {
     const g = bauen({ [REEL_URL]: { status: 200, text: REEL } }, { ohneTon: ["folie-01"] });
     const s = await sichteLink(leseLink("https://www.instagram.com/reel/REELCODE01/"), { aus: aus() }, g.d);
@@ -165,6 +182,42 @@ describe("sichteLink", () => {
     ]);
     expect(s.folienBoegen).toEqual(["folien-bogen-01.jpg"]);
     expect(g.dateien).toEqual(["https://cdn.example/1.jpg", "https://cdn.example/2.mp4"]);
+  });
+
+  it("der Überblick gibt allen Folien dieselbe Zellengrösse, damit Bild- und Videofolien gemischt nicht verloren gehen", async () => {
+    const g = bauen({ [KARUSSELL_URL]: { status: 200, text: KARUSSELL } });
+    const alt = g.d.ffprobe;
+    g.d.ffprobe = async (args) => {
+      const datei = args[args.length - 1]!;
+      // Bild 4:5, Startbild des Videos 9:16: ohne gemeinsame Zelle verwirft ffmpeg beim Formatwechsel die angefangenen Bögen
+      if (/folie-\d{2}\.jpg$/.test(datei)) return { code: 0, stdout: JSON.stringify({ streams: [{ codec_type: "video", width: 1080, height: datei.endsWith("folie-01.jpg") ? 1350 : 1920 }] }), stderr: "" };
+      return alt(args);
+    };
+    await sichteLink(leseLink("https://www.instagram.com/p/KARUSSELL01/"), { aus: aus() }, g.d);
+    const filterVon = (a: string[]) => a[a.indexOf("-vf") + 1]!;
+    const zellen = g.ffmpegAufrufe.filter((a) => a.includes("-vf") && filterVon(a).includes("pad="));
+    expect(zellen).toHaveLength(2);
+    for (const z of zellen) expect(filterVon(z)).toContain("scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2");
+    const kachel = g.ffmpegAufrufe.find((a) => a.includes("-vf") && filterVon(a).includes("tile=2x2"))!;
+    expect(filterVon(kachel)).not.toContain("scale");
+    expect(g.ffmpegAufrufe.indexOf(zellen[1]!)).toBeLessThan(g.ffmpegAufrufe.indexOf(kachel));
+  });
+
+  it("ohne lesbare Grössenangabe gilt die Standardhöhe und der Überblick entsteht trotzdem", async () => {
+    const g = bauen({ [KARUSSELL_URL]: { status: 200, text: KARUSSELL } });
+    const s = await sichteLink(leseLink("https://www.instagram.com/p/KARUSSELL01/"), { aus: aus() }, g.d);
+    expect(s.folienBoegen).toEqual(["folien-bogen-01.jpg"]);
+    expect(zellenFilter(675)).toContain("scale=540:675");
+  });
+
+  it("ein neuer Überblick ersetzt alte Bögen, statt sich an sie zu hängen", async () => {
+    const g = bauen({ [KARUSSELL_URL]: { status: 200, text: KARUSSELL } });
+    await sichteLink(leseLink("https://www.instagram.com/p/KARUSSELL01/"), { aus: aus() }, g.d);
+    const ordner = path.join(aus(), "KARUSSELL01");
+    fs.writeFileSync(path.join(ordner, "folien-bogen-07.jpg"), "alt");
+    const neu = await folienBoegen(ordner, 2, g.d);
+    expect(neu).toEqual(["folien-bogen-01.jpg"]);
+    expect(fs.existsSync(path.join(ordner, "folien-bogen-07.jpg"))).toBe(false);
   });
 
   it("eine Folie, die sich nicht laden lässt, bricht die anderen nicht ab; der Grund steht im Ergebnis", async () => {
