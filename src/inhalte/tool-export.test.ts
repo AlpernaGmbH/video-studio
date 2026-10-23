@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { FORMATE } from "./inhalt";
 import { zeileZuMarke } from "./marken";
-import { IMPORT_MAX_INHALTE, IMPORT_MAX_MARKEN, IMPORT_SCHEMA, IMPORT_STATI, ImportDateiSchema, baueImport, importText } from "./tool-export";
+import { IMPORT_MAX_INHALTE, IMPORT_MAX_MARKEN, IMPORT_MAX_PLATTFORMEN, IMPORT_SCHEMA, IMPORT_STATI, ImportDateiSchema, TOOL_PLATTFORMEN, baueImport, importText } from "./tool-export";
 import { inhalt } from "./testdaten";
 
 const JETZT = "2026-10-22T09:00:00.000Z";
@@ -19,7 +19,7 @@ const marke = (p: Record<string, unknown> = {}) =>
 const vertrag = JSON.parse(fs.readFileSync(path.join(__dirname, "../../docs/studio/vertrag.json"), "utf8")) as {
   import: {
     schema: number;
-    grenzen: { max_inhalte: number; max_marken: number; stati: string[]; titel: { min: number; max: number }; markenname: { min: number; max: number }; muster_max: number; inhaltstyp_max: number };
+    grenzen: { max_inhalte: number; max_marken: number; plattformen: string[]; plattformen_max: number; stati: string[]; titel: { min: number; max: number }; markenname: { min: number; max: number }; muster_max: number; inhaltstyp_max: number };
     gueltig: { name: string; datei: unknown }[];
     ungueltig: { name: string; datei: unknown }[];
   };
@@ -38,6 +38,8 @@ describe("Vertrag mit dem Tool: Importdatei", () => {
     expect([...IMPORT_STATI]).toEqual(g.stati);
     expect(IMPORT_MAX_INHALTE).toBe(g.max_inhalte);
     expect(IMPORT_MAX_MARKEN).toBe(g.max_marken);
+    expect([...TOOL_PLATTFORMEN]).toEqual(g.plattformen);
+    expect(IMPORT_MAX_PLATTFORMEN).toBe(g.plattformen_max);
   });
   it("ein Beitrag mit 200 Zeichen im Titel geht, mit 201 nicht; Muster und Pillar mit 60 gehen, mit 61 nicht", () => {
     const f = vertrag.import.gueltig[1]!.datei as { contents: Record<string, unknown>[] };
@@ -63,6 +65,47 @@ describe("Vertrag mit dem Tool: Importdatei", () => {
   });
 });
 
+describe("baueImport: Plattformen", () => {
+  const plattformen = (p: Parameters<typeof archiv>[0]) => baueImport([archiv(p)], [marke()], JETZT).datei.contents[0]!.platforms;
+
+  it("die Plattformen aus Notion werden zu den Schlüsseln des Tools (Blog wird Website)", () => {
+    expect(plattformen({ plattformen: ["LinkedIn"] })).toEqual(["linkedin"]);
+    expect(plattformen({ plattformen: ["Instagram", "LinkedIn"] })).toEqual(["instagram", "linkedin"]);
+    expect(plattformen({ plattformen: ["Blog", "Google"] })).toEqual(["website", "google"]);
+  });
+
+  it("«weitere» hat keinen Schlüssel: Die Plattform fällt weg und es gibt einen Hinweis", () => {
+    const r = baueImport([archiv({ plattformen: ["LinkedIn", "weitere"] })], [marke()], JETZT);
+    expect(r.datei.contents[0]!.platforms).toEqual(["linkedin"]);
+    expect(r.hinweise.some((h) => h.includes("c-0004") && h.includes("weitere"))).toBe(true);
+  });
+
+  it("ohne Plattform in Notion bleibt die Liste leer: Aus dem Format wird nichts geraten (ein Carousel ist nicht automatisch Instagram)", () => {
+    for (const format of ["Carousel", "Reel", "LinkedIn-Post", "Blog"] as const) expect(plattformen({ format, plattformen: [] }), format).toEqual([]);
+  });
+
+  it("Zeilen ohne Plattform stehen gesammelt in einem Hinweis, mit den ersten Codes", () => {
+    const zeilen = Array.from({ length: 7 }, (_, i) => archiv({ id: `c-00${10 + i}`, seite: String(i).repeat(32), plattformen: [] }));
+    const hinweise = baueImport(zeilen, [marke()], JETZT).hinweise.filter((h) => h.includes("ohne Plattform"));
+    expect(hinweise).toHaveLength(1);
+    expect(hinweise[0]).toContain("7 Zeilen");
+    expect(hinweise[0]).toContain("c-0010");
+    expect(hinweise[0]).toContain("…");
+    expect(baueImport([archiv({ plattformen: ["LinkedIn"] })], [marke()], JETZT).hinweise.filter((h) => h.includes("ohne Plattform"))).toEqual([]);
+  });
+
+  it("doppelte Plattformen in Notion werden einmal geschrieben, und die Datei bleibt gültig", () => {
+    const r = baueImport([archiv({ plattformen: ["LinkedIn", "LinkedIn"] })], [marke()], JETZT);
+    expect(r.datei.contents[0]!.platforms).toEqual(["linkedin"]);
+    expect(ImportDateiSchema.safeParse(r.datei).success).toBe(true);
+  });
+
+  it("die Plattformen stehen in der Datei, wie das Tool sie liest", () => {
+    const text = importText(baueImport([archiv({ plattformen: ["LinkedIn"] })], [marke()], JETZT).datei);
+    expect(JSON.parse(text).contents[0].platforms).toEqual(["linkedin"]);
+  });
+});
+
 describe("baueImport: was ins Archiv gehört", () => {
   it("Ausgewertet, Veröffentlicht und Verworfen kommen mit dem passenden Status", () => {
     const r = baueImport(
@@ -81,7 +124,7 @@ describe("baueImport: was ins Archiv gehört", () => {
   it("ein Beitrag wird auf Titel, Medium, Marke, Notion-Seite, Muster und Pillar zurückgeführt, mehr nicht", () => {
     const r = baueImport([archiv()], [marke()], JETZT);
     expect(r.datei.contents).toEqual([
-      { code: "c-0004", title: "Warum Wartezeit teuer ist", medium: "linkedin_post", brand: "alperna", status: "evaluated", notion_id: SEITE, pattern: "Curiosity Gap", content_type: "B Gruender-Journey" },
+      { code: "c-0004", title: "Warum Wartezeit teuer ist", medium: "linkedin_post", brand: "alperna", status: "evaluated", notion_id: SEITE, pattern: "Curiosity Gap", content_type: "B Gruender-Journey", platforms: ["instagram"] },
     ]);
     expect(r.datei.schema).toBe(1);
     expect(r.datei.created_at).toBe(JETZT);

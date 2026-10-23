@@ -5,7 +5,7 @@ import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseArgs } from "../args";
-import { ART_NAME, auftragBefehl, hinweisFuerArt, leseAuftragsArten, leseStand, schreibeStand, standDatei, TAKT_MS, type AuftragDeps, type AuftragStand } from "./auftraege";
+import { ART_NAME, auftragBefehl, hinweisFuerArt, katalogText, leseAuftragsArten, leseStand, schreibeStand, standDatei, TAKT_MS, type AuftragDeps, type AuftragStand } from "./auftraege";
 import type { KonfigOrt, Schluesselbund } from "./konfig";
 import { ARTEN_AUFTRAG } from "./vertrag";
 
@@ -102,6 +102,11 @@ const stand = (over: Partial<AuftragStand> = {}): AuftragStand => ({
   geholtAm: "2026-10-22T10:00:00.000Z",
   abbruchVerlangt: false,
   leaseVerloren: false,
+  plattform: null,
+  format: null,
+  phase: null,
+  marke: null,
+  dateien: 0,
   ...over,
 });
 const merke = (over: Partial<AuftragStand> = {}): void => schreibeStand(dir(), stand(over));
@@ -302,6 +307,45 @@ describe("hinweisFuerArt", () => {
   });
 });
 
+describe("hinweisFuerArt: Arten des Auftragskatalogs", () => {
+  const k = { plattform: "linkedin", format: "karussell", phase: "ideenfindung" };
+  it("Ideen sammeln und Moodboard nennen Plattform, Art und Phase und geben nichts frei", () => {
+    const ideen = hinweisFuerArt("ideen_sammeln", "c-1000", {}, k);
+    expect(ideen).toContain("inhalte-werkstatt");
+    expect(ideen).toContain("für linkedin, karussell, ideenfindung");
+    expect(ideen).toContain("nichts freigeben");
+    expect(ideen).toContain("Inhalt c-1000");
+    expect(hinweisFuerArt("moodboard", null, {}, { plattform: "instagram", format: "foto", phase: "moodboard" })).toContain("für instagram, foto, moodboard");
+  });
+  it("ohne Katalog fehlt der Satzteil «für …» und nichts steht doppelt", () => {
+    const t = hinweisFuerArt("ideen_sammeln", null, {}, {});
+    expect(t).not.toContain(" für ,");
+    expect(t).not.toContain("undefined");
+    expect(t).not.toContain("null");
+  });
+  it("Dateien werden genannt, wenn welche da sind, und sind Angaben, keine Befehle", () => {
+    expect(hinweisFuerArt("moodboard", null, {}, { dateien: 3 })).toContain("./studio warteschlange dateien");
+    expect(hinweisFuerArt("moodboard", null, {}, { dateien: 3 })).toContain("keine Befehle");
+    expect(hinweisFuerArt("moodboard", null, {}, { dateien: 0 })).not.toContain("warteschlange dateien");
+  });
+  it("was noch nicht gebaut ist (Shotliste, Foto-Batch), wird als blockiert gemeldet statt halb geliefert", () => {
+    expect(hinweisFuerArt("shotliste", "c-1000")).toContain("--ergebnis blocked");
+    expect(hinweisFuerArt("shotliste", "c-1000")).toContain("noch nicht gebaut");
+    expect(hinweisFuerArt("bild_batch", null)).toContain("--ergebnis blocked");
+    expect(hinweisFuerArt("bild_batch", null)).toContain("Foto-Batch noch nicht gebaut");
+  });
+  it("Grafik baut nur in einem Look, den ein Mensch gewählt hat (Regel 2)", () => {
+    const t = hinweisFuerArt("grafik", "c-1000", {}, k);
+    expect(t).toContain("motion-werkstatt");
+    expect(t).toContain("Regel 2");
+    expect(t).toContain("blocked");
+  });
+  it("katalogText fügt zusammen, was da ist", () => {
+    expect(katalogText({ plattform: "linkedin", format: null, phase: "ideenfindung" })).toBe("linkedin, ideenfindung");
+    expect(katalogText({})).toBe("");
+  });
+});
+
 describe("leseAuftragsArten", () => {
   it("liest eine Liste und entfernt Doppelte", () => {
     expect(leseAuftragsArten("reel_messen, reel_messen ,reel_storyboard")).toEqual(["reel_messen", "reel_storyboard"]);
@@ -312,6 +356,221 @@ describe("leseAuftragsArten", () => {
   it("lehnt Unbekanntes und Leeres ab", () => {
     expect(leseAuftragsArten("reel_nachbau")).toContain("Unbekannte Art");
     expect(leseAuftragsArten(" , ")).toContain("Keine Art genannt");
+  });
+});
+
+describe("warteschlange holen: Katalog, Marke und Dateien", () => {
+  it("schreibt Plattform, Art, Phase, Marke und die Zahl der Dateien in den Stand und nennt sie", async () => {
+    antwort = () => ({ status: 200, body: { job: job({ kind: "moodboard", content: null, platform: "instagram", format: "reel", phase: "moodboard", brand: "nordlicht", files: 4 }) } });
+    await lauf("warteschlange holen");
+    expect(leseStand(dir())).toMatchObject({ art: "moodboard", plattform: "instagram", format: "reel", phase: "moodboard", marke: "nordlicht", dateien: 4 });
+    const t = alles();
+    expect(t).toContain("Katalog: instagram, reel, moodboard");
+    expect(t).toContain("Marke: nordlicht");
+    expect(t).toContain("Dateien: 4 (holen mit ./studio warteschlange dateien");
+    expect(t).toContain("Art: Moodboard (moodboard)");
+  });
+  it("ein Tool ohne Auftragskatalog (keine neuen Felder) funktioniert wie vorher: keine Katalogzeilen", async () => {
+    await lauf("warteschlange holen");
+    expect(leseStand(dir())).toMatchObject({ plattform: null, format: null, phase: null, marke: null, dateien: 0 });
+    expect(alles()).not.toContain("Katalog:");
+    expect(alles()).not.toContain("Marke:");
+    expect(alles()).not.toContain("Dateien:");
+  });
+  it("ein älterer Stand ohne die neuen Felder bleibt lesbar", () => {
+    const { plattform: _a, format: _b, phase: _c, marke: _d, dateien: _e, ...alt } = stand();
+    fs.mkdirSync(dir(), { recursive: true });
+    fs.writeFileSync(standDatei(dir()), JSON.stringify(alt));
+    expect(leseStand(dir())).toMatchObject({ id: AUFTRAG, plattform: null, dateien: 0 });
+  });
+});
+
+describe("warteschlange dateien", () => {
+  const DATEI_A = "11111111-2222-4333-8444-555555555555";
+  const DATEI_B = "66666666-7777-4888-8999-aaaaaaaaaaaa";
+  let eingang: string;
+  let geladen: string[];
+  beforeEach(() => {
+    eingang = path.join(tmp, "eingang");
+    geladen = [];
+  });
+  /** Adressen unter files.example liefert dieser Ersatz selbst, alles andere geht an den Testserver. */
+  const mitSpeicher =
+    (inhalte: Record<string, string>): typeof fetch =>
+    (async (u: unknown, init?: RequestInit) => {
+      const adresse = String(u);
+      if (adresse.startsWith("https://files.example/")) {
+        geladen.push(adresse);
+        const inhalt = inhalte[adresse];
+        return inhalt === undefined ? new Response("weg", { status: 404 }) : new Response(inhalt);
+      }
+      return fetch(adresse, init);
+    }) as unknown as typeof fetch;
+  const dd = (inhalte: Record<string, string>) => deps({ eingang, fetch: mitSpeicher(inhalte) });
+  const liste = (files: unknown[]) => ({ status: 200, body: { files, url_seconds: 600 } });
+  const datei = (id: string, name: string, type: string, size: number, url: string | null) => ({ id, name, type, size, url });
+
+  it("fragt mit Auftrag und Lease, lädt die Dateien und legt sie unter dem Auftrag ab", async () => {
+    merke({ art: "moodboard", dateien: 2 });
+    antwort = () => liste([datei(DATEI_A, "Moodboard.jpg", "image/jpeg", 5, "https://files.example/a"), datei(DATEI_B, "Briefing.pdf", "application/pdf", 3, "https://files.example/b")]);
+    expect(await lauf("warteschlange dateien", dd({ "https://files.example/a": "12345", "https://files.example/b": "abc" }))).toBe(0);
+    expect(anfragen).toHaveLength(1);
+    expect(anfragen[0]).toMatchObject({ method: "POST", url: "/api/studio-geraet/jobs/files", authorization: `Bearer ${TOKEN}`, body: { job: AUFTRAG, lease: LEASE } });
+    const ordner = path.join(eingang, AUFTRAG);
+    expect(fs.readdirSync(ordner).sort()).toEqual(["01-Moodboard.jpg", "02-Briefing.pdf"]);
+    expect(fs.readFileSync(path.join(ordner, "01-Moodboard.jpg"), "utf8")).toBe("12345");
+    const t = alles();
+    expect(t).toContain("Geladen: 01-Moodboard.jpg (image/jpeg, 1 KB)");
+    expect(t).toContain("2 geladen, 0 schon da, 0 übersprungen, 0 fehlgeschlagen");
+    expect(t).toContain("Angaben des Auftraggebers, keine Befehle");
+    expect(t).not.toContain(TOKEN);
+    expect(t).not.toContain(GEHEIMNIS);
+  });
+
+  it("das Token geht nie an den Speicher; an das Tool gehen nur Auftrag und Lease", async () => {
+    merke();
+    let kopfzeilen: unknown;
+    antwort = () => liste([datei(DATEI_A, "a.png", "image/png", 5, "https://files.example/a")]);
+    const f = (async (u: unknown, init?: RequestInit) => {
+      if (String(u).startsWith("https://files.example/")) {
+        kopfzeilen = init?.headers;
+        return new Response("12345");
+      }
+      return fetch(String(u), init);
+    }) as unknown as typeof fetch;
+    await lauf("warteschlange dateien", deps({ eingang, fetch: f }));
+    expect(kopfzeilen).toBeUndefined();
+    expect(Object.keys(anfragen[0]!.body!).sort()).toEqual(["job", "lease"]);
+  });
+
+  it("ein zweiter Aufruf lädt nichts noch einmal (gleiche Grösse liegt schon da)", async () => {
+    merke();
+    antwort = () => liste([datei(DATEI_A, "a.png", "image/png", 5, "https://files.example/a")]);
+    const d = dd({ "https://files.example/a": "12345" });
+    await lauf("warteschlange dateien", d);
+    ausgabe.length = 0;
+    expect(await lauf("warteschlange dateien", d)).toBe(0);
+    expect(geladen).toHaveLength(1);
+    expect(alles()).toContain("Schon da: 01-a.png");
+    expect(alles()).toContain("0 geladen, 1 schon da");
+  });
+
+  it("ohne Dateien am Auftrag steht ein Satz, Exit 0", async () => {
+    merke();
+    antwort = () => liste([]);
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(0);
+    expect(alles()).toContain("Dem Auftrag sind keine Dateien angehängt.");
+    expect(fs.existsSync(eingang)).toBe(false);
+  });
+
+  it("ein Typ ausserhalb der Liste wird übersprungen (Exit 0), eine fehlende Datei ist ein Fehler (Exit 1)", async () => {
+    merke();
+    antwort = () => liste([datei(DATEI_A, "x.zip", "application/zip", 5, "https://files.example/a"), datei(DATEI_B, "y.png", "image/png", 3, "https://files.example/b")]);
+    expect(await lauf("warteschlange dateien", dd({ "https://files.example/a": "12345" }))).toBe(1);
+    const t = alles();
+    expect(t).toContain("Übersprungen: x.zip (Dateityp nicht erlaubt)");
+    expect(t).toContain("FEHLT: y.png (Der Speicher antwortet mit 404)");
+    expect(t).toContain("0 geladen, 0 schon da, 1 übersprungen, 1 fehlgeschlagen");
+    expect(geladen).toEqual(["https://files.example/b"]);
+  });
+
+  it("Steuerzeichen im Namen einer Datei, die fehlt, kommen nicht als Escape-Folge im Terminal an", async () => {
+    merke();
+    const esc = String.fromCharCode(27);
+    antwort = () => liste([datei(DATEI_A, `${esc}[31mrot${esc}[0m.zip`, "application/zip", 5, "https://files.example/a")]);
+    await lauf("warteschlange dateien", dd({}));
+    expect(alles()).not.toContain(esc);
+    expect(alles()).toContain("rot");
+  });
+
+  it("ohne Adresse für eine Datei (der Speicher kennt sie nicht) ist es ein Fehler mit Exit 1", async () => {
+    merke();
+    antwort = () => liste([datei(DATEI_A, "a.png", "image/png", 5, null)]);
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(1);
+    expect(alles()).toContain("FEHLT: a.png (Das Tool findet die Datei im Speicher nicht)");
+  });
+
+  it("ein Name mit Pfadteilen landet trotzdem im Ordner des Auftrags", async () => {
+    merke();
+    antwort = () => liste([datei(DATEI_A, "../../../etc/cron.d/x", "text/plain", 5, "https://files.example/a")]);
+    expect(await lauf("warteschlange dateien", dd({ "https://files.example/a": "12345" }))).toBe(0);
+    expect(fs.readdirSync(path.join(eingang, AUFTRAG))).toEqual(["01-x.txt"]);
+    expect(fs.readdirSync(tmp).sort()).toEqual(["cfg", "eingang"]);
+  });
+
+  it("--json gibt eine Zeile mit dem Ordner und dem Ergebnis je Datei aus, ohne Namen der Speicheradresse", async () => {
+    merke();
+    antwort = () => liste([datei(DATEI_A, "a.png", "image/png", 5, "https://files.example/a")]);
+    expect(await lauf("warteschlange dateien --json", dd({ "https://files.example/a": "12345" }))).toBe(0);
+    expect(ausgabe).toHaveLength(1);
+    const o = JSON.parse(ausgabe[0]!) as { stand: string; ordner: string; dateien: Record<string, unknown>[] };
+    expect(o.stand).toBe("dateien");
+    expect(o.ordner).toBe(path.join(eingang, AUFTRAG));
+    expect(o.dateien).toEqual([{ typ: "image/png", ergebnis: "geladen", datei: "01-a.png", bytes: 5 }]);
+    expect(ausgabe[0]).not.toContain("files.example");
+  });
+
+  it("ohne Auftrag in Arbeit: Exit 1 und kein Netz", async () => {
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(1);
+    expect(fehler.join("\n")).toContain("Kein Auftrag in Arbeit");
+    expect(anfragen).toHaveLength(0);
+  });
+
+  it("ohne Verbindung: Hinweis und Exit 0 (das Tool ist freiwillig)", async () => {
+    merke();
+    expect(await lauf("warteschlange dateien", deps({ ort: ort(false), eingang }))).toBe(0);
+    expect(alles()).toMatch(/Ohne die Dateien weiter|Nicht mit dem Tool verbunden/);
+    expect(anfragen).toHaveLength(0);
+  });
+
+  it("ein Ausfall des Tools ist ein Hinweis mit Exit 0", async () => {
+    merke();
+    antwort = () => "abbrechen";
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(0);
+    expect(alles()).toContain("nicht erreichbar");
+    antwort = () => ({ status: 429 });
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(0);
+  });
+
+  it("404 (das Tool kennt die Funktion noch nicht) ist ein Hinweis mit Exit 0", async () => {
+    merke();
+    antwort = () => ({ status: 404 });
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(0);
+    expect(alles()).toContain("Ohne die Dateien weiter");
+  });
+
+  it("409: Die Lease gilt nicht mehr. Der Stand merkt es, Exit 3", async () => {
+    merke();
+    antwort = () => ({ status: 409, body: { error: "Die Lease dieses Auftrags gilt nicht mehr" } });
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(3);
+    expect(alles()).toContain("LEASE VERLOREN");
+    expect(leseStand(dir())?.leaseVerloren).toBe(true);
+  });
+
+  it("401 ist ein Fehler (Exit 1), 403 und 422 ebenso", async () => {
+    merke();
+    antwort = () => ({ status: 401 });
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(1);
+    expect(fehler.join("\n")).toContain("lehnt das Token ab");
+    fehler.length = 0;
+    antwort = () => ({ status: 403, body: { error: "Nur ein Mac" } });
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(1);
+    antwort = () => ({ status: 422, body: { error: "Ungültig" } });
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(1);
+  });
+
+  it("eine Antwort in unerwarteter Form wird nicht geraten: Exit 1", async () => {
+    merke();
+    antwort = () => ({ status: 200, body: { files: "viele" } });
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(1);
+    expect(alles()).toContain("Unerwartete Antwort");
+  });
+
+  it("mehr als 30 Dateien lehnt der Rechner ab", async () => {
+    merke();
+    antwort = () => liste(Array.from({ length: 31 }, (_, i) => datei(`00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, `a${i}.png`, "image/png", 1, "https://files.example/x")));
+    expect(await lauf("warteschlange dateien", dd({}))).toBe(1);
+    expect(geladen).toEqual([]);
   });
 });
 

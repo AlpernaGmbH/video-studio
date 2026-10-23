@@ -54,7 +54,7 @@ export const DateiEintragenSchema = z.strictObject({
  * Aufträge der Warteschlange (Scheibe S5). Die Arten, Ergebnisse und Grenzen stehen in `docs/studio/vertrag.json` (`jobs`), im Tool in `lib/studio/jobs.ts` und in der Datenbank
  * (`app.studio_job_spec`); `vertrag.test.ts` vergleicht den Code hier mit dem Vertrag.
  */
-export const ARTEN_AUFTRAG = ["reel_vorbereiten", "reel_storyboard", "reel_uebergabe", "reel_messen", "katalog_beschreiben", "text_entwurf", "analyse_auswerten", "planung"] as const;
+export const ARTEN_AUFTRAG = ["reel_vorbereiten", "reel_storyboard", "reel_uebergabe", "reel_messen", "katalog_beschreiben", "text_entwurf", "analyse_auswerten", "planung", "ideen_sammeln", "moodboard", "shotliste", "grafik", "bild_batch"] as const;
 export type AuftragsArt = (typeof ARTEN_AUFTRAG)[number];
 
 export const ERGEBNISSE = ["done", "failed", "blocked", "cancelled"] as const;
@@ -82,5 +82,28 @@ export const AuftragSchema = z.object({
   lease_until: z.string(),
   attempts: z.number().int().min(1).max(3),
   cancel_requested: z.boolean(),
+  /**
+   * Plattform, Art und Phase des Katalogs (alle drei oder keines), die Marke und die Zahl der angehängten Dateien. Ein Tool ohne die Migration `20261023100000` (Auftragskatalog)
+   * schickt sie nicht: Dann gelten «keine Angabe» und null Dateien, und dieser Rechner arbeitet wie vorher.
+   */
+  platform: z.string().nullable().default(null),
+  format: z.string().nullable().default(null),
+  phase: z.string().nullable().default(null),
+  brand: z.string().nullable().default(null),
+  files: z.number().int().min(0).default(0),
 });
 export type Auftrag = z.infer<typeof AuftragSchema>;
+
+/**
+ * Die Dateien eines Auftrags (`POST jobs/files`, Body wie beim Lebenszeichen). `url` ist eine Adresse, die zehn Minuten gilt und nur diese eine Datei liefert; null, wenn der Speicher sie nicht kennt.
+ * Der Pfad im Speicher steht nie in der Antwort. Name, Typ und Grösse hat ein Mensch im Tool angegeben beziehungsweise der Speicher gemessen: Der Rechner prüft sie trotzdem (`auftrags-dateien.ts`).
+ */
+export const AuftragDateiSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(300),
+  type: z.string().min(1).max(100),
+  size: z.number().int().min(0),
+  url: z.string().nullable(),
+});
+export const AuftragDateienAntwortSchema = z.object({ files: z.array(AuftragDateiSchema).max(30), url_seconds: z.number().int().min(1) });
+export type AuftragDatei = z.infer<typeof AuftragDateiSchema>;

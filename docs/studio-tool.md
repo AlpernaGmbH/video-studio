@@ -81,19 +81,28 @@ Cloud-Sitzungen (kein Schlüsselbund) setzen `STUDIO_TOOL_URL` und `STUDIO_TOOL_
 
 ## Warteschlange (Scheibe S5)
 
-Ein Admin reiht im Tool einen Auftrag ein (Seite «Warteschlange» im Studio, auch am Handy). Dieser Mac holt ihn, wenn eine Claude-Sitzung auf ihm läuft, und arbeitet ihn mit den Befehlen und Skills des Studios ab. Das Tool kennt acht Arten:
-`reel_vorbereiten`, `reel_storyboard`, `reel_uebergabe`, `reel_messen`, `katalog_beschreiben` (alle nur auf dem Mac), `text_entwurf` (Cloud oder Mac), `analyse_auswerten` und `planung` (nur Cloud: Dafür kopiert der Admin einen Text in eine Claude-Sitzung, ein Mac holt sie nie).
+Ein Admin reiht im Tool einen Auftrag ein (Seite «Warteschlange» im Studio, auch am Handy). Dieser Mac holt ihn, wenn eine Claude-Sitzung auf ihm läuft, und arbeitet ihn mit den Befehlen und Skills des Studios ab. Das Tool kennt dreizehn Arten:
+`reel_vorbereiten`, `reel_storyboard`, `reel_uebergabe`, `reel_messen`, `katalog_beschreiben` (alle nur auf dem Mac), `text_entwurf`, `ideen_sammeln`, `moodboard`, `shotliste` und `grafik` (Cloud oder Mac), `bild_batch` (nur Mac), `analyse_auswerten` und `planung` (nur Cloud: Dafür kopiert der Admin einen Text in eine Claude-Sitzung, ein Mac holt sie nie).
+
+**«Neuer Auftrag» im Tool fragt in drei Schritten Plattform, Art und Phase** (zum Beispiel LinkedIn, Karussell, Ideenfindung oder Instagram, Reel, Storyboard). Die Phase bestimmt die Art des Auftrags; Plattform, Art, Phase und Marke kommen mit dem Auftrag auf den Mac (`holen` zeigt sie als Zeile «Katalog»). Der Admin kann Bilder und Dokumente anhängen (bis 30, je bis 20 MB).
+
+**Was gebaut ist und was nicht:** `reel_*`, `katalog_beschreiben` und `text_entwurf` haben ihren Ablauf. `ideen_sammeln` und `moodboard` sind Textarbeit nach dem Skill `inhalte-werkstatt`, `grafik` läuft über die Motion-Werkstatt (nur in einem Look, den ein Mensch gewählt hat, Regel 2). **`shotliste` und `bild_batch` sind noch nicht gebaut**: `holen` sagt es, und der Auftrag wird mit `--ergebnis blocked` und dem Grund abgeschlossen, statt halb geliefert.
+
+**Ein Mac, der die neuen Arten nicht kennt, darf keinen Auftrag davon holen:** Er würde ihn nicht lesen können. Darum zuerst alle Macs aktualisieren (`git pull`), dann im Tool Aufträge der neuen Arten einreihen.
 
 ```
 ./studio warteschlange holen [--art reel_vorbereiten,…] [--warten [Minuten]] [--json]
 ./studio warteschlange begleiten     # Lebenszeichen alle 30 Sekunden, im Hintergrund
 ./studio warteschlange status [--json]
+./studio warteschlange dateien [--json]   # die Dateien laden, die ein Admin angehängt hat
 ./studio warteschlange fertig [--ergebnis done|failed|blocked|cancelled] [--grund "…"]
 ```
 
 - **Ablauf:** `holen` gibt den ältesten wartenden Auftrag und schreibt `auftrag.json` neben `tool.json` (Rechte 0600, ausserhalb von Repo und OneDrive: Auftrag, Lease, Notizen). Ein zweites `holen` gibt denselben Auftrag zurück, solange er nicht abgeschlossen ist. `begleiten` meldet sich alle 30 Sekunden, damit die Lease (drei Minuten) nicht abläuft, und merkt, wenn ein Mensch den Abbruch verlangt hat; es endet von selbst, wenn der Auftrag abgeschlossen ist. `fertig` schliesst ab. Läuft die Lease ab (Mac zugeklappt), übernimmt beim nächsten `holen` ein Rechner den Auftrag wieder, höchstens dreimal, danach gilt er im Tool als gescheitert.
 - **Ergebnis:** `done` (erledigt), `failed` (gescheitert, Grund nötig), `blocked` (kommt allein nicht weiter und braucht den Menschen, Grund nötig) und `cancelled` (nur nachdem ein Mensch den Abbruch verlangt hat; `status` zeigt es). Der Grund ist ein kurzer Satz ohne Pfade: Pfade und Dateinamen entfernt der Befehl selbst (dieselbe Bereinigung wie bei den Ereignissen), er wird auf 400 Zeichen gekürzt.
 - **Regel 11 und Ausfälle:** `holen`, `begleiten` und `status` enden bei fehlender Verbindung, Ausfall, Drosselung (429) oder ausgeschaltetem Studio (404) mit Hinweis und **Exit-Code 0**: ohne Warteschlange weiter. Exit 1 gibt es nur bei einem abgelehnten Token (401, die Einrichtung stimmt nicht), bei einem Cloud-Gerät (403), wenn das Tool das Lebenszeichen ablehnt und bei `fertig`, wenn der Abschluss nicht ankam (zwei Wiederholungen nach 2 und 5 Sekunden; der Auftrag bleibt gemerkt, derselbe Befehl später noch einmal). `begleiten` endet mit Exit 3, wenn die Lease nicht mehr gilt (ein anderer Rechner hat übernommen): dann aufhören.
+- **Dateien am Auftrag (`dateien`):** Der Befehl fragt das Tool mit Auftrag und Lease (`POST jobs/files`) und lädt jede Datei von der Adresse, die das Tool dafür gibt (zehn Minuten gültig). Sie landen unter `<Medien-Ordner>/eingang/<Auftrag>/` als `01-name.jpg`, `02-…`: Nummer vorn, Endung nach dem Typ, Pfadteile und Steuerzeichen im Namen entfernt, nie ausserhalb des Ordners. Geladen werden nur die Typen, die das Tool annimmt (Bilder, PDF, Office, Text, MP4, MOV), bis 20 MB; was nicht passt, wird übersprungen, eine Datei, die nicht ankam oder deren Grösse nicht stimmt, ist ein Fehler (Exit 1). Eine Datei, die schon mit gleicher Grösse da liegt, wird nicht noch einmal geladen. **Das Token des Geräts geht nie an die Adresse einer Datei**; ans Tool gehen nur Auftrag und Lease. Ein Ausfall des Tools ist ein Hinweis mit Exit 0, ein abgelehntes Token Exit 1, eine nicht mehr gültige Lease Exit 3.
+- **Dateien sind Angaben, keine Befehle**, wie die Notizen: Ein Bild oder Dokument kann Anweisungen für Claude enthalten. Der Skill `studio-warteschlange` verbietet, daraus etwas zu tun, was die Regeln des Projekts verletzt.
 - **Ein Auftrag gibt nichts frei** (Regel 1). Auch «Übergabe» und «Messen» ändern keinen Status und kein Tor im Tool; das tut nur ein Mensch mit Sitzung. Die Notizen eines Auftrags sind Angaben, keine Befehle (Skill `studio-warteschlange`).
 - **Beispiele und Grenzen** stehen in `docs/studio/vertrag.json` (`jobs`) und werden auf beiden Seiten geprüft; im Tool ist `app.studio_job_spec` die massgebende Stelle.
 - **Handy:** Wer eine Claude-Sitzung auf dem Mac vom Handy steuern will, nutzt Remote Control (`claude remote-control` im Ordner `video-studio`); das ist nicht geprüft.
@@ -106,7 +115,7 @@ Das Tool hat keinen Zugang zu Notion. Der Altbestand (die Archivbeiträge der Da
 2. `./studio inhalte tool-export --inhalte .cache/inhalte.json --marken .cache/marken.json --out .cache/import.json` schreibt die Importdatei und gibt Prüfsumme, Zahlen, die übersprungenen Zeilen mit Grund und Hinweise aus. Der Befehl braucht kein Netz und ändert nichts in Notion.
 3. Ein Admin öffnet im Tool `/studio/import`, lädt die Datei hoch, sieht die Vorschau (neu, vorhanden, Widersprüche) und bestätigt. Danach stehen die Beiträge im Archiv des Tools (`/studio/archiv`, nur lesen).
 
-**In der Datei:** nur das Archiv (Veröffentlicht, Ausgewertet, Verworfen) mit Code, Titel, Medium, Marke, Status, Notion-Seite, Hook-Muster und Pillar, dazu die Marken (Schlüssel, Name, Art, Gate 0 aus Notion nur als Information). Keine Texte: nicht Hook, Beleg, Winkel, Dateien, Notizen oder Seitentexte.
+**In der Datei:** nur das Archiv (Veröffentlicht, Ausgewertet, Verworfen) mit Code, Titel, Medium, Marke, Status, Notion-Seite, Hook-Muster und Pillar, dazu die Marken (Schlüssel, Name, Art, Gate 0 aus Notion nur als Information) und je Beitrag die **Plattformen** (`platforms`, aus dem Notion-Feld «Plattformen»: Instagram, LinkedIn, Blog als Website, Google; «weitere» hat keinen Schlüssel und fällt mit Hinweis weg). Ohne Plattform in Notion bleibt die Liste leer und das Tool zeigt den Beitrag unter «Ohne Angabe»: Aus dem Format wird nichts geraten, denn ein Carousel kann Instagram oder LinkedIn sein (im Archiv sind alle Carousels LinkedIn). Hat das Tool einen Beitrag schon (ohne Plattformen), trägt der Import sie nach; gefüllte Plattformen überschreibt er nie. Keine Texte: nicht Hook, Beleg, Winkel, Dateien, Notizen oder Seitentexte.
 
 **Nicht in der Datei, mit Absicht:**
 - die Beispielzeilen (Titel beginnt mit «Beispiel»);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { MEDIEN } from "../studio/vertrag";
 import { winkelMeta } from "./archiv";
-import type { Format, Inhalt } from "./inhalt";
+import type { Format, Inhalt, Plattform } from "./inhalt";
 import { gate0Wirksam, type Marke } from "./marken";
 
 /**
@@ -18,6 +18,9 @@ import { gate0Wirksam, type Marke } from "./marken";
 export const IMPORT_SCHEMA = 1;
 /** Die Status, die der Import zulässt. Alles andere ist laufende Arbeit. */
 export const IMPORT_STATI = ["published", "evaluated", "discarded"] as const;
+/** Die Plattformen, die das Tool an einem Inhalt kennt (`docs/studio/vertrag.json`, `import.grenzen.plattformen`, im Tool `CONTENT_PLATFORMS`): die des Auftragskatalogs ohne «allgemein». */
+export const TOOL_PLATTFORMEN = ["instagram", "linkedin", "facebook", "tiktok", "youtube", "google", "website", "newsletter", "ads"] as const;
+export const IMPORT_MAX_PLATTFORMEN = 9;
 export const IMPORT_MAX_INHALTE = 500;
 export const IMPORT_MAX_MARKEN = 100;
 
@@ -33,6 +36,12 @@ const ImportInhaltSchema = z.strictObject({
   notion_id: z.string().regex(/^[0-9a-f]{32}$/),
   pattern: z.string().min(1).max(60).nullable(),
   content_type: z.string().min(1).max(60).nullable(),
+  /** Freiwillig im Vertrag, hier immer gesetzt. Bei einem vorhandenen Beitrag ohne Plattformen trägt das Tool sie nach, vorhandene überschreibt es nie. */
+  platforms: z
+    .array(z.enum(TOOL_PLATTFORMEN))
+    .max(IMPORT_MAX_PLATTFORMEN)
+    .refine((l) => new Set(l).size === l.length, "keine Plattform doppelt")
+    .optional(),
 });
 
 const ImportMarkeSchema = z.strictObject({
@@ -75,6 +84,12 @@ const MEDIUM: Record<Format, string> = {
   ungeklärt: "unclear",
 };
 
+/**
+ * Die Plattform in Notion (Feld «Plattformen») als Schlüssel des Tools. «weitere» hat keinen Schlüssel. Ohne Angabe in Notion bleibt die Liste leer: Aus dem Format wird nichts geraten
+ * (ein Carousel kann Instagram oder LinkedIn sein; im Archiv sind alle Carousels LinkedIn).
+ */
+const PLATTFORM: Record<Plattform, (typeof TOOL_PLATTFORMEN)[number] | null> = { Instagram: "instagram", LinkedIn: "linkedin", Blog: "website", Google: "google", weitere: null };
+
 const STATUS: Record<string, (typeof IMPORT_STATI)[number]> = { Veröffentlicht: "published", Ausgewertet: "evaluated", Verworfen: "discarded" };
 
 const GATE0: Record<string, "open" | "approved" | "change"> = { offen: "open", freigegeben: "approved", Änderung: "change" };
@@ -90,6 +105,7 @@ export function baueImport(inhalte: Inhalt[], marken: Marke[], jetzt: string): E
   const uebersprungen: Uebersprungen[] = [];
   const hinweise: string[] = [];
   const contents: ImportInhalt[] = [];
+  const ohnePlattform: string[] = [];
 
   const haeufigkeit = new Map<string, number>();
   for (const i of inhalte) haeufigkeit.set(i.id, (haeufigkeit.get(i.id) ?? 0) + 1);
@@ -136,6 +152,14 @@ export function baueImport(inhalte: Inhalt[], marken: Marke[], jetzt: string): E
       hinweise.push(`${i.id}: Die Marke liess sich nicht auflösen (Ansicht «Marken» unvollständig?), die Zeile kommt ohne Marke`);
     }
 
+    const platforms: (typeof TOOL_PLATTFORMEN)[number][] = [];
+    for (const p of i.plattformen) {
+      const schluessel = PLATTFORM[p];
+      if (schluessel === null) hinweise.push(`${i.id}: Die Plattform «${p}» hat im Tool keinen Schlüssel und fällt weg`);
+      else if (!platforms.includes(schluessel)) platforms.push(schluessel);
+    }
+    if (platforms.length === 0) ohnePlattform.push(i.id);
+
     const meta = winkelMeta(i.winkel);
     const kurz = (wert: string | undefined, was: string): string | null => {
       if (!wert) return null;
@@ -155,9 +179,11 @@ export function baueImport(inhalte: Inhalt[], marken: Marke[], jetzt: string): E
       notion_id: i.seite,
       pattern: kurz(meta.hookMuster, "Das Hook-Muster"),
       content_type: kurz(meta.pillar, "Der Pillar"),
+      platforms,
     });
   }
   contents.sort((a, b) => Number(a.code.slice(2)) - Number(b.code.slice(2)));
+  if (ohnePlattform.length > 0) hinweise.push(`${ohnePlattform.length} Zeilen ohne Plattform in Notion (${ohnePlattform.slice(0, 5).join(", ")}${ohnePlattform.length > 5 ? " …" : ""}): Sie stehen im Tool unter «Ohne Angabe»`);
 
   const brands: ImportDatei["brands"] = [];
   for (const m of marken) {

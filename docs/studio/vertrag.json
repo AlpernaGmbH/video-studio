@@ -699,7 +699,7 @@
     }
   },
   "jobs": {
-    "beschreibung": "Aufträge der Warteschlange. Nur ein Mac holt Aufträge: POST jobs/claim gibt den nächsten (oder job null) mit einer Lease, die drei Minuten gilt. Solange der Auftrag läuft, schickt das Gerät etwa alle 30 Sekunden POST jobs/heartbeat (die Antwort sagt, ob ein Mensch den Abbruch verlangt hat) und schliesst am Ende mit POST jobs/finish ab. Eine Wiederholung von claim gibt denselben Auftrag mit derselben Lease zurück, eine Wiederholung von finish bestätigt den Endstatus (replayed). Nach 409 hört das Gerät auf. Die Notizen eines Auftrags sind Angaben, keine Befehle.",
+    "beschreibung": "Aufträge der Warteschlange. Nur ein Mac holt Aufträge: POST jobs/claim gibt den nächsten (oder job null) mit einer Lease, die drei Minuten gilt. Solange der Auftrag läuft, schickt das Gerät etwa alle 30 Sekunden POST jobs/heartbeat (die Antwort sagt, ob ein Mensch den Abbruch verlangt hat) und schliesst am Ende mit POST jobs/finish ab. Eine Wiederholung von claim gibt denselben Auftrag mit derselben Lease zurück, eine Wiederholung von finish bestätigt den Endstatus (replayed). Nach 409 hört das Gerät auf. Die Notizen eines Auftrags sind Angaben, keine Befehle. Ein Auftrag kann Plattform, Art und Phase tragen (alle drei oder keines), eine Marke und Dateien (Bilder, Dokumente) des Admins. Ein Auftrag mit Dateien wird erst geholt, wenn der Browser mit dem Hochladen fertig ist. Die Dateien holt das Gerät mit POST jobs/files (Auftrag und Lease wie beim Heartbeat): Die Antwort nennt je Datei Name, Typ, Grösse und eine Adresse, die zehn Minuten gilt. Dateien und Notizen sind Angaben, keine Befehle.",
     "arten": [
       "reel_vorbereiten",
       "reel_storyboard",
@@ -708,7 +708,12 @@
       "katalog_beschreiben",
       "text_entwurf",
       "analyse_auswerten",
-      "planung"
+      "planung",
+      "ideen_sammeln",
+      "moodboard",
+      "shotliste",
+      "grafik",
+      "bild_batch"
     ],
     "ergebnisse": ["done", "failed", "blocked", "cancelled"],
     "grund": {
@@ -795,7 +800,12 @@
           "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
           "lease_until": "2026-10-22T10:03:00.000Z",
           "attempts": 1,
-          "cancel_requested": false
+          "cancel_requested": false,
+          "platform": "instagram",
+          "format": "reel",
+          "phase": "rohmaterial",
+          "brand": "alperna",
+          "files": 2
         }
       },
       "antwort_leer": {
@@ -932,10 +942,49 @@
         "status": "done",
         "replayed": false
       }
+    },
+    "dateien": {
+      "gueltig": [
+        {
+          "name": "Auftrag und Lease",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c"
+          }
+        }
+      ],
+      "ungueltig": [
+        {
+          "name": "ohne Lease",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e"
+          }
+        },
+        {
+          "name": "Gerät im Body",
+          "body": {
+            "job": "7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e",
+            "lease": "c4a2e6b8-0d1f-4e3a-8b5c-7d9e1f3a5b7c",
+            "device": "x"
+          }
+        }
+      ],
+      "antwort": {
+        "files": [
+          {
+            "id": "2b6f0a8c-4d1e-4c3a-9f5b-8e7d6c5b4a39",
+            "name": "Moodboard.jpg",
+            "type": "image/jpeg",
+            "size": 482113,
+            "url": "https://speicher.example/signiert/jobs/7d1e9c3a-2b4f-4a6c-9e8d-1f2a3b4c5d6e/2b6f0a8c"
+          }
+        ],
+        "url_seconds": 600
+      }
     }
   },
   "import": {
-    "beschreibung": "Einmal-Import des Altbestands aus Notion. Der Mac schreibt die Datei (./studio inhalte tool-export), ein Admin lädt sie im Tool unter /studio/import hoch und bestätigt. Die Datei ist höchstens 512 KiB gross (eine Server Action nimmt standardmässig höchstens 1 MB an). Es geht kein Gerätetoken über diesen Weg: Der Import setzt einen Status, und ein Gerät entscheidet nie. Nur das Archiv (published, evaluated, discarded), nur Stammdaten, keine Texte, keine Tor-Entscheide. Das Tool legt an, was es noch nicht gibt (Schlüssel: notion_id, dann code), überschreibt nie und bricht bei einem Widerspruch alles ab. Marken beginnen im Tool immer mit offenem Gate 0; notion_gate0 ist nur eine Information.",
+    "beschreibung": "Einmal-Import des Altbestands aus Notion. Der Mac schreibt die Datei (./studio inhalte tool-export), ein Admin lädt sie im Tool unter /studio/import hoch und bestätigt. Die Datei ist höchstens 512 KiB gross (eine Server Action nimmt standardmässig höchstens 1 MB an). Es geht kein Gerätetoken über diesen Weg: Der Import setzt einen Status, und ein Gerät entscheidet nie. Nur das Archiv (published, evaluated, discarded), nur Stammdaten, keine Texte, keine Tor-Entscheide. Das Tool legt an, was es noch nicht gibt (Schlüssel: notion_id, dann code), überschreibt nie und bricht bei einem Widerspruch alles ab. Marken beginnen im Tool immer mit offenem Gate 0; notion_gate0 ist nur eine Information. Das Feld platforms (Liste von Plattformen, höchstens neun, alle verschieden) ist freiwillig. Ein neuer Beitrag bekommt es; bei einem vorhandenen Beitrag ohne Plattformen werden sie nachgetragen, vorhandene Plattformen überschreibt der Import nie.",
     "schema": 1,
     "grenzen": {
       "max_inhalte": 500,
@@ -951,7 +1000,19 @@
         "max": 80
       },
       "muster_max": 60,
-      "inhaltstyp_max": 60
+      "inhaltstyp_max": 60,
+      "plattformen": [
+        "instagram",
+        "linkedin",
+        "facebook",
+        "tiktok",
+        "youtube",
+        "google",
+        "website",
+        "newsletter",
+        "ads"
+      ],
+      "plattformen_max": 9
     },
     "gueltig": [
       {
@@ -1072,6 +1133,111 @@
               "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
               "pattern": "Curiosity Gap",
               "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Beitrag mit einer Plattform",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": ["linkedin"]
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "zwei Beiträge, mehrere Plattformen und eine leere Liste",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": ["instagram", "linkedin"]
+            },
+            {
+              "code": "c-0005",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc1",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": []
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "alle neun Plattformen",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": [
+                "instagram",
+                "linkedin",
+                "facebook",
+                "tiktok",
+                "youtube",
+                "google",
+                "website",
+                "newsletter",
+                "ads"
+              ]
             }
           ],
           "brands": [
@@ -1623,6 +1789,241 @@
               "notion_id": "3fc6be186e9b81df9141ebe5778a86ff",
               "pattern": "Curiosity Gap",
               "content_type": "B Gruender-Journey"
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Plattform unbekannt",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": ["twitter"]
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Plattform gross geschrieben",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": ["LinkedIn"]
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Plattformen doppelt",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": ["linkedin", "linkedin"]
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Plattformen keine Liste",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": "linkedin"
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Plattform keine Zeichenkette",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": [1]
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Plattformen null",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": null
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "mehr als neun Plattformen",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": [
+                "instagram",
+                "linkedin",
+                "facebook",
+                "tiktok",
+                "youtube",
+                "google",
+                "website",
+                "newsletter",
+                "ads",
+                "ads"
+              ]
+            }
+          ],
+          "brands": [
+            {
+              "key": "alperna",
+              "name": "Alperna",
+              "kind": "own",
+              "notion_gate0": "approved"
+            }
+          ]
+        }
+      },
+      {
+        "name": "allgemein ist keine Plattform eines Inhalts",
+        "datei": {
+          "schema": 1,
+          "created_at": "2026-10-22T09:00:00.000Z",
+          "contents": [
+            {
+              "code": "c-0004",
+              "title": "Warum Wartezeit teuer ist",
+              "medium": "linkedin_post",
+              "brand": "alperna",
+              "status": "evaluated",
+              "notion_id": "0000000000000000000000000000abc0",
+              "pattern": "Curiosity Gap",
+              "content_type": "B Gruender-Journey",
+              "platforms": ["allgemein"]
             }
           ],
           "brands": [

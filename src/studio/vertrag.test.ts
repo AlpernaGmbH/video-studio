@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { baueEreignis } from "./melder";
-import { ARTEN_AUFTRAG, AuftragAbschlussSchema, AuftragHerzschlagSchema, AuftragHolenSchema, AuftragSchema, ereignisFehler, ERGEBNISSE, MEDIEN, SendungSchema } from "./vertrag";
+import { ARTEN_AUFTRAG, AuftragAbschlussSchema, AuftragDateienAntwortSchema, AuftragHerzschlagSchema, AuftragHolenSchema, AuftragSchema, ereignisFehler, ERGEBNISSE, MEDIEN, SendungSchema } from "./vertrag";
 
 interface Fall {
   name: string;
@@ -20,6 +20,7 @@ const vertrag = JSON.parse(fs.readFileSync(path.join(__dirname, "../../docs/stud
     claim: { gueltig: Fall[]; ungueltig: Fall[]; antwort: { job: unknown }; antwort_leer: { job: null } };
     heartbeat: { gueltig: Fall[]; ungueltig: Fall[]; antwort: Record<string, unknown> };
     finish: { gueltig: Fall[]; ungueltig: Fall[]; antwort: Record<string, unknown> };
+    dateien: { gueltig: Fall[]; ungueltig: Fall[]; antwort: unknown };
   };
 };
 const JETZT = Date.parse("2026-10-22T09:00:00.000Z");
@@ -119,6 +120,24 @@ describe("Vertrag mit dem Tool: Aufträge", () => {
   it.each(j.finish.ungueltig)("Abschluss ungültig: $name", ({ body }) => {
     expect(AuftragAbschlussSchema.safeParse(body).success).toBe(false);
   });
+  it.each(vertrag.jobs.dateien.gueltig)("Dateien gültig: $name", ({ body }) => {
+    expect(AuftragHerzschlagSchema.safeParse(body).success).toBe(true);
+  });
+  it.each(vertrag.jobs.dateien.ungueltig)("Dateien ungültig: $name", ({ body }) => {
+    expect(AuftragHerzschlagSchema.safeParse(body).success).toBe(false);
+  });
+  it("das Beispiel einer Antwort auf «Dateien» liest dieser Rechner, ohne Pfad im Speicher", () => {
+    const p = AuftragDateienAntwortSchema.safeParse(vertrag.jobs.dateien.antwort);
+    expect(p.success).toBe(true);
+    expect(p.success && p.data.url_seconds).toBe(600);
+    expect(Object.keys((vertrag.jobs.dateien.antwort as { files: object[] }).files[0]!).sort()).toEqual(["id", "name", "size", "type", "url"]);
+  });
+  it("ein Tool ohne die Migration des Auftragskatalogs schickt keine Katalogfelder: Der Auftrag bleibt lesbar", () => {
+    const { platform: _p, format: _f, phase: _ph, brand: _b, files: _fi, ...alt } = vertrag.jobs.claim.antwort.job as Record<string, unknown>;
+    const p = AuftragSchema.safeParse(alt);
+    expect(p.success).toBe(true);
+    expect(p.success && [p.data.platform, p.data.format, p.data.phase, p.data.brand, p.data.files]).toEqual([null, null, null, null, 0]);
+  });
   it("das Beispiel einer Antwort auf «holen» liest dieser Rechner", () => {
     expect(AuftragSchema.safeParse(j.claim.antwort.job).success).toBe(true);
     expect(j.claim.antwort_leer).toEqual({ job: null });
@@ -158,7 +177,7 @@ describe("Vertrag mit dem Tool: Aufträge", () => {
     });
   });
   it("das Beispiel einer Antwort trägt keine Felder, die ein Rechner nicht kennen soll", () => {
-    expect(Object.keys(j.claim.antwort.job as object).sort()).toEqual(["attempts", "cancel_requested", "content", "id", "kind", "lease", "lease_until", "notes", "params", "status", "target"]);
+    expect(Object.keys(j.claim.antwort.job as object).sort()).toEqual(["attempts", "brand", "cancel_requested", "content", "files", "format", "id", "kind", "lease", "lease_until", "notes", "params", "phase", "platform", "status", "target"]);
   });
   it("409 steht im Vertrag", () => {
     expect(vertrag.status["409"]).toContain("Lease");
