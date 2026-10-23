@@ -1,0 +1,34 @@
+{
+  "schluessel": "regina-massagen",
+  "name": "Regina Massagen",
+  "status": "platzhalter",
+  "farben": {
+    "hintergrund": "#2F4A3C",
+    "text": "#F4EFE6",
+    "akzent1": "#C9A27A",
+    "akzent2": "#A9B79A"
+  },
+  "schriften": {
+    "titel": "Cormorant Garamond",
+    "fliesstext": "Jost"
+  },
+  "logo": {},
+  "effektStil": {
+    "eckenradius": 0,
+    "schatten": false,
+    "bewegungstempo": 1
+  },
+  "tonalitaet": {
+    "anrede": "du",
+    "verboteneWoerter": [],
+    "hinweise": "Entwurf aus der Website (https://www.reginamassagen.ch, Stand 23.10.2026), von keinem Menschen bestätigt: Gate 0 steht offen. Farben der Website: Grün #2F4A3C und #243A2F, Salbei #A9B79A, Seladon #9DB8AE, Creme #F4EFE6, Eiche #C9A27A, Gold #B8975A, Tinte #1C1C1A. Du-Form, ruhig und persönlich, die Inhaberin spricht von sich in der Ich-Form («Bei mir stehst du und deine Gesundheit im Mittelpunkt»). Wörter der Website: Auszeit, Regeneration, Balance, Entspannung; Ort: Haslen, Appenzellerland. Keine Heilversprechen: Die Website verkauft Wohlbefinden, keine Therapie (Vorschlag, bitte bestätigen)."
+  },
+  "ton": {
+    "sfxDichte": 0,
+    "musik": true
+  },
+  "hashtags": {
+    "fest": [],
+    "anzahl": 5
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schluessel": "bc-trogen-speicher",
+  "name": "BC Trogen Speicher",
+  "status": "platzhalter",
+  "farben": {
+    "hintergrund": "#0619FB",
+    "text": "#FFFFFF",
+    "akzent1": "#141414",
+    "akzent2": "#FFFFFF"
+  },
+  "schriften": {
+    "titel": "Montserrat",
+    "fliesstext": "Lato"
+  },
+  "logo": {},
+  "effektStil": {
+    "eckenradius": 4,
+    "schatten": true,
+    "bewegungstempo": 1
+  },
+  "tonalitaet": {
+    "anrede": "du",
+    "verboteneWoerter": [],
+    "hinweise": "Entwurf aus der Website (https://bctrogenspeicher.ch, Stand 23.10.2026), von keinem Menschen bestätigt: Gate 0 steht offen. Das Erscheinungsbild der Website kennt nur Blau #0619FB, Weiss und Schwarz (#000000, #141414); ein zweiter Akzent fehlt, bitte entscheiden. Titel Montserrat (700), Text Lato. Du-Form, einladend («Lerne auch du Badminton», «Werde Mitglied»). Verein aus Trogen und Speicher: Teams NLA und NLB, 2. bis 4. Liga, Kurse in St. Gallen. Resultate und Namen nur aus den Turnierberichten des Vereins."
+  },
+  "ton": {
+    "sfxDichte": 0,
+    "musik": true
+  },
+  "hashtags": {
+    "fest": [],
+    "anzahl": 5
+  }
+}

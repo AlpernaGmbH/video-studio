@@ -118,7 +118,11 @@ let geraete: ReelGeraete;
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "studio-reel-"));
-  env = { ...umgebung(root), datenDir: path.join(tmp, "daten") };
+  // Eine eigene Markenablage mit genau einem Profil: Die Tests hängen nicht davon ab, wie viele Marken im Repo liegen.
+  const markenDir = path.join(tmp, "marken-eine");
+  fs.mkdirSync(markenDir);
+  fs.copyFileSync(path.join(root, "marken", "alperna.json"), path.join(markenDir, "alperna.json"));
+  env = { ...umgebung(root), datenDir: path.join(tmp, "daten"), markenDir };
   ausgabe = [];
   kopiert = [];
   geoeffnet = [];

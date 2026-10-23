@@ -1,0 +1,34 @@
+{
+  "schluessel": "digitalisto",
+  "name": "Digitalisto",
+  "status": "platzhalter",
+  "farben": {
+    "hintergrund": "#000000",
+    "text": "#F6EFE5",
+    "akzent1": "#D86018",
+    "akzent2": "#ECE0D5"
+  },
+  "schriften": {
+    "titel": "Space Grotesk",
+    "fliesstext": "Bai Jamjuree"
+  },
+  "logo": {},
+  "effektStil": {
+    "eckenradius": 20,
+    "schatten": true,
+    "bewegungstempo": 1
+  },
+  "tonalitaet": {
+    "anrede": "du",
+    "verboteneWoerter": [],
+    "hinweise": "Entwurf aus der Website (https://digitalisto.ch, Stand 23.10.2026), von keinem Menschen bestätigt: Gate 0 steht offen. Globale Stile der Website: Schwarz #000000, Orange #D86018, Sand #ECE0D5, Creme #F6EFE5, Text #D8D8D8; Titel Space Grotesk 600, Text Bai Jamjuree. Weitere Töne kommen vor (Petrol #183C51, Türkis #6CB9B8, Marine #01233A, Hellblau #BAD5DE): welche zur Marke gehören, entscheidet ein Mensch. Du-Form. Bildsprache der Website: Kaffee (Espresso, Barista, wachmachen: «Digitales Koffein für dein KMU»). Seit 2018, Marketing-Kollektiv aus St. Gallen."
+  },
+  "ton": {
+    "sfxDichte": 0,
+    "musik": true
+  },
+  "hashtags": {
+    "fest": [],
+    "anzahl": 5
+  }
+}

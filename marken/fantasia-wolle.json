@@ -1,0 +1,34 @@
+{
+  "schluessel": "fantasia-wolle",
+  "name": "Fantasia Wolle",
+  "status": "platzhalter",
+  "farben": {
+    "hintergrund": "#6E0031",
+    "text": "#FFF4F8",
+    "akzent1": "#FFB3D1",
+    "akzent2": "#DE0262"
+  },
+  "schriften": {
+    "titel": "Fraunces",
+    "fliesstext": "Karla"
+  },
+  "logo": {},
+  "effektStil": {
+    "eckenradius": 2,
+    "schatten": false,
+    "bewegungstempo": 1
+  },
+  "tonalitaet": {
+    "anrede": "sie",
+    "verboteneWoerter": [],
+    "hinweise": "Entwurf aus der Website (https://www.fantasia-wolle.ch, Stand 23.10.2026), von keinem Menschen bestätigt: Gate 0 steht offen. Farben der Website: Magenta #DE0262, Rosa #FFB3D1, Tiefrot #6E0031, Rose #FFF4F8, Schwarz und Weiss. Titel Fraunces, Text Karla. Sie-Form der Website («Ihr Fachgeschäft für textiles Handwerk im Appenzellerland»), fachlich und freundlich. Handarbeitsladen in Speicher: Wolle, Mercerie, Geschenke, Beratung bei Modell, Farbe und Verarbeitung."
+  },
+  "ton": {
+    "sfxDichte": 0,
+    "musik": true
+  },
+  "hashtags": {
+    "fest": [],
+    "anzahl": 5
+  }
+}

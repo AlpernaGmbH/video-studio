@@ -1,0 +1,34 @@
+{
+  "schluessel": "amno-fahrschule",
+  "name": "Fahrschule Amno",
+  "status": "platzhalter",
+  "farben": {
+    "hintergrund": "#0A0A0A",
+    "text": "#FFFFFF",
+    "akzent1": "#79ABF5",
+    "akzent2": "#0B5FD4"
+  },
+  "schriften": {
+    "titel": "Archivo",
+    "fliesstext": "Instrument Sans"
+  },
+  "logo": {},
+  "effektStil": {
+    "eckenradius": 10,
+    "schatten": true,
+    "bewegungstempo": 1
+  },
+  "tonalitaet": {
+    "anrede": "du",
+    "verboteneWoerter": [],
+    "hinweise": "Entwurf aus der Website (https://alpernagmbh.github.io/fahrschule-amno-website/, Stand 23.10.2026), von keinem Menschen bestätigt: Gate 0 steht offen. Das ist die von Alperna gebaute neue Website (Vorschau auf GitHub Pages). Farben: Asphalt #000000 und #0A0A0A, Beton #EDEFF2, Blau #0B5FD4, Tiefblau #06377C, Hellblau #E7F0FE, auf dunklen Flächen ein helles Blau #79ABF5. Schriften: Archivo (Titel), Instrument Sans (Text), JetBrains Mono für kleine Angaben. Du-Form, direkt und ehrlich («Ein Fahrlehrer statt einem Callcenter», «Die ehrliche Antwort»). Preise und Zahlen nur aus der Website oder von der Fahrschule. Schaltflächen sind Pillen (Radius 100), Karten rund 10."
+  },
+  "ton": {
+    "sfxDichte": 0,
+    "musik": true
+  },
+  "hashtags": {
+    "fest": [],
+    "anzahl": 5
+  }
+}

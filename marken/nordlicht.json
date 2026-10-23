@@ -1,0 +1,34 @@
+{
+  "schluessel": "nordlicht",
+  "name": "Nordlicht",
+  "status": "platzhalter",
+  "farben": {
+    "hintergrund": "#3D1F5C",
+    "text": "#F0EAFA",
+    "akzent1": "#C084FC",
+    "akzent2": "#5D3D7C"
+  },
+  "schriften": {
+    "titel": "Manrope",
+    "fliesstext": "Manrope"
+  },
+  "logo": {},
+  "effektStil": {
+    "eckenradius": 8,
+    "schatten": false,
+    "bewegungstempo": 1
+  },
+  "tonalitaet": {
+    "anrede": "sie",
+    "verboteneWoerter": [],
+    "hinweise": "Entwurf aus der Website (https://www.nordlicht.ch/de, Stand 23.10.2026), von keinem Menschen bestätigt: Gate 0 steht offen. Die CI-Farben stehen im Quelltext der App (nordlicht.swiss): Primärviolett #5D3D7C, dunkel #3D1F5C, hell #7A5A99, Aurora-Pink #C084FC, dunkle Fläche #0B0915, heller Text #F0EAFA. Sie-Form, sachlich und ruhig (Beispiel der Website: «Ihr Vermögen verdient mehr als ein Standarddepot»). Finanzthema: keine Renditeversprechen und keine persönliche Empfehlung; die Website sagt selbst «Das gezeigte Strategieprofil dient als Vergleich, nicht als persönliche Empfehlung». Texte mit rechtlicher Wirkung formuliert ein Mensch. Der Eckenradius ist geschätzt, die Website setzt keinen festen Wert."
+  },
+  "ton": {
+    "sfxDichte": 0,
+    "musik": true
+  },
+  "hashtags": {
+    "fest": [],
+    "anzahl": 5
+  }
+}

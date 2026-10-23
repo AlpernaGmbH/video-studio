@@ -1,0 +1,34 @@
+{
+  "schluessel": "lifeboost",
+  "name": "LifeBoost",
+  "status": "platzhalter",
+  "farben": {
+    "hintergrund": "#0B0B0C",
+    "text": "#FDFDFD",
+    "akzent1": "#CBCDD0",
+    "akzent2": "#96989C"
+  },
+  "schriften": {
+    "titel": "Sora",
+    "fliesstext": "Inter"
+  },
+  "logo": {},
+  "effektStil": {
+    "eckenradius": 20,
+    "schatten": false,
+    "bewegungstempo": 1
+  },
+  "tonalitaet": {
+    "anrede": "du",
+    "verboteneWoerter": [],
+    "hinweise": "Entwurf aus der Website (https://sweet-position-008353.framer.app, Stand 23.10.2026), von keinem Menschen bestätigt: Gate 0 steht offen. Die Website ist dunkel und einfarbig: Fläche #0B0B0C, Karten #151518 und #1F1F24, Text #FDFDFD, Grautöne #CBCDD0 und #96989C. Das Zeichen (Flamme mit Schriftzug) ist silbern; eine Akzentfarbe gibt es nicht, bitte entscheiden. Titel Sora, Text Inter (Framer-Vorschau, Adresse noch nicht die endgültige). Du-Form, direkt («Fett verlieren. Muskeln aufbauen. Sichtbar vorankommen.»). Personal Coaching, online und in St. Gallen. Keine Versprechen zu Körperergebnissen ohne Beleg."
+  },
+  "ton": {
+    "sfxDichte": 0,
+    "musik": true
+  },
+  "hashtags": {
+    "fest": [],
+    "anzahl": 5
+  }
+}
