@@ -1,0 +1,12 @@
+# DVOb7_LD9Pt · «graphics wie hier» · Reel · @lemonadsstudio · 90 s · Deutsch · 3'117 Ansichten · 229 Likes
+Quelle: Transkript (de) + Bogen 1 gesehen (0–13 s); Bögen 2–4 nur Transkript und Beschreibung.
+**Thema:** Eigenwerbung einer Werbe-Videoagentur («Lemon Ads»): Ein Spot mit 2'000 € Werbebudget; laut Anbieter CTR über 4 %, Termine unter 40 €, über 150'000 € Umsatz, 300–400 Shares in Woche 1, über 50 organische Leads. Angebot: erster Dreh gratis, bezahlt wird erst bei voller Zufriedenheit, kein Auftritt vor der Kamera nötig. **Alle Zahlen sind Behauptungen des Anbieters ohne Beleg** (Regel 7).
+**Hook:** 0:00 schwarzer Raum mit Gitterlinien, ein 3D-Gold-Logo fliegt durch unscharfe Tiefe in die Mitte. Satz: «Wir haben mit einem Video den kompletten Markt auseinandergenommen.»
+**Struktur:** 0–12 s Behauptung, Schlüsselwörter in grossen Majuskeln («AUSEINANDER GENOMMEN», «DRUCKEN KUNDEN», «HABEN WIR AUCH VOR») · 12–40 s Ergebnisse als Zahlen mit Icons · 40–62 s «Instagram-Postfach explodiert», dann «drei Dinge für funktionierende Ads: Angebot, Entertainment, Aufmachung» · 62–70 s Behauptung der Überlegenheit gegenüber normalen Video-Ads · 70–90 s Garantie («Dreh for free») und CTA «trag dich ein».
+**Schnitt:** 5 Schnitte in 90 s (3 pro Minute): ruhiger als die Effekt-Reels; Bewegung entsteht in 3D-Grafik und Kamerafahrten im virtuellen Raum.
+**Kamera / Licht:** reine Motion-Grafik, kein Realfilm in den gesehenen Bildern: schwarzer Raum, Goldglanz mit Schärfentiefe, feines Raster.
+**Text / Grafik:** Gold auf Schwarz als einzige Farbpalette, 3D-Icons (Herz-Sprechblase, Zahl, Pfeil), Schlüsselwort in fetter Majuskel-Grotesk, kleine Pillen-Etiketten («den kompletten Markt», «Max Brandt») und eine goldene Welle als Linie; Schrift tritt aus Unschärfe in Schärfe ein.
+**Ton:** −14,2 LUFS, True Peak **+0,7 dBFS** (übersteuert), keine Pausen. Klang nicht beurteilt.
+**Passt zu Alperna?** Stil ja (Gold als einziger Akzent passt zu «Navy und Gold» der Marke), aber **die Machart ist teuer** (3D-Modelle, Kamerafahrten). Für Alperna: dasselbe Prinzip mit 2D: Schlüsselwort gross, Rest klein. Der Inhalt (Zahlen ohne Beleg, Gratis-Dreh als Köder, «explodiert») widerspricht unserem Ton («keine Superlative, belegbar»): als **Struktur** nutzbar, nicht als Text.
+**Belege:** (1) 0:00 fliegendes Gold-Logo im schwarzen Raum; (2) 0:02,5 «AUSEINANDER GENOMMEN» mit goldener Welle; (3) 0:12,6 «HABEN WIR AUCH VOR» in unscharfem Eintritt.
+**Eignung Marketing-System:** Ad-Struktur (Behauptung → Beweis → Garantie → CTA) als Gerüst für Ads, ohne die Zahlen.

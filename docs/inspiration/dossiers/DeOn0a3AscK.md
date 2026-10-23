@@ -1,0 +1,14 @@
+# DeOn0a3AscK · «batch ideen 4» · Karussell (7 Bild-Folien) · @longevitypenguin · 383 Likes
+Gespeichert bei Folie 5 («Step 03: Colour Grade»). Quelle: alle 7 Folien gesehen (2 Folienbögen) plus die volle Beschreibung. Derselbe Autor wie «batch ideen 1».
+
+**Thema:** «Lass deinen Inhalt besser aussehen als 99 % der Creator, in 60 Sekunden»: ein System namens **Visual Authority** in vier Schritten (zwei weitere sind in der Titelliste gesperrt und nur Werbung für den Kommentar-Trigger «CINEMATIC»). Die Begründung der Beschreibung: Wer teure Leistungen verkauft, muss auch so aussehen; Premium-Kunden beurteilen die Marke, bevor man ein Wort sagt. Behauptungen wie «99 %» und «100K Follower» sind Eigenangaben ohne Beleg (Regel 7).
+**Hook (Folie 1):** Vorher/Nachher: links ein flaches, graues Bild einer Person am Laptop, rechts dasselbe Bild kräftig orange mit dunklem Hemd und weichem Licht, dazwischen ein Pfeil.
+**Die vier Schritte (eigene Worte):**
+1. **Kamera:** nicht die teure Kamera zählt, sondern drei Mindestwerte: **4K**, **10 Bit**, **Log-Profil** (flach aufnehmen, später Kinofarbe). Dazu: 30 Bilder pro Sekunde mit 1/60 Verschlusszeit, damit Bewegung filmisch aussieht, ein leichter Weichzeichnerfilter (1/8) innen lässt Lichter aufblühen.
+2. **Licht:** schlechtes Licht ruiniert eine gute Kamera; **zwei Lampen** genügen: Hauptlicht in 45 Grad zur Kamera, knapp über Augenhöhe; ein Röhrenlicht hinter der Person, das sie vom Hintergrund trennt (mit Lageplan).
+3. **Farbkorrektur:** dasselbe **LUT** (Farbvoreinstellung) auf jeden Clip, so entsteht ein einheitlicher Feed.
+4. **Assoziationen:** jedes Bild sagt etwas über dich, bevor du sprichst: Drehort (da, wo dein Käufer sein möchte), Kleidung und Marken, Markenfarben.
+**Gestaltung:** nachtschwarzer Grund, orange Leuchtschrift (fette Grotesk mit Monospace-Etiketten), Karten und Schemas, Vorher/Nachher-Bilder. Folienzähler «n / 07».
+**Passt zu Alperna?** **Ja, stark; das ist praktisch unser eigenes Rezept.** Die Kette «Log aufnehmen, ein LUT über alles, zwei Lampen» ist bei uns schon gebaut (V-Log, LUT, einheitliche Farbe je Marke, siehe `src/schnitt/vlog.ts`). Neu und nützlich: (a) die **Drei-Punkte-Prüfung der Kamera** (4K, 10 Bit, Log) als Check beim Import; (b) **Lichtplan** (Hauptlicht 45 Grad, Trennlicht) als Skizze in der Shotliste; (c) **Assoziationen** (Drehort, Kleidung, Farbe) als Punkt im Markenprofil. Der neonorange Look der Folien selbst ist nicht der von Alperna.
+**Belege:** (1) Folie 1 Vorher/Nachher «LOOK BETTER THAN 99 % OF CREATORS»; (2) Folie 4 «LIGHTING» mit dem Lageplan Key 45 Grad und Röhrenlicht; (3) Folie 5 «COLOUR GRADE: Drop the same LUT on every clip».
+**Eignung Marketing-System:** M3 Shotliste (Lichtplan als Beispielbild), M4 Foto-Batch (gleicher Gedanke: ein Look für alle Bilder, Wahl aus fünf Mustern), Markenprofil-Feld «Assoziationen».

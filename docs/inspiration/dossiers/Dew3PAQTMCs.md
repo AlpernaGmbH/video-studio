@@ -1,0 +1,19 @@
+# Dew3PAQTMCs · «video effects beispiele» · Reel · @tenfoldmarc · 35,6 s · 8'759 Ansichten · 579 Likes
+Quelle: Transkript (Whisper small, Englisch) + vier Szenenbögen (0 bis ca. 12 s) + gleichmässiger Überblick (12 Bilder von 0 bis 35 s); alle Bilder gesehen.
+
+**Thema:** «**16 Video-Effekte, die Claude erstellen kann**», vorgeführt an einem Talking-Head-Reel, das **mit denselben Effekten geschnitten ist**. Am Ende der Verkauf eines «Studios» (Kommentar «studio»): 46 Effekte, dazu ein System, das Reels schneidet, ein Video in zehn Testreels zerlegt, automatisch postet und Videos in Karussells im eigenen Stil umwandelt (Eigenangaben ohne Beleg).
+**Hook (0 bis 7 s, wörtlich gesprochen):** Die Aufzählung der Effekte beginnt sofort: «Headline wall, zoom through cut, vertigo, green screen, phone markup, digital zoom, paper cut, UI world, …». Bild: gelber Lichtblitz mit radialer Unschärfe (Zoom-Durchbruch) und dann der Sprecher mit einer **Liste von 16 Effekten**, die sich im Takt hervorhebt (aktueller Effekt gelb).
+**Die 16 Effekte** (Namen von der Liste im Bild): Headline Wall · Zoom-Through Cut · Vertigo · Green Screen · Phone Mockup · Digital Zoom · Paper Cut · UI World · Orbit · Frame Break · Doodle Boil · Sticky Text · Before + After · Pull-Back Reveal · Depth Scatter · Comment Bubble.
+**Gesehen und eingeordnet (Zeitmarken aus dem Überblick):**
+- 0 s **Zoom-Durchbruch** als Einstieg (Lichtblitz mit Strahlen).
+- 5,9 s **Paper Cut**: der Sprecher wird ausgeschnitten mit weissem Rand auf einem Papierhintergrund, grosse Buchstaben im Erpresserbrief-Stil «paper cut».
+- 8,9 s **Phone Mockup**: das Bild des Sprechers liegt in einem Instagram-Rahmen mit Herz, Kommentar und Konto.
+- 11,9 s **Before + After**: ein senkrechter Schieberegler teilt das Bild, links «before», rechts «after».
+- 14,8 s **Depth**: das Wort «depth» steht **hinter dem Oberkörper** des Sprechers (der Körper überdeckt die Mitte der Buchstaben). Das ist der Effekt «Text hinter der Person» und braucht eine Personen-Maske.
+- 17,8 s **Pull-Back Reveal**: Hintergrund wird zu einer Wand aus vielen kleinen Reels, der Titel «video effects» steht davor.
+- 23,7 s und 26,7 s kleine Einblendungen der Ergebnisse: Handy-Rahmen mit dem fertigen Reel, eine Meldung «Posting 10 trial reels to Instagram», Karten mit Reels.
+- 32,6 s **Eingabefeld** mit Tippcursor («St…»), Aufforderung «comment studio».
+**Schnitt und Gestaltung:** 7 Schnitte in 35,6 s (12 pro Minute); der Sprecher bleibt im Bild und wird nur *umbaut*; ein Grundlook (Grünes Hemd, warme Lampe links, dunkle Mütze) ändert sich nicht. Text: Titel in fetter Grotesk (weiss und Gelb), Liste in kleiner Grotesk mit Nummern, wortweise Untertitel in Grotesk (Hervorhebung Gelb, Serife kursiv). **Ton:** –14,1 LUFS, True Peak –1,1 dBFS, keine Pausen.
+**Passt zu Alperna?** **Ja für das Prinzip, mit Auswahl bei den Effekten.** Das ist das stärkste Beispiel für «**Effektkatalog, von Claude gebaut und im selben Reel vorgeführt**». Passend zu «ruhig und hochwertig»: **Before + After** (Vergleich), **Phone Mockup** (Beitrag im Rahmen), **Depth** (Titel hinter der Person; braucht Maske, siehe Dossier zu Masking), **Pull-Back Reveal** (Rückblick auf viele Bilder). Zu laut: **Zoom-Durchbruch**, **Paper Cut**, **Doodle Boil**, **Digital Zoom**. Eine ehrliche Prüfung wäre: Welche der 16 **entsprechen unseren Familien** (Titel, Liste, Vergleich, Mockup, Zahl)?
+**Belege:** (1) 0 s: gelber Zoom-Durchbruch, im Bild oben «16 video effects claude can create»; (2) 14,8 s: «depth» hinter dem Oberkörper; (3) 26,7 s: Karte «Posting 10 trial reels to Instagram».
+**Eignung Marketing-System:** Lückenanalyse der Motion-Bibliothek (Vergleich, Mockup, Text hinter Person); verwandt mit `Dej8homsIzp` und `Deyz9hVk-q4` (gleiche Gattung «Effektliste mit Claude»). Automatisches Posten und «Testreels» sind **nicht** Teil unseres Plans (Regel 1: Freigabe gehört Menschen).

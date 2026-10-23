@@ -1,0 +1,14 @@
+# DenmLE0Dty7 · «batch ideen 8» · Karussell (6 Folien) · @kallawaymarketing · 413 Likes
+Gespeichert bei Folie 4 («Step 3: Contrast Framing»). Quelle: alle 6 Folien gesehen (2 Folienbögen; Folie 1 ein 4-Sekunden-Video ohne Ton, im Ausgangsbild) plus die volle Beschreibung.
+
+**Thema:** «So machst du langweilige Themen süchtig machend»: die **Story-Pyramide** für «langweilige Geschäfte» in vier Schritten. Das ist für Alperna das passendste Stück der Sammlung, weil unsere Kunden Malerei, Gewerbe und Vereine sind. Werbung für eine 4-Wochen-Challenge (Kommentar «LAUNCH»).
+**Hook (Folie 1):** «HOW TO MAKE BORING TOPICS ADDICTING», rote kursive Serife, darunter ein leuchtendes Gehirn in der Silhouette einer Figur (Illustration).
+**Die vier Schritte (eigene Worte):**
+1. **Das richtige Thema wählen:** ein Thema, das in der Kategorie allgemein bekannt ist **und** einen grossen Schmerz des Zuschauers trifft; nichts, was so obskur ist, dass die Zielgruppe zu klein wird. Beispiel im Bild: «alle kennen die Serie, niemand kennt den Erfinder».
+2. **Einen neuen Blickwinkel finden:** Inhalt funktioniert nur in zwei Fällen: Das Thema ist neu, oder es ist alt und in einen neuen Rahmen gesetzt. Gute Rahmen entstehen aus einem **Zustandswechsel oder einer Enthüllung** (Beschreibung: bei Steuerberatung etwa neue Gesetze der letzten sechs Monate, die Strategien möglich machen, die vorher nicht gingen).
+3. **Gegensatz setzen:** die neue Lage gegen den alten Weg stellen (vorher/nachher, Anfänger/Profi, gut/schlecht): «Gehirne denken in Vergleichen».
+4. **Wunsch verankern:** die Enthüllung mit dem Ergebnis verbinden, das der Zuschauer will («Wunschergebnis plus das Neue, das dorthin führt»); wer daran erinnert wird, schaut weiter.
+**Gestaltung:** schwarz mit Filmkorn, rote kursive Serife für die Schrittnamen, weisse Fliesstexte, je ein Beispielbild als Handy-Rahmen oder Schema; Schritt 3 als drei Gegensatzpaare in Kästchen.
+**Passt zu Alperna?** **Ja, stark.** Die vier Schritte sind direkt als **Prüfung für Ideen** brauchbar: (1) bekanntes Thema mit konkretem Schmerz, (2) was hat sich geändert (Norm, Preis, Material, Verfahren, Förderprogramm), (3) vorher gegen nachher, (4) Ergebnis für den Kunden. Schweizer Beispiele: neue Energievorschriften des Kantons, Sanierungsförderung, geänderte Normen für Fassaden. **Wichtig (Regel 8):** Für Rechtsthemen nur Formulierungen aus `content/legal/` oder gar nicht; «neue Gesetze» darf die Idee nur als Anlass nennen, nicht als Rechtsaussage.
+**Belege:** (1) Folie 1 «HOW TO MAKE BORING TOPICS ADDICTING»; (2) Folie 3 «STEP 2: FIND A NOVEL ANGLE» mit dem Satz «Content only works in 2 scenarios»; (3) Folie 5 «STEP 4: DESIRE ANCHORING» mit dem Kasten «Desired outcome + The new thing to get there».
+**Eignung Marketing-System:** M7 Idee-Prüfung mit den vier Fragen (Schmerz, Zustandswechsel, Gegensatz, Wunschergebnis) als Felder der Idee; Hinweise im Textprüfer, wenn «Gegensatz» oder «Wunschergebnis» fehlt.

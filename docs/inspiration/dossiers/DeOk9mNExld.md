@@ -1,0 +1,18 @@
+# DeOk9mNExld · «cinematic sounddesign» · Karussell (14 Video-Folien) · @gakuyen · 10'397 Likes
+Gespeichert bei Folie 6 («Before» der Steintreppe, die einzige Folie mit einem hörbaren Rest Sprache). Quelle: alle 14 Folien gesehen (4 Folienbögen), dazu **Messung des Tons je Folie** (Pegel, Spitzen, Einsätze, Frequenzbänder; Skript von mir). **Ich höre nichts und beurteile keinen Klang**; was unten steht, ist, was Bild und Messung hergeben. Kommentar «SFX» für ein Effektpaket (Werbung).
+
+**Thema:** «Sounddesign ist alles»: **Vorher/Nachher** an sechs Reise-Aufnahmen (Tempel in Thailand, Wald und Bach, Steintreppe im Gebirge, Berggrat, Bahnsteig mit Kirschbaum, Strasse bei Dämmerung). Jede Aufnahme erscheint **zweimal**: **«Before»** mit einer blauen Spur (nur der Originalton der Kamera) und **«After»** mit einer **grünen, vielschichtigen Zeitleiste** (mehrere Spuren, kurze Klänge einzeln gesetzt). Titel auf Folie 1 «Before / After Sound Design».
+**Was die Zeitleisten zeigen (aus den Bildern):**
+- Tempel: Vorher eine einzige Spur; nachher **drei Spuren** (zwei lange, eine kurze versetzt).
+- Wald/Bach: vorher eine Spur mit gleichmässiger Fläche; nachher zwei Spuren mit **feinem Detail**.
+- Steintreppe (Schritte): nachher **sieben kurze Klänge** (einzeln gesetzte Schritte) über zwei lange Spuren.
+- Berggrat: nachher **zwei lange Spuren und ein mittlerer Klang**, der ausläuft (Wind oder Raum).
+- Bahnsteig: nachher **sieben kurze Klänge**, ein längerer am Ende, darunter ein Teppich.
+- Strasse: nachher **ein Raster aus regelmässigen Spitzen**, also rhythmisch gesetzte Einzelklänge (vermutlich Schritte; **das schliesse ich aus dem Muster, nicht aus dem Gehör**).
+**Was die Messung zeigt (Vorher gegen Nachher, gleiche Aufnahme):**
+- Alle Folien liegen bei **−14 bis −21 LUFS**; Pegel bleiben vergleichbar. Spitzen bei Treppe und Berggrat (nachher) **über −2 dBFS** und teils über 0 (True Peak +1,2 bis +1,5 in einzelnen Folien).
+- **Tieffrequenter Anteil (unter 200 Hz), Vorher gegen Nachher:** Tempel 11 → 18 %, Wald 11 → 4 %, Treppe 10 → 25 %, Berggrat 11 → 22 %, Bahnsteig 10 → 23 %, Strasse 15 → 9 % (dort steigt der Anteil über 2 kHz von 22 auf 75 %, mit vier Einsätzen im Abstand von etwa 1,6 s). Bei vier von sechs Paaren hat die Nachher-Fassung mehr als doppelt so viel Bass, bei zwei nicht. Bei Treppe und Berggrat ist das Original im Median rund 9 dB leiser.
+- **Dynamik** (Abstand lauter gegen leiser): vorher teils 4 bis 6 dB (Tempel, Strasse), nachher mehr bei Berggrat und Treppe; **keine einheitliche Regel** aus meinen Messungen.
+**Passt zu Alperna?** **Ja für den Gedanken, mit drei Grenzen.** (1) **Atmosphäre plus gesetzte Einzelklänge** ist die richtige Struktur für **B-Roll** im Storyboard: **eine Fläche (Raum/Wind) und kurze Klänge an sichtbaren Ereignissen** (Schritt, Tür, Pinsel, Werkzeug). Das lässt sich als **Storyboard-Feld `sounds[]`** (Zeit, Katalog-Klang, Pegel) führen und im Plan an Resolve übergeben. (2) **Klänge nur aus lizenziertem Katalog**, kein Scraping, kein Nachbau fremder Pakete («SFX»-Paket des Autors: nicht prüfbar). (3) Ob ein bestimmter Klang **gut** klingt, kann ich nicht beurteilen: Das entscheidet ein Mensch mit Kopfhörer.
+**Belege:** (1) Folie 1: Titel «Before / After Sound Design»; (2) Folie 7 (Treppe, After): sieben kurze grüne Klänge über der langen Spur, Messung zeigt zwei Einsätze bei 0,98 und 3,04 s mit rund −6 dBFS; (3) Folie 13 (Strasse, After): regelmässiges Spitzenmuster in der Zeitleiste, Messung mit vier Einsätzen im Abstand von rund 1,6 s.
+**Eignung Marketing-System:** M8 Sounddesign: Storyboard-Feld `sounds[]`, Katalog-Art «Klang» mit Lizenz und Pegel, Vorschau mit Ton-Mischung; Messwerte als Prüfung (True Peak ≤ −1 dBFS, Anteil unter 200 Hz zu hoch → Warnung).

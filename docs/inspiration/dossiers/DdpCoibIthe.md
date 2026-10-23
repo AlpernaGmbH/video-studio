@@ -1,0 +1,13 @@
+# DdpCoibIthe · «crazy editing beispiel» · Reel · @ara.editorr · 23,9 s · 55'104 Ansichten · 5'568 Likes
+Quelle: Transkript (en) + Bogen 1 gesehen (0–7 s), Bogen 2 nur Transkript.
+**Thema:** Geschnittener Imagefilm für eine Produktionsfirma («Nobody cares about your logo. They care about the proof.»): Editor zeigt sein Projekt, laut Beschreibung Schnitt, Motion, Sounddesign und Farbe von ihm.
+**Hook:** 0:00 dunkelroter Hintergrund mit Streifenmuster; zwei Karten nebeneinander: links «SOURCE» (das rohe Bild, eine Frau auf einem Sofa), rechts «SIGNATURE» (das bearbeitete Bild). Der Name des Editors oben links, unten «For your own version "DM Me"». Das Bild der Frau wird erst als Silhouette gestanzt: rote Fläche mit «???», dann weisse Fläche, dann das echte Bild (**Subjekt-Maske**), dann Wörter treten hinter ihr und vor ihr auf. Satz: «I'mma hold your hand while I say this. Nobody cares about your logo.»
+**Struktur:** 0–3 s Maske baut die Person ein · 2,7 s Schrift «Nobody cares about your logo» wickelt sich als Bogen um den Oberkörper, «logo» rot mit Drahtgitter-Markierung · 7 s Papier reisst auf, darunter Geldscheine (Metapher «10 grand on a rebrand»), Schrift auf zerrissenem Papier · danach Beweise («Your clients buy evidence …») · 15–24 s Schluss: «Most brands don't need more posts. They need proof. Filmed properly and shown consistently. We turn what you already do into proof.»
+**Schnitt:** 2 harte Schnitte (5 pro Minute) bei vielen Wechseln im Bild: Das ist **Nachbearbeitung im selben Take** (Masken, Übergänge, Einblendungen), nicht Schnitt zwischen Takes.
+**Kamera / Licht:** Frontal-Interview, farbig rot-warmes Café, Hintergrund unscharf; Tiefenwirkung durch Maske.
+**Text / Grafik:** Schrift vor und hinter der Person, Bogen- und Drahtgitter-Effekte; eine Akzentfarbe Rot.
+**Ton:** −14,1 LUFS, True Peak −3,5 dBFS, keine Pausen.
+**Werkzeuge:** Hashtags nennen Higgsfield und KI; Masken wahrscheinlich KI-gestützt. Der Rahmen «Source / Signature» **zeigt Vorher und Nachher nebeneinander**.
+**Passt zu Alperna?** Mit Anpassung. **Brauchbar:** Text hinter Person (Maske) und Vorher/Nachher «Source/Signature» als Lernformat. **Nicht:** Reissen, Geld, Rotflut. Die Aussage («Beweis statt Logo») deckt sich mit «Kein Post ohne Rohstoff»: guter Gedanke für Alperna-Content, in eigenen Worten.
+**Belege:** (1) 0:00 Karten «SOURCE» und «SIGNATURE» mit roter «???»-Silhouette; (2) 0:02,7 Wort «logo» rot im Bogen um die Frau; (3) 0:07 aufgerissenes Papier mit Geldschein-Motiv.
+**Eignung Marketing-System:** Motion «Text hinter Person» (Maske), Format «Vorher/Nachher-Fenster».

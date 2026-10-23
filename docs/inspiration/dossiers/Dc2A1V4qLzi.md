@@ -1,0 +1,13 @@
+# Dc2A1V4qLzi · «ads» · Reel · @tim.techhustles · 39,5 s · 58'776 Ansichten · 3'101 Likes
+Quelle: Transkript (en, nur Namen der Formate) + 3 Bögen; Bogen 1 gesehen (0–13 s), Bögen 2–3 nur per Transkript/Beschreibung.
+**Thema:** «42 best-converting ad formats»: eine Bibliothek von 42 Werbeformaten, die bei fast jeder Marke funktionieren; Download gegen Kommentar «ADS» mit Prompts.
+**Hook:** 0:00 Titel «42 best-converting ad formats» in weisser Schrift über einem Talking Head (Bart, Raum, Ansteckmikro in der Hand); darunter eine leere Liste 1–42 in zwei Spalten. Erste Worte: «breaking news, trustpilot reviews, offer, script …».
+**Struktur:** Aufzählung im Takt von etwa 0,9 s; neben dem Sprecher erscheint pro Format ein kleines Beispielbild (0:02,5 «You're this close» als Karte mit Finger, 0:05 Interview-Standbild mit «and», 0:07,5 Grün/Blau-Karte «Myth / Fact», 0:10 Vorher/Nachher-Gesichter «real results», 0:12,5 gelber Schattenspiel-Aushang). Formate laut Transkript: breaking news, Trustpilot-Bewertungen, Angebot, Skript, Whiteboard, wir gegen sie, KI-Podcast, Doodle, Low-Stock-Alert, Mythos gegen Fakt, iPhone-Notizen, Transformation, Null Sterne, Google-Suche, Bundle, «don't be an idiot», Reddit-Stil, Nebenwirkung, «we're sorry», Tier-List, Instagram-Story, X-Zeichen, Problem gegen Lösung, Warnung, Claymation, «you can avoid», Gründe, E-Mail-Screenshot, Textnachricht, Probleme, Native, Hack 101, Notfall, Testimonial, Greenscreen, «don't buy this», Statistik-Schlagzeile, Meme, neu gegen alt, Text auf Haut, wir gegen uns, Diagramm. Schluss 36 s: «Drop ADS … my full library of top performing ad formats with prompts».
+**Schnitt:** 1 harter Schnitt in 39 s (Messung); sonst Einblendungen.
+**Kamera / Licht:** Handy frontal, Raumlicht, ruhiger Sprecher, Mikro sichtbar.
+**Text / Grafik:** gleiche Liste-füllt-sich-Mechanik wie die Effekt-Reels (Reel 1, 3, 4): das ist ein wiederkehrendes Gerüst.
+**Ton:** −15,3 LUFS, True Peak −0,1 dBFS (sehr nah an 0), keine Pausen.
+**Werkzeuge:** «Prompts» zu jeder Vorlage (Download).
+**Passt zu Alperna?** Ja für den Plan «Ads als Medium»: **die Namensliste ist eine fertige Taxonomie** (Beweis-, Vergleichs-, Erklär-, Native-, Aufmerksamkeits-Formate). Nicht alle passen zu Schweizer KMU-Ton (Fake-Warnungen, «don't be an idiot», Text auf Haut). Behauptung «best-converting» ist unbelegt (Regel 7): nicht als Fakt übernehmen.
+**Belege:** (1) 0:00 «42 best-converting ad formats» + Liste 1–42; (2) 0:07,5 Beispielbild «Myth: / Fact:» zu Format 10; (3) 0:10 «real results» Vorher/Nachher zu Format 12 «transformation».
+**Eignung Marketing-System:** Medium «Ad» mit Formatliste und Hook×Körper×CTA-Varianten.

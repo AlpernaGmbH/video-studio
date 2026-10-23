@@ -1,0 +1,16 @@
+# Deyz9hVk-q4 · «visual effects graphics ideas» · Karussell (8 Video-Folien) · @corbinsylk · 112 Likes
+Gespeichert bei Folie 8 (Abbinder «Comment STACK»). Quelle: alle 8 Folien gesehen (2 Folienbögen), Folie 3 zusätzlich Bild für Bild (0,1 bis 2 s); alle Folien 5 s lang, ohne Ton; Messung: nur Folie 3 hat Schnitte (12, im Takt der Übergänge).
+
+**Thema:** «6 Effekte der Woche»: sechs **Grafik- und Schnitteffekte**, die ein Creator mit Claude oder ChatGPT per Prompt baut. Kommentar «STACK» für die Prompts jedes Effekts. Eigene Wirkung der Prompts unbekannt: ich habe sie nicht.
+**Hook (Folie 1):** brauner Verlaufsgrund, «EFFECTS of the week» mit einer Krone, drei gekippte Karten (Text, Handy-Video, Sprecher im Hemd).
+**Die sechs Effekte (Namen von der Folie, Wirkung in eigenen Worten):**
+1. **Reels-Karussell:** die eigenen Hooks als schwebendes 3D-Hologramm, das sich mit der Handbewegung dreht (Handschriftnotiz «your hooks as a 3D hologram, spins with your hand motion»).
+2. **Match Cut:** ein Wort («Claude») bleibt an derselben Stelle, der Hintergrund wechselt zwischen hellem und dunklem Text im Takt (Messung: 12 Wechsel in 5 s, jeder Schnitt trifft die gleiche Wortposition).
+3. **Liquid-Glass-Diagramm:** ein glasartiges Panel mit einer Linie (im Beispiel «RETENTION 18 %»), die sich aufzeichnet.
+4. **Slot Machine:** Kärtchen drehen sich wie ein Spielautomat, das letzte rastet ein («Locked»); Notiz «flash and size increase on final combination».
+5. **Close-up Monitor:** Nahaufnahme eines Bildschirms mit sichtbaren Bildpunkten (Rot, Grün, Blau), Text läuft darüber.
+6. **A vs B Highlight:** zwei Fenster nebeneinander («Regular Claude» gegen «Claude Code»), die Auswahl springt zum Sieger.
+**Gestaltung:** warmes, dunkles Braun, weisse Grotesk, kursive rote Serife für das zweite Wort des Effektnamens, gelbe Handschrift für Erklärpfeile, Beispielvideos als Handy-Rahmen. Der Sprecher trägt in allen Beispielen dieselbe Kleidung. Die Effekte laufen über seinem echten Talking-Head-Video.
+**Passt zu Alperna?** **Ja für 3 von 6, nein für 3.** Passend und für unsere Motion-Werkstatt wertvoll: **Match Cut** (ein Wort bleibt stehen, der Wechsel trägt den Gedanken), **Liquid-Glass-Diagramm** (eine Zahl und eine Linie, ruhig animiert; passt zu unseren Zählern und Diagrammen aus der Bibliothek) und **A vs B Highlight** (Vergleich mit Auswahl; passt zu «vorher/nachher» und «Variante A/B» bei Ads). Weniger passend: **Slot Machine** (verspielt), **Reels-Karussell als 3D-Hologramm** (technisch aufwendig, Handverfolgung nötig), **Close-up Monitor** (Gag). Das Muster «Effektliste einer Woche mit Beispielclip» entspricht genau dem Prinzip unserer Bibliothek: ein Stück je Effekt, getestet, benannt, mit einem Look je Familie.
+**Belege:** (1) Folie 1 Titel «EFFECTS of the week» mit drei Karten; (2) Folie 3 bei 0,2 s und 0,3 s: der Hintergrund wechselt von dunkel zu hell, «Claude» bleibt an derselben Stelle; (3) Folie 4 «Slot machine» mit der Notiz «flash and size increase on final combination».
+**Eignung Marketing-System:** Lückenanalyse der Motion-Bibliothek: Kandidaten **Match Cut**, **Diagramm mit Linie**, **A/B-Vergleich**; jedes braucht die Familienentscheidung (drei Looks, Regel 2). Verwandt mit `Dej8homsIzp` und `Dew3PAQTMCs`.
