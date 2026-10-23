@@ -60,6 +60,8 @@ Rehook-Mittel nach Art, in der Reihenfolge ihrer Eignung für ruhige Reels:
 
 ## Prüfregeln, die wir daraus vorschlagen
 
+**Gebaut am 23.10.2026 (M7, `src/inhalte/hook-regeln.ts`, `library/hook-regeln.json`), soweit sie sich ohne Urteil prüfen lassen:** Regel 4 teilweise (Zeilen des Hook-Texts, eine Zahl aus dem Beleg), ein langer erster Satz als Näherung zu Regel 3, ein fehlender Hook, Kommentar-Köder (siehe unten), dazu die drei Fragen aus Regel 2 als Prüffragen. Regel 1, 5 und 6 sind noch nicht gebaut (Regel 5 gehört ins Storyboard, nicht in die Textprüfung). Die Zahlen (25 Wörter im ersten Satz, 2 Zeilen) sind Startwerte von Claude, nicht belegt.
+
 Alle als **Empfehlung** in `inhalte textpruefen`, nie als Fehler, weil die Regeln aus Reels stammen und unbelegt sind:
 
 1. Hook-Typ gewählt (eines der acht oder «visuell»).

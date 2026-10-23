@@ -96,6 +96,25 @@ describe("inhalte abgleich", () => {
 describe("inhalte textpruefen und pruefung", () => {
   const entwurf = (text: string) => schreibe("entwurf.txt", text);
 
+  it("textpruefen liefert Empfehlungen und Prüffragen zum Hook, ohne dass sie «bestanden» oder den Exit-Code ändern", () => {
+    const text = `${Array.from({ length: 40 }, (_, k) => `wort${k}`).join(" ")}. Kommentiere Hook und ich schicke dir den Link.`;
+    const r = lauf("inhalte", "textpruefen", "--marke", "alperna", "--format", "LinkedIn-Post", "--text-datei", entwurf(text), "--beleg", "Wartezeit von 32 auf 14 Minuten", "--hook", "Die Wartezeit sinkt");
+    expect(r).toBe(0);
+    expect(json().bestanden).toBe(true);
+    expect(json().befunde).toEqual([]);
+    expect(json().empfehlungen.map((e: { code: string }) => e.code)).toEqual(["hook_ohne_zahl", "erster_satz_lang", "kommentar_koeder"]);
+    expect(json().pruefFragen).toHaveLength(3);
+    expect(json().hinweis).toMatch(/nicht belegt/);
+  });
+
+  it("textpruefen: --hook-datei wird gelesen, ohne Hook kommt bei einem Reel die Empfehlung", () => {
+    lauf("inhalte", "textpruefen", "--marke", "alperna", "--format", "LinkedIn-Post", "--text-datei", entwurf("Kurz."), "--beleg", "ohne", "--hook-datei", schreibe("hook.txt", "Ein Hook"));
+    expect(json().empfehlungen).toEqual([]);
+    ausgabe.length = 0;
+    lauf("inhalte", "textpruefen", "--marke", "alperna", "--format", "LinkedIn-Post", "--text-datei", entwurf("Kurz."), "--beleg", "ohne");
+    expect(json().empfehlungen.map((e: { code: string }) => e.code)).toEqual(["hook_fehlt"]);
+  });
+
   it("ein sauberer Text besteht, mit --id wird die Prüfung vermerkt", () => {
     const r = lauf("inhalte", "textpruefen", "--marke", "alperna", "--format", "LinkedIn-Post", "--text-datei", entwurf("Praxis Hofer hat die Wartezeit auf 14 Minuten gesenkt."), "--beleg", "Wartezeit von 32 auf 14 Minuten", "--id", "c-0007");
     expect(r).toBe(0);

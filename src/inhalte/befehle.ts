@@ -12,6 +12,7 @@ import { liesMaterial, materialFehlt, pruefeVorhanden } from "./material";
 import { medienOrdner, studioHome } from "../setup";
 import { gate0Funktion, markenNachSeite, zeileZuMarke } from "./marken";
 import { ladeStand, speichereStand } from "./stand";
+import { ladeHookRegeln, hookPruefung } from "./hook-regeln";
 import { textBestanden, textpruefung } from "./textpruefung";
 import { baueImport, importText } from "./tool-export";
 
@@ -22,7 +23,8 @@ export const INHALTE_HILFE = `Inhalte (Plan v3; die Sitzung holt die Zeilen und 
                                       Zeilen der Ansicht «Inhalte» gegen den Stand prüfen. Gibt JSON aus: je Zeile übernommen, weiter,
                                       zurückgesetzt, geleert, blockiert oder Hinweis, dazu fertige Eigenschaften für notion-update-page.
                                       Ohne --uebernehmen nur der Bericht. --erstlauf: bestehende Zeilen in ihrem Status übernehmen.
-  inhalte textpruefen --marke key --format "LinkedIn-Post" --text-datei entwurf.txt (--beleg "…" | --beleg-datei beleg.txt) [--id c-0007]
+  inhalte textpruefen --marke key --format "LinkedIn-Post" --text-datei entwurf.txt (--beleg "…" | --beleg-datei beleg.txt) [--hook "…" | --hook-datei hook.txt] [--id c-0007]
+                                      Dazu Empfehlungen zum Hook (nie Fehler, ohne Einfluss auf «bestanden» und den Exit-Code) und drei Prüffragen für dich
                                       Textprüfung (verbotene Wörter, ss, Gedankenstriche, Zahlenformat, Zahl ohne Beleg, Länge). Mit --id
                                       wird das Ergebnis als Prüfung des Entwurfs im Stand vermerkt. Exit-Code 1 bei Fehlern.
   inhalte material --inhalte zeilen.json [--alle]
@@ -100,7 +102,10 @@ export function inhalteBefehl(sub: string, a: Args, env: Umgebung, jetzt: () => 
         const fehler = befunde.filter((b) => b.stufe === "fehler").map((b) => b.text);
         speichereStand(standDatei(env), { ...stand, pruefungen: { ...stand.pruefungen, [id]: { bestanden, ...(fehler.length ? { text: fehler.join("; ") } : {}), am: jetzt() } } });
       }
-      console.log(JSON.stringify({ bestanden, befunde }, null, 2));
+      // Empfehlungen zum Hook: unbelegte Regeln aus gesichteten Reels, darum ausserhalb von «befunde» und ohne Einfluss auf «bestanden»
+      const hook = typeof a.opt["hook"] === "string" ? a.opt["hook"] : typeof a.opt["hook-datei"] === "string" ? fs.readFileSync(a.opt["hook-datei"], "utf8") : "";
+      const hp = hookPruefung({ text, hook, beleg, format: format as Format, regeln: ladeHookRegeln(path.join(env.studioRoot, "library", "hook-regeln.json")) });
+      console.log(JSON.stringify({ bestanden, befunde, empfehlungen: hp.empfehlungen, pruefFragen: hp.fragen, hinweis: hp.hinweis }, null, 2));
       return bestanden ? 0 : 1;
     }
     case "material": {

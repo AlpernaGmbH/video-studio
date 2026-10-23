@@ -37,6 +37,7 @@ Fehlt der Rohstoff, frag den Menschen nach dem Fakt, statt ihn zu erfinden. Neue
 Ideen aus der Datenbank «Inspiration» übernimmst du nur als Struktur, nie als Text; der Link steht in «Referenz» (Quelle «Viral-Liste»). Der Viral Watcher ist ausgeschaltet (Taplio entfällt), neue Zeilen entstehen nur von Hand. Entwurf in eine Datei, dann:
 `./studio inhalte textpruefen --marke alperna --format "LinkedIn-Post" --text-datei entwurf.txt --beleg-datei beleg.txt --id c-0007`
 Exit-Code 1 heisst: Fehler beheben, nicht abschwächen. Erst bei bestandener Prüfung den Status auf «Entwurf fertig» setzen. Die Prüfung ersetzt kein Urteil über Ton und Inhalt.
+Mit `--hook "…"` (oder `--hook-datei`) liefert dieselbe Ausgabe unter `empfehlungen` Hinweise zum Hook und unter `pruefFragen` drei Fragen. **Empfehlungen sind keine Fehler**: Sie stammen aus gesichteten Reels, sind nicht belegt und ändern weder `bestanden` noch den Exit-Code (`library/hook-regeln.json`, `docs/inspiration/hooks.md`). Lies sie, entscheide begründet und schreib in die Notiz zum Entwurf, was du geändert oder bewusst gelassen hast. Die drei Fragen (Was verpasse ich? Ist das für mich? Warum soll es mich kümmern?) beantwortest du für jeden Hook in einem Satz, für dich und den Menschen, der den Entwurf prüft: Sie lassen sich nicht automatisch prüfen.
 Bei Reels und Carousels vermerkt die Render-Prüfung das Ergebnis: `inhalte pruefung c-0007 --bestanden` oder `--nicht-bestanden --text "…"`.
 
 ## Ideenfindung mit dem Bestand (Altbeiträge)

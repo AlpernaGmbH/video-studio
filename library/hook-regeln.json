@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "herkunft": "docs/inspiration/hooks.md (Sichtung vom 23.10.2026). Die Regeln stammen aus gesichteten Reels und Karussells. Aussagen über Wirkung sind Behauptungen der Autoren und nicht belegt. Darum sind es Empfehlungen und nie Fehler. Die Zahlen sind Startwerte von Claude zum Ausprobieren.",
+  "belegt": false,
+  "fragen": [
+    { "id": "was-verpasse-ich", "frage": "Was verpasst die Zuschauerin, wenn sie weiterwischt? Gibt es eine Lücke, die erst am Ende geschlossen wird?", "quelle": "DdUXS0Ipk6Y" },
+    { "id": "ist-das-fuer-mich", "frage": "Erkennt sich die richtige Zielgruppe in den ersten Sekunden (Branche, Ort, Anlass, Beruf benannt)?", "quelle": "DdUXS0Ipk6Y" },
+    { "id": "warum-kuemmert-es-mich", "frage": "Warum soll es sie kümmern: Einsatz, Risiko, Beleg oder Nutzen, in einem Satz?", "quelle": "DdUXS0Ipk6Y" }
+  ],
+  "pruefungen": {
+    "ersterSatzMaxWoerter": 25,
+    "titelMaxZeilen": 2,
+    "kommentarKoeder": [
+      "kommentier\\w*[^.\\n]{0,60}(?:schick|send|geb|schreib)\\w*",
+      "in die kommentare"
+    ]
+  }
+}
