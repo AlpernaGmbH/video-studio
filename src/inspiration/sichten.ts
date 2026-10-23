@@ -64,6 +64,8 @@ export interface SichtDeps {
   ffmpeg(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }>;
   ffprobe(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }>;
   transkribiere(o: { eingang: string; ziel: string; modell: string; sprache: string }): Promise<{ segmente: number }>;
+  /** Rückfall mit yt-dlp, wenn die Einbettung gesperrt ist oder fehlt (und für YouTube). Schreibt `<ziel>.mp4` und `<ziel>.info.json`; fehlt das Programm, ist die Antwort ein Fehlertext. */
+  ytdlp?(url: string, ziel: string): Promise<{ ok: true } | { ok: false; fehler: string }>;
   schrift(): string | undefined;
   pause(ms: number): Promise<void>;
   jetzt(): string;
@@ -75,7 +77,7 @@ export const PAUSE_MS = 6000;
 /** Wartezeiten nach «zu viele Anfragen» (HTTP 429), dann gibt der Link auf. Instagram begrenzt die Einbettung pro Adresse; ein kurzer Stoss geht vorbei. */
 export const WARTEN_BEI_429_MS = [20_000, 60_000, 120_000];
 
-export const echteDeps = (): Omit<SichtDeps, "transkribiere"> => ({
+export const echteDeps = (env: NodeJS.ProcessEnv = process.env): Omit<SichtDeps, "transkribiere"> => ({
   async holeText(url) {
     const r = await fetch(url, { headers: { "user-agent": BROWSER, accept: "text/html" }, redirect: "follow", signal: AbortSignal.timeout(30_000) });
     return { status: r.status, text: await r.text() };
@@ -89,6 +91,18 @@ export const echteDeps = (): Omit<SichtDeps, "transkribiere"> => ({
   },
   ffmpeg: (args) => lauf("ffmpeg", ["-hide_banner", "-nostdin", ...args]),
   ffprobe: (args) => lauf("ffprobe", args),
+  async ytdlp(url, ziel) {
+    const programm = env["STUDIO_YTDLP_BIN"] || "yt-dlp";
+    const browser = env["STUDIO_YTDLP_COOKIES_BROWSER"];
+    const args = ["--no-playlist", "--no-warnings", "--no-progress", "--write-info-json", "-f", "bv*[height<=720]+ba/b[height<=720]/b", "--merge-output-format", "mp4", "-o", `${ziel}.%(ext)s`, ...(browser ? ["--cookies-from-browser", browser] : []), url];
+    try {
+      const r = await lauf(programm, args);
+      if (r.code === 0 && fs.existsSync(`${ziel}.mp4`)) return { ok: true };
+      return { ok: false, fehler: (r.stderr.trim().split("\n").filter(Boolean).pop() ?? `Exit ${r.code}`).replace(/\s+/g, " ").slice(0, 300) };
+    } catch (e) {
+      return { ok: false, fehler: (e as NodeJS.ErrnoException).code === "ENOENT" ? `${programm} ist nicht installiert` : String(e).slice(0, 200) };
+    }
+  },
   schrift: () => findeSchrift(),
   pause: (ms) => new Promise((r) => setTimeout(r, ms)),
   jetzt: () => new Date().toISOString(),
@@ -149,6 +163,11 @@ async function sichteVideo(folie: Folie, ordner: string, code: string | undefine
   const ergebnis: FolienErgebnis = { nr: folie.nr, art: "video", datei, boegen: [] };
   const geladen = await d.holeDatei(folie.videoUrl!, pfad);
   if (!geladen.bytes) throw new Error(`Video von Folie ${folie.nr} nicht ladbar (HTTP ${geladen.status})`);
+  return messeVideo(ergebnis, pfad, nr, ordner, code, o, d);
+}
+
+/** Alles nach dem Laden: Bögen, Schnitte, Lautheit, Transkript. */
+async function messeVideo(ergebnis: FolienErgebnis, pfad: string, nr: string, ordner: string, code: string | undefined, o: SichtOptionen, d: SichtDeps): Promise<FolienErgebnis> {
   const { dauer, ton } = await dauerVon(pfad, d);
   if (dauer) ergebnis.dauer = Math.round(dauer * 100) / 100;
 
@@ -157,7 +176,7 @@ async function sichteVideo(folie: Folie, ordner: string, code: string | undefine
   const dicht = istDicht(o, code);
   const maxBoegen = dicht ? 6 : 4;
   const b = await d.ffmpeg(["-y", "-i", pfad, "-an", "-vf", bogenFilter({ dicht, schrift: d.schrift() }), "-fps_mode", "vfr", "-frames:v", String(maxBoegen), "-q:v", "3", muster]);
-  if (b.code !== 0) throw new Error(`Bögen von Folie ${folie.nr} nicht erzeugt: ${b.stderr.trim().split("\n").pop()}`);
+  if (b.code !== 0) throw new Error(`Bögen von Folie ${ergebnis.nr} nicht erzeugt: ${b.stderr.trim().split("\n").pop()}`);
   ergebnis.boegen = fs.readdirSync(ordner).filter((f) => f.startsWith(`folie-${nr}-bogen-`)).sort();
 
   // Erstes Bild der Folie (für den Überblick über ein Karussell)
@@ -208,14 +227,51 @@ async function folienBoegen(ordner: string, anzahl: number, d: SichtDeps): Promi
   return fs.readdirSync(ordner).filter((f) => /^folien-bogen-\d+\.jpg$/.test(f)).sort();
 }
 
+/** yt-dlp liest die Angaben zum Beitrag in eine info.json; daraus nehmen wir Konto, Text und Zähler. */
+function infoAus(datei: string): Pick<Sichtung, "konto" | "beschreibung" | "likes" | "ansichten"> {
+  try {
+    const j = JSON.parse(fs.readFileSync(datei, "utf8")) as { uploader?: string; channel?: string; description?: string; like_count?: number; view_count?: number };
+    const konto = j.uploader ?? j.channel;
+    return { ...(konto ? { konto } : {}), ...(j.description ? { beschreibung: j.description } : {}), ...(typeof j.like_count === "number" ? { likes: j.like_count } : {}), ...(typeof j.view_count === "number" ? { ansichten: j.view_count } : {}) };
+  } catch {
+    return {};
+  }
+}
+
+/** Rückfall: das Video mit yt-dlp holen und wie eine einzelne Videofolie behandeln. */
+async function sichteMitYtdlp(link: Link, ordner: string, basis: Pick<Sichtung, "link" | "abgerufenAm" | "folien" | "folienBoegen">, vorherGrund: string | undefined, o: SichtOptionen, d: SichtDeps): Promise<Sichtung> {
+  fs.mkdirSync(ordner, { recursive: true });
+  for (const alt of fs.readdirSync(ordner)) fs.rmSync(path.join(ordner, alt), { recursive: true, force: true });
+  const ziel = path.join(ordner, "folie-01");
+  const r = await d.ytdlp!(link.url, ziel);
+  if (!r.ok) return { ...basis, status: "fehler", grund: `${vorherGrund ? `${vorherGrund}; ` : ""}yt-dlp: ${r.fehler}`.slice(0, 600) };
+  const info = infoAus(`${ziel}.info.json`);
+  fs.rmSync(`${ziel}.info.json`, { force: true });
+  try {
+    const f = await messeVideo({ nr: 1, art: "video", datei: "folie-01.mp4", boegen: [] }, `${ziel}.mp4`, "01", ordner, link.code, o, d);
+    const sichtung: Sichtung = { ...basis, ...info, typ: "video", status: "ok", grund: `über yt-dlp${vorherGrund ? ` (${vorherGrund})` : ""}`, folien: [f], folienBoegen: [] };
+    fs.writeFileSync(path.join(ordner, "meta.json"), JSON.stringify(sichtung, null, 2));
+    return sichtung;
+  } catch (e) {
+    return { ...basis, ...info, status: "fehler", grund: `${vorherGrund ? `${vorherGrund}; ` : ""}${e instanceof Error ? e.message : String(e)}`.slice(0, 600) };
+  }
+}
+
 export async function sichteLink(link: Link, o: SichtOptionen, d: SichtDeps): Promise<Sichtung> {
   const basis = { link, abgerufenAm: d.jetzt(), folien: [] as FolienErgebnis[], folienBoegen: [] as string[] };
   const adresse = einbettungsAdresse(link);
-  if (!adresse || !link.code) return { ...basis, status: "nicht_unterstuetzt", grund: link.art === "profil" ? "Profile lassen sich ohne Anmeldung nicht durchblättern" : link.art === "youtube" ? "YouTube wird gesondert geladen" : "Dieser Link ist weder Reel noch Beitrag" };
+  const kennung = link.code ? `${link.art}-${link.code}`.replace(/[^A-Za-z0-9_-]/g, "_") : undefined;
+  const ordner = kennung ? path.join(o.aus, link.art === "youtube" ? kennung : link.code!) : undefined;
+  const metaDatei = ordner ? path.join(ordner, "meta.json") : undefined;
+  if (ordner && metaDatei && !o.neu && fs.existsSync(metaDatei)) return JSON.parse(fs.readFileSync(metaDatei, "utf8")) as Sichtung;
 
-  const ordner = path.join(o.aus, link.code);
-  const metaDatei = path.join(ordner, "meta.json");
-  if (!o.neu && fs.existsSync(metaDatei)) return JSON.parse(fs.readFileSync(metaDatei, "utf8")) as Sichtung;
+  if (!adresse || !link.code || !ordner) {
+    if (link.art === "youtube" && ordner && d.ytdlp) return sichteMitYtdlp(link, ordner, basis, undefined, o, d);
+    return { ...basis, status: "nicht_unterstuetzt", grund: link.art === "profil" ? "Profile lassen sich ohne Anmeldung nicht durchblättern" : link.art === "youtube" ? "YouTube braucht yt-dlp (STUDIO_YTDLP_BIN), hier nicht verfügbar" : "Dieser Link ist weder Reel noch Beitrag" };
+  }
+
+  /** Die Einbettung hat nichts geliefert: yt-dlp versuchen, sonst den ersten Grund melden. */
+  const ausweichen = async (status: SichtStatus, grund: string): Promise<Sichtung> => (d.ytdlp ? sichteMitYtdlp(link, ordner, basis, grund, o, d) : { ...basis, status, grund });
 
   let seite: { status: number; text: string };
   try {
@@ -226,15 +282,15 @@ export async function sichteLink(link: Link, o: SichtOptionen, d: SichtDeps): Pr
       seite = await d.holeText(adresse);
     }
   } catch (e) {
-    return { ...basis, status: "fehler", grund: `Einbettung nicht erreichbar: ${e instanceof Error ? e.message : String(e)}` };
+    return ausweichen("fehler", `Einbettung nicht erreichbar: ${e instanceof Error ? e.message : String(e)}`);
   }
-  if (seite.status !== 200) return { ...basis, status: seite.status === 404 ? "gesperrt" : "fehler", grund: seite.status === 429 ? "Instagram begrenzt die Abfragen (HTTP 429), auch nach Warten; später noch einmal versuchen" : `Einbettung antwortet mit HTTP ${seite.status}` };
+  if (seite.status !== 200) return ausweichen(seite.status === 404 ? "gesperrt" : "fehler", seite.status === 429 ? "Instagram begrenzt die Abfragen (HTTP 429), auch nach Warten; später noch einmal versuchen" : `Einbettung antwortet mit HTTP ${seite.status}`);
 
   let e: Einbettung;
   try {
     e = leseEinbettung(seite.text);
   } catch (f) {
-    if (f instanceof EinbettungsFehler) return { ...basis, status: f.grund === "gesperrt" ? "gesperrt" : "nur_text", grund: f.message };
+    if (f instanceof EinbettungsFehler) return ausweichen(f.grund === "gesperrt" ? "gesperrt" : "nur_text", f.message);
     throw f;
   }
   const kopf = { ...basis, ...(e.konto ? { konto: e.konto } : {}), typ: e.typ, beschreibung: e.beschreibung, ...(e.likes !== undefined ? { likes: e.likes } : {}), ...(e.ansichten !== undefined ? { ansichten: e.ansichten } : {}) };
@@ -252,7 +308,7 @@ export async function sichteLink(link: Link, o: SichtOptionen, d: SichtDeps): Pr
   }
   const boegen = e.typ === "karussell" && folien.length > 1 ? await folienBoegen(ordner, folien.length, d) : [];
   const sichtung: Sichtung = { ...kopf, status: folien.length ? "ok" : "fehler", ...(probleme.length ? { grund: probleme.join(" | ").slice(0, 600) } : {}), folien, folienBoegen: boegen };
-  fs.writeFileSync(metaDatei, JSON.stringify(sichtung, null, 2));
+  fs.writeFileSync(path.join(ordner, "meta.json"), JSON.stringify(sichtung, null, 2));
   return sichtung;
 }
 

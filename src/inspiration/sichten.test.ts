@@ -243,6 +243,75 @@ describe("sichteLink", () => {
   });
 });
 
+describe("Rückfall mit yt-dlp", () => {
+  const GESPERRT = seite({ shortcode: "REELCODE01", is_video: true, video_url: "https://cdn.example/r.mp4" }, { copyright_blocked: true });
+  const ytdlpOk = (g: Gebaut, info: Record<string, unknown> = { uploader: "wer", description: "Beschreibung", like_count: 12, view_count: 345 }) => {
+    const aufrufe: { url: string; ziel: string }[] = [];
+    g.d.ytdlp = async (url, ziel) => {
+      aufrufe.push({ url, ziel });
+      fs.writeFileSync(`${ziel}.mp4`, "x");
+      fs.writeFileSync(`${ziel}.info.json`, JSON.stringify(info));
+      return { ok: true };
+    };
+    return aufrufe;
+  };
+
+  it("holt ein gesperrtes Reel mit yt-dlp und behandelt es wie eine Videofolie; Angaben kommen aus der info.json", async () => {
+    const g = bauen({ [REEL_URL]: { status: 200, text: GESPERRT } });
+    const aufrufe = ytdlpOk(g);
+    const s = await sichteLink(leseLink("https://www.instagram.com/reel/REELCODE01/?x=1"), { aus: aus() }, g.d);
+    expect(s).toMatchObject({ status: "ok", konto: "wer", beschreibung: "Beschreibung", likes: 12, ansichten: 345, typ: "video" });
+    expect(s.grund).toMatch(/über yt-dlp/);
+    expect(s.grund).toMatch(/Urheberrecht/);
+    expect(aufrufe).toEqual([{ url: "https://www.instagram.com/reel/REELCODE01/?x=1", ziel: path.join(aus(), "REELCODE01", "folie-01") }]);
+    expect(s.folien[0]).toMatchObject({ nr: 1, art: "video", datei: "folie-01.mp4", transkript: { segmente: 4 } });
+    // die info.json bleibt nicht liegen
+    expect(fs.existsSync(path.join(aus(), "REELCODE01", "folie-01.info.json"))).toBe(false);
+    expect(fs.existsSync(path.join(aus(), "REELCODE01", "meta.json"))).toBe(true);
+  });
+
+  it("versucht yt-dlp auch bei einer Einbettung ohne Medien und bei HTTP 404", async () => {
+    const ohne = bauen({ [REEL_URL]: { status: 200, text: "<html>Anmelden</html>" } });
+    ytdlpOk(ohne);
+    expect((await sichteLink(leseLink("https://www.instagram.com/reel/REELCODE01/"), { aus: aus() }, ohne.d)).status).toBe("ok");
+    const weg = bauen({});
+    ytdlpOk(weg);
+    expect((await sichteLink(leseLink("https://www.instagram.com/reel/REELCODE01/"), { aus: aus(), neu: true }, weg.d)).status).toBe("ok");
+  });
+
+  it("scheitert yt-dlp auch, steht beides im Grund und der Status ist «fehler»", async () => {
+    const g = bauen({ [REEL_URL]: { status: 200, text: GESPERRT } });
+    g.d.ytdlp = async () => ({ ok: false, fehler: "login required" });
+    const s = await sichteLink(leseLink("https://www.instagram.com/reel/REELCODE01/"), { aus: aus() }, g.d);
+    expect(s.status).toBe("fehler");
+    expect(s.grund).toMatch(/Urheberrecht.*yt-dlp: login required/);
+  });
+
+  it("ein Treffer der Einbettung ruft yt-dlp nicht auf", async () => {
+    const g = bauen({ [REEL_URL]: { status: 200, text: REEL } });
+    const aufrufe = ytdlpOk(g);
+    await sichteLink(leseLink("https://www.instagram.com/reel/REELCODE01/"), { aus: aus() }, g.d);
+    expect(aufrufe).toEqual([]);
+  });
+
+  it("YouTube geht nur mit yt-dlp und liegt in einem Ordner mit Präfix, damit Kurzcodes nicht mit Instagram kollidieren", async () => {
+    const ohne = bauen({});
+    expect((await sichteLink(leseLink("https://youtu.be/H9yhVi_8eVU"), { aus: aus() }, ohne.d)).status).toBe("nicht_unterstuetzt");
+    const g = bauen({});
+    const aufrufe = ytdlpOk(g, { uploader: "Kanal" });
+    const s = await sichteLink(leseLink("https://youtu.be/H9yhVi_8eVU"), { aus: aus() }, g.d);
+    expect(s).toMatchObject({ status: "ok", konto: "Kanal" });
+    expect(aufrufe[0]!.ziel).toBe(path.join(aus(), "youtube-H9yhVi_8eVU", "folie-01"));
+  });
+
+  it("Profile gehen auch mit yt-dlp nicht", async () => {
+    const g = bauen({});
+    const aufrufe = ytdlpOk(g);
+    expect((await sichteLink(leseLink("https://www.instagram.com/lemonadsstudio"), { aus: aus() }, g.d)).status).toBe("nicht_unterstuetzt");
+    expect(aufrufe).toEqual([]);
+  });
+});
+
 describe("sichteAlle", () => {
   it("wartet zwischen echten Abrufen, nicht nach Links ohne Abruf, und meldet jeden Link", async () => {
     const g = bauen({ [REEL_URL]: { status: 200, text: REEL }, [KARUSSELL_URL]: { status: 200, text: KARUSSELL } });
