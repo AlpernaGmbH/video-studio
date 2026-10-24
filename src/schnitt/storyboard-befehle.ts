@@ -10,6 +10,7 @@ import { sondiere } from "../presets/messen";
 import { studioHome } from "../setup";
 import { leseSchnittplan, platziere, type SchnittQuelle } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
+import { ladeSchnittprofil } from "./schnittprofil";
 import { bauAuftrag, brollQuelleAusKatalog, wendeStoryboardAn, type RenderAuftrag } from "./storyboard";
 import { loesePfad } from "./uebergabe";
 
@@ -46,7 +47,8 @@ export async function auftragBefehl(a: Args, env: Umgebung): Promise<number> {
   const { katalog, notiz } = ladeKatalog(a, env);
   const regeln = typeof a.opt["regeln"] === "string" ? z.array(Regel).parse(lesJson(a.opt["regeln"] as string)) : [];
   const stuecke = ladeBibliothek(env.bibliothek).stuecke.map((g) => g.stueck);
-  const text = `${bauAuftrag(plan, { stuecke, katalog, regeln, ...(marke.schnittprofil ? { profil: marke.schnittprofil } : {}) }).join("\n")}\n`;
+  const profil = ladeSchnittprofil(env, marke, plan.projekt.schnittprofil);
+  const text = `${bauAuftrag(plan, { stuecke, katalog, regeln, ...(profil ? { profil } : {}) }).join("\n")}\n`;
   if (typeof a.opt["o"] === "string") {
     fs.writeFileSync(a.opt["o"] as string, text);
     console.log(`Auftrag geschrieben: ${a.opt["o"]}`);
@@ -84,7 +86,8 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
     brollQuellen.set(key, brollQuelleAusKatalog(k, await sondiere(abs), plan));
   }
 
-  const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive, ...(marke.schnittprofil ? { profil: marke.schnittprofil } : {}) });
+  const profil = ladeSchnittprofil(env, marke, plan.projekt.schnittprofil);
+  const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive, ...(profil ? { profil } : {}) });
   fs.writeFileSync(ausDatei, `${JSON.stringify(r.plan, null, 2)}\n`);
 
   console.log(`Hook: ${r.storyboard.hook}`);
@@ -120,7 +123,7 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
     }
   }
 
-  const befunde = pruefeSchnittplan(r.plan, { profil: marke.schnittprofil, katalog, stuecke, nurAktive });
+  const befunde = pruefeSchnittplan(r.plan, { profil, katalog, stuecke, nurAktive });
   if (befunde.length) {
     console.log("\nPrüfung des Plans:");
     for (const b of befunde) console.log(`${b.stufe === "fehler" ? "FEHLER " : "Hinweis"} ${b.code}: ${b.text}`);

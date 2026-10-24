@@ -47,7 +47,7 @@ Fast alle Beispieldateien liegen bei −14 bis −15 LUFS. Das ist sehr wahrsche
 
 ## 19 Schnittstile (Dd__INdueH4)
 
-Kurzform, schneller Schnitt, Erzählung, filmisch, YouTube, Werbung, Motion Graphics, kinetische Typografie, ohne Gesicht, Talking Head, Dokumentation, Erklärvideo, Musikvideo, Vlog, Podcast, Gaming, Hochzeit und Event, minimalistisch, Collage. Als **wählbares Schnittprofil je Format** brauchbar (Talking Head, Erklärvideo, Werbung, Dokumentation, minimalistisch); **nie als Standard**, und die schnellen Profile nur auf ausdrücklichen Wunsch (M9).
+Kurzform, schneller Schnitt, Erzählung, filmisch, YouTube, Werbung, Motion Graphics, kinetische Typografie, ohne Gesicht, Talking Head, Dokumentation, Erklärvideo, Musikvideo, Vlog, Podcast, Gaming, Hochzeit und Event, minimalistisch, Collage. Als **wählbares Schnittprofil je Format** brauchbar (Talking Head, Erklärvideo, Werbung, Dokumentation, minimalistisch); **nie als Standard**, und die schnellen Profile nur auf ausdrücklichen Wunsch (M9). **Gebaut am 24.10.2026:** fünf Presets unter `presets/schnittprofil/`, gewählt mit `--schnittprofil <id>` (`schnitt zuordnen`, `reel vorbereiten`); «werbung» ist als einziges schnell und verlangt zusätzlich `--schnell`. Die Zahlen sind unsere Vorschläge, nicht aus den Beispielen gemessen.
 
 ## Schnittdaten von Auftrag zu Auftrag
 

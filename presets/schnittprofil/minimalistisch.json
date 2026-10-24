@@ -1,0 +1,27 @@
+{
+  "art": "schnittprofil",
+  "id": "minimalistisch",
+  "name": "Minimalistisch",
+  "beschreibung": "Wenig Schnitte, viel Raum, kein Zoom. Für Aussagen, die für sich stehen.",
+  "format": "minimalistisch",
+  "tempo": "ruhig",
+  "profil": {
+    "laengstePause": 0.7,
+    "laengsteEinstellung": 12,
+    "woerterJeUntertitel": {
+      "min": 2,
+      "max": 3
+    },
+    "hookMaxSekunden": 3,
+    "zoomTempo": "langsam",
+    "zoom": {
+      "modus": "aus",
+      "maxProMinute": 0
+    },
+    "minClip": 1.0
+  },
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag nach docs/inspiration/editing.md (19 Schnittstile, M9). Kein Messwert: Ein Mensch prüft die Werte am ersten Reel."
+  }
+}

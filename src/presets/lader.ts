@@ -2,13 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Stueck } from "../motion/stueck";
 import { loeseVariablen } from "../motion/stueck";
-import { AudioPreset, ExportPreset, GrafikPreset, PRESET_ARTEN, SCHEMAS, UntertitelPreset, type Preset, type PresetArt } from "./schema";
+import { AudioPreset, ExportPreset, GrafikPreset, PRESET_ARTEN, SCHEMAS, SchnittprofilPreset, UntertitelPreset, type Preset, type PresetArt } from "./schema";
 
 export interface PresetBibliothek {
   export: ExportPreset[];
   audio: AudioPreset[];
   untertitel: UntertitelPreset[];
   grafik: GrafikPreset[];
+  schnittprofil: SchnittprofilPreset[];
   befunde: PresetBefund[];
 }
 
@@ -21,7 +22,7 @@ export interface PresetBefund {
 
 /** Lädt `presets/<art>/<id>.json`. Der Dateiname muss die ID tragen, jede ID kommt je Art nur einmal vor. */
 export function ladePresets(root: string): PresetBibliothek {
-  const lib: PresetBibliothek = { export: [], audio: [], untertitel: [], grafik: [], befunde: [] };
+  const lib: PresetBibliothek = { export: [], audio: [], untertitel: [], grafik: [], schnittprofil: [], befunde: [] };
   for (const art of PRESET_ARTEN) {
     const dir = path.join(root, art);
     if (!fs.existsSync(dir)) continue;

@@ -1,0 +1,27 @@
+{
+  "art": "schnittprofil",
+  "id": "talking-head",
+  "name": "Talking Head",
+  "beschreibung": "Eine Person spricht in die Kamera. Etwas längere Einstellungen und Pausen als beim Standard der Marke, Zoom nur auf betonten Wörtern.",
+  "format": "talking-head",
+  "tempo": "ruhig",
+  "profil": {
+    "laengstePause": 0.5,
+    "laengsteEinstellung": 8,
+    "woerterJeUntertitel": {
+      "min": 2,
+      "max": 4
+    },
+    "hookMaxSekunden": 2,
+    "zoomTempo": "mittel",
+    "zoom": {
+      "modus": "betonung",
+      "maxProMinute": 4
+    },
+    "minClip": 0.8
+  },
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag nach docs/inspiration/editing.md (19 Schnittstile, M9). Kein Messwert: Ein Mensch prüft die Werte am ersten Reel."
+  }
+}

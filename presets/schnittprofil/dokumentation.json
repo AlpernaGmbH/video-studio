@@ -1,0 +1,27 @@
+{
+  "art": "schnittprofil",
+  "id": "dokumentation",
+  "name": "Dokumentation",
+  "beschreibung": "Erzählend und ruhig: lange Einstellungen, grosszügige Pausen, kein Zoom.",
+  "format": "dokumentation",
+  "tempo": "ruhig",
+  "profil": {
+    "laengstePause": 0.8,
+    "laengsteEinstellung": 10,
+    "woerterJeUntertitel": {
+      "min": 3,
+      "max": 5
+    },
+    "hookMaxSekunden": 4,
+    "zoomTempo": "langsam",
+    "zoom": {
+      "modus": "aus",
+      "maxProMinute": 0
+    },
+    "minClip": 1.0
+  },
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag nach docs/inspiration/editing.md (19 Schnittstile, M9). Kein Messwert: Ein Mensch prüft die Werte am ersten Reel."
+  }
+}

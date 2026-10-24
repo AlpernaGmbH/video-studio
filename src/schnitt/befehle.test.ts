@@ -254,6 +254,88 @@ describe("schnitt zuordnen", () => {
   }, 60_000);
 });
 
+/* ---------- Schnittprofil je Format (M9) ---------- */
+
+describe("Schnittprofil je Format (M9)", () => {
+  const vorbereiten = (skript: string, segmente: Segment[]) => ({
+    skript: schreibe("skript.md", skript),
+    transkript: schreibe("t.json", whisper(...segmente)),
+    quellen: schreibe("quellen.json", [videoQuelle("sprache")]),
+    aus: path.join(tmp, "plan.json"),
+  });
+  const zuordnen = (v: ReturnType<typeof vorbereiten>, ...extra: string[]) =>
+    lauf("schnitt", "zuordnen", "--skript", v.skript, "--transkript", v.transkript, "--quellen", v.quellen, "--marke", "alperna", "-o", v.aus, "--ohne-pegel", ...extra);
+  const lesePlan = (v: ReturnType<typeof vorbereiten>) => leseSchnittplan(JSON.parse(fs.readFileSync(v.aus, "utf8")));
+  /** Vor- und Nachlauf zusammen: wie viel länger der Clip ist als der gesprochene Satz. */
+  const polster = (v: ReturnType<typeof vorbereiten>, satz: Segment): number => {
+    const c = lesePlan(v).clips[0]!;
+    return c.bis - c.von - (satz.bis - satz.von);
+  };
+
+  it("ohne Wahl bleibt es beim Profil der Marke und der Plan trägt keine Wahl", async () => {
+    const satz = testSatz(2, Z2);
+    const v = vorbereiten(Z2, [satz]);
+    expect(await zuordnen(v)).toBe(0);
+    expect(lesePlan(v).projekt.schnittprofil).toBeUndefined();
+    expect(polster(v, satz)).toBeCloseTo(0.3, 2);
+    expect(ausgabe.join("\n")).not.toContain("Schnittprofil:");
+  });
+
+  it("--schnittprofil wählt ein ruhiges Profil und legt die Wahl in den Plan", async () => {
+    const v = vorbereiten(Z2, [testSatz(2, Z2)]);
+    expect(await zuordnen(v, "--schnittprofil", "talking-head")).toBe(0);
+    expect(lesePlan(v).projekt.schnittprofil).toEqual({ id: "talking-head" });
+    expect(ausgabe.join("\n")).toContain("Schnittprofil: talking-head statt dem der Marke");
+  });
+
+  it("ein schnelles Profil verlangt --schnell und schreibt ohne den Wunsch keinen Plan", async () => {
+    const v = vorbereiten(Z2, [testSatz(2, Z2)]);
+    await expect(zuordnen(v, "--schnittprofil", "werbung")).rejects.toThrow(/--schnell/);
+    expect(fs.existsSync(v.aus)).toBe(false);
+  });
+
+  it("mit --schnell wirkt das Profil schon beim Planbau: Vor- und Nachlauf schrumpfen mit der Pause, und der Plan merkt sich den Wunsch", async () => {
+    const satz = testSatz(2, Z2);
+    const v = vorbereiten(Z2, [satz]);
+    expect(await zuordnen(v, "--schnittprofil", "werbung", "--schnell")).toBe(0);
+    expect(lesePlan(v).projekt.schnittprofil).toEqual({ id: "werbung", schnell: true });
+    expect(polster(v, satz)).toBeLessThanOrEqual(0.8 * 0.25 + 1e-3);
+    expect(ausgabe.join("\n")).toContain("Schnittprofil: werbung (schnell, auf Wunsch)");
+  });
+
+  it("--schnell ohne --schnittprofil und eine unbekannte ID sind Fehler mit klarer Meldung", async () => {
+    const v = vorbereiten(Z2, [testSatz(2, Z2)]);
+    await expect(zuordnen(v, "--schnell")).rejects.toThrow(/gehört zu --schnittprofil/);
+    await expect(zuordnen(v, "--schnittprofil", "gibt-es-nicht")).rejects.toThrow(/Vorhanden: .*talking-head/);
+  });
+
+  describe("die Wahl im Plan gilt in jedem späteren Schritt", () => {
+    const einClip = (extra: Record<string, unknown> = {}) => ({
+      version: 1,
+      projekt: { name: "T", marke: "alperna", ...extra },
+      quellen: [{ id: "sprache", pfad: "rohmaterial/sprache.mp4", art: "video", dauer: 60, fps: 25, breite: 1080, hoehe: 1920, hatAudio: true }],
+      clips: [{ id: "k01", quelle: "sprache", von: 2, bis: 6.4 }],
+    });
+
+    it("pruefe: 4,4 s ohne Bildwechsel sind für die Marke in Ordnung, für «werbung» (3 s) zu lang", async () => {
+      expect(await lauf("schnitt", "pruefe", "--plan", schreibe("a.json", einClip()))).toBe(0);
+      expect(ausgabe.join("\n")).not.toContain("einstellung-zu-lang");
+      ausgabe.length = 0;
+      expect(await lauf("schnitt", "pruefe", "--plan", schreibe("b.json", einClip({ schnittprofil: { id: "werbung", schnell: true } })))).toBe(0);
+      expect(ausgabe.join("\n")).toContain("einstellung-zu-lang");
+    });
+
+    it("pruefe: ein von Hand eingetragenes schnelles Profil ohne Wunsch wird nicht still benutzt", async () => {
+      await expect(lauf("schnitt", "pruefe", "--plan", schreibe("c.json", einClip({ schnittprofil: { id: "werbung" } })))).rejects.toThrow(/--schnell/);
+    });
+
+    it("pruefe: eine ruhige Wahl wie «minimalistisch» (12 s) lässt 4,4 s zu und verschärft nichts", async () => {
+      expect(await lauf("schnitt", "pruefe", "--plan", schreibe("d.json", einClip({ schnittprofil: { id: "minimalistisch" } })))).toBe(0);
+      expect(ausgabe.join("\n")).not.toContain("einstellung-zu-lang");
+    });
+  });
+});
+
 /* ---------- schnitt auftrag und schnitt storyboard ---------- */
 
 describe("schnitt auftrag und schnitt storyboard", () => {

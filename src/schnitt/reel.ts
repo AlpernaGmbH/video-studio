@@ -26,6 +26,7 @@ import { auftragBefehl, storyboardBefehl } from "./storyboard-befehle";
 import { leseTranskript } from "./transkript";
 import { relativierePfad } from "./uebergabe";
 import { STANDARD_MODELL, transkribiere } from "./whisper";
+import { ladeSchnittprofil, wahlAusOptionen } from "./schnittprofil";
 import { fuehreZuordnungAus } from "./zuordnen";
 import { fuehreShotlisteAus } from "./shotliste-befehl";
 
@@ -42,7 +43,7 @@ export const REEL_HILFE = `Reel vom Rohmaterial bis zum Resolve-Ordner (feste Or
   reel transkript <ID> [--marke key] [--aufnahmen ordner] [--modell large-v3] [--neu] [--ohne-ton-sync] [--versatz …]
                                       Ohne Skript, oder wenn es nicht stimmt: transkribiert die Videos und schreibt ergebnis/transkript.md (nummerierte Sätze mit Zeiten).
                                       Claude wählt daraus die Sätze und schreibt sie wörtlich in skript.md.
-  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--ohne-farbe] [--farbe log|rec709|auto] [--profil vlog|generisch|auto] [--bereich voll|begrenzt|auto] [--belichtung Blenden|auto] [--ohne-ton-sync] [--versatz 5.3 | clip=5.3;clip2=-2:aufnahme] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
+  reel vorbereiten <ID> [--marke key] [--neu] [--ohne-pegel] [--ohne-stille] [--ohne-farbe] [--farbe log|rec709|auto] [--profil vlog|generisch|auto] [--bereich voll|begrenzt|auto] [--belichtung Blenden|auto] [--schnittprofil id|standard [--schnell]] [--ohne-ton-sync] [--versatz 5.3 | clip=5.3;clip2=-2:aufnahme] [--untertitel gehoert|skript] [--gesprochen 3,5] [--modell large-v3] [--sprache de] [--aufnahmen ordner] [--name "Titel"]
                                       Sondiert die Videos, legt getrennte Tonaufnahmen (wav, m4a, mp3 im selben Ordner) über die Videos (Versatz aus der Lautstärkekurve, oder von Hand mit --versatz;
                                       ein Versatz von Hand wird gemerkt), transkribiert mit Whisper (vorhandene Transkripte bleiben, --neu erzwingt), misst die Stille der Tonspur, ordnet das Skript zu
                                       stellt fest, ob das Material flach (Log) ist, baut daraus die LUTs für den Look der Marke (ergebnis/lut/, Schwarz- und Weisspunkt am Material gemessen; bei falschem Urteil
@@ -230,6 +231,8 @@ const ReelDatei = z.object({
   bereich: z.enum(["voll", "begrenzt"]).optional(),
   /** Belichtung der V-Log-Umrechnung in Blenden (sonst die der Marke). */
   belichtung: z.number().min(-3).max(3).optional(),
+  /** Von Hand gewähltes Schnittprofil je Format (M9, `presets/schnittprofil/`); sonst gilt das der Marke. `schnell`: ausdrücklich verlangt. */
+  schnittprofil: z.object({ id: z.string(), schnell: z.boolean().optional() }).optional(),
 });
 type ReelDatei = z.infer<typeof ReelDatei>;
 
@@ -553,6 +556,8 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const alt = leseReel(p);
   const markeKey = str(a, "marke") ?? alt?.marke ?? einzigeMarke(env);
   const marke = ladeMarke(env, markeKey);
+  const wahl = wahlAusOptionen(a.opt, alt?.schnittprofil);
+  const gewaehltesProfil = ladeSchnittprofil(env, marke, wahl);
 
   const skriptDatei = path.resolve(alt?.skript ?? p.skript);
   if (!fs.existsSync(skriptDatei)) throw new Error(`Das Skript fehlt: ${skriptDatei}\nSkript kopieren und «./studio reel neu ${id} --zwischenablage» ausführen, oder ohne Skript: «./studio reel transkript ${id}»`);
@@ -618,6 +623,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   const ergebnis = await uhr.messe("Zuordnen und Plan", () =>
     fuehreZuordnungAus({
       marke,
+      ...(wahl && gewaehltesProfil ? { schnittprofil: { wahl, profil: gewaehltesProfil } } : {}),
       skriptText,
       skriptQuelle: skriptDatei,
       quellen,
@@ -658,6 +664,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
     ...(profilVonHand ? { profil: profilVonHand } : {}),
     ...(bereich ? { bereich } : {}),
     ...(belichtung !== undefined ? { belichtung } : {}),
+    ...(wahl ? { schnittprofil: wahl } : {}),
     ...versatzFelder(gr),
   });
 
@@ -665,7 +672,8 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   for (const l of zuordnungBericht(ergebnis.zuordnung, ergebnis.markierungen)) console.log(l);
   if (ergebnis.pegelNotiz) console.log(`\n${ergebnis.pegelNotiz}`);
   if (stilleNotiz) console.log(stilleNotiz);
-  const befunde = pruefeSchnittplan(ergebnis.plan, { profil: marke.schnittprofil });
+  if (wahl) console.log(`\nSchnittprofil: ${wahl.id}${wahl.schnell ? " (schnell, auf Wunsch)" : ""} statt dem der Marke`);
+  const befunde = pruefeSchnittplan(ergebnis.plan, { profil: gewaehltesProfil });
   if (befunde.length) {
     console.log("\nPrüfung des Plans:");
     for (const b of befunde) console.log(`${b.stufe === "fehler" ? "FEHLER " : "Hinweis"} ${b.code}: ${b.text}`);
@@ -852,7 +860,7 @@ async function messe(a: Args, env: Umgebung): Promise<number> {
 
   console.log(`Messe ${datei}${plan ? ` (Plan ${path.basename(planDatei!)})` : " (ohne Plan)"}`);
   const q = await messeQualitaet({ datei, ...(plan ? { plan } : {}) });
-  const b = bewerteQualitaet(q, marke.schnittprofil, findePreset(presets, "export", "reel"), findePreset(presets, "audio", "standard"));
+  const b = bewerteQualitaet(q, ladeSchnittprofil(env, marke, plan?.projekt.schnittprofil ?? alt?.schnittprofil), findePreset(presets, "export", "reel"), findePreset(presets, "audio", "standard"));
   fs.mkdirSync(p.ergebnis, { recursive: true });
   fs.writeFileSync(p.qualitaet, `${JSON.stringify({ ...q, abweichungen: b.abweichungen, hinweise: b.hinweise }, null, 2)}\n`);
 

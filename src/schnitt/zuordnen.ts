@@ -1,7 +1,8 @@
 import fs from "node:fs";
-import type { Markenprofil } from "../core/schemas";
+import type { Markenprofil, Schnittprofil } from "../core/schemas";
 import type { StudioHome } from "../setup";
 import { messePegel, ordneZuMitPegel } from "./energie";
+import type { ProfilWahl } from "./schnittprofil";
 import { bauePlan, type Markierung } from "./planbau";
 import type { Stille } from "./stille";
 import { externerTon, type Schnittplan, type SchnittQuelle } from "./plan";
@@ -31,6 +32,8 @@ export interface ZuordnenEingabe {
   stille?: ReadonlyMap<string, Stille[]>;
   home?: StudioHome;
   ohnePegel?: boolean;
+  /** Das gewählte Schnittprofil (M9): die Wahl für den Plan und das daraus aufgelöste Profil. Ohne Wahl gilt das der Marke. */
+  schnittprofil?: { wahl: ProfilWahl; profil: Schnittprofil };
 }
 
 export interface ZuordnenErgebnis {
@@ -70,9 +73,9 @@ export async function fuehreZuordnungAus(e: ZuordnenEingabe): Promise<ZuordnenEr
   const zuordnung = messe ? await ordneZuMitPegel(zeilen, e.transkripte, messe) : ordneZu(zeilen, e.transkripte);
 
   const { plan, markierungen } = bauePlan(zuordnung, {
-    projekt: { name: e.name, ...(e.inhalt ? { inhalt: e.inhalt } : {}), marke: e.marke.schluessel },
+    projekt: { name: e.name, ...(e.inhalt ? { inhalt: e.inhalt } : {}), marke: e.marke.schluessel, ...(e.schnittprofil ? { schnittprofil: e.schnittprofil.wahl } : {}) },
     quellen: e.quellen,
-    ...(e.marke.schnittprofil ? { profil: e.marke.schnittprofil } : {}),
+    ...(e.schnittprofil ? { profil: e.schnittprofil.profil } : e.marke.schnittprofil ? { profil: e.marke.schnittprofil } : {}),
     gesprochen: e.gesprochen ?? [],
     ...(e.untertitel ? { untertitel: e.untertitel } : {}),
     ...(e.stille ? { stille: e.stille } : {}),

@@ -375,6 +375,27 @@ describe.skipIf(!hatFfmpeg)("reel vorbereiten, storyboard, uebergabe", () => {
     await expect(lauf("reel", "vorbereiten", "c-0007", "--untertitel", "quatsch")).rejects.toThrow(/gehoert.*skript/);
   }, 120_000);
 
+  it("vorbereiten: --schnittprofil (M9) landet in reel.json und im Plan, bleibt beim nächsten Lauf, ein schnelles braucht --schnell, «standard» hebt es auf", async () => {
+    await vorbereitet();
+    const reelDatei = () => JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "reel.json"), "utf8"));
+    const plan = () => leseSchnittplan(JSON.parse(fs.readFileSync(studio("inhalte", "c-0007", "ergebnis", "plan.json"), "utf8")));
+    expect(reelDatei().schnittprofil).toBeUndefined();
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--schnittprofil", "erklaervideo");
+    expect(reelDatei().schnittprofil).toEqual({ id: "erklaervideo" });
+    expect(plan().projekt.schnittprofil).toEqual({ id: "erklaervideo" });
+    // ein weiterer Lauf ohne die Option behält die Wahl
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel");
+    expect(plan().projekt.schnittprofil).toEqual({ id: "erklaervideo" });
+    // schnell nur auf ausdrücklichen Wunsch; ohne ihn bleibt die letzte gültige Wahl
+    await expect(lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--schnittprofil", "werbung")).rejects.toThrow(/--schnell/);
+    expect(reelDatei().schnittprofil).toEqual({ id: "erklaervideo" });
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--schnittprofil", "werbung", "--schnell");
+    expect(reelDatei().schnittprofil).toEqual({ id: "werbung", schnell: true });
+    await lauf("reel", "vorbereiten", "c-0007", "--ohne-pegel", "--schnittprofil", "standard");
+    expect(reelDatei().schnittprofil).toBeUndefined();
+    expect(plan().projekt.schnittprofil).toBeUndefined();
+  }, 180_000);
+
   it("vorbereiten: rastet Anfang und Ende der Clips in die Stille der Tonspur ein; --ohne-stille lässt es", async () => {
     zwischenablage = SKRIPT;
     await lauf("reel", "neu", "c-0007", "--marke", "alperna", "--zwischenablage", "--nicht-oeffnen");

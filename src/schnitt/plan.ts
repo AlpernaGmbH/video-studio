@@ -131,6 +131,8 @@ export const Schnittplan = z.object({
     /** Inhalt-ID aus Notion, wenn der Schnitt zu einem Inhalt gehört. */
     inhalt: z.string().regex(/^c-\d{4}$/).optional(),
     marke: Slug,
+    /** Das gewählte Schnittprofil (M9, `presets/schnittprofil/`). Fehlt es, gilt das Profil der Marke. `schnell`: ein Mensch hat ein schnelles Profil ausdrücklich verlangt. */
+    schnittprofil: z.object({ id: Slug, schnell: z.boolean().optional() }).optional(),
     /** Bauplan v2: Projekt 25p, Export 1080×1920. */
     fps: z.number().positive().default(25),
     breite: z.number().int().positive().default(1080),

@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { CaptionPreset, Slug } from "../core/schemas";
+import { CaptionPreset, Slug, SchnittprofilWerte, schnittTempo } from "../core/schemas";
 
 /**
  * Presets: benannte Voreinstellungen, damit nicht jedes Video neu erfindet, wo die Grafik sitzt, wie laut es ist oder was exportiert wird.
- * Vier Arten, je ein Ordner unter `presets/`: export, audio, untertitel, grafik.
+ * Fünf Arten, je ein Ordner unter `presets/`: export, audio, untertitel, grafik, schnittprofil.
  *
  * Ein Preset ist ein Vorschlag, kein Entscheid. Was zur Marke gehört (Untertitel-Aussehen, Logo, Schlusskarte), übernimmt ein Mensch
  * mit Gate 0 ins Markenprofil. Darum trägt jedes Preset seine Herkunft: woher der Wert kommt und wie belegt er ist.
@@ -116,8 +116,34 @@ export const GrafikPreset = z
   });
 export type GrafikPreset = z.infer<typeof GrafikPreset>;
 
-export const PRESET_ARTEN = ["export", "audio", "untertitel", "grafik"] as const;
+/* ---------- Schnittprofil (M9) ---------- */
+
+export const SCHNITT_FORMATE = ["talking-head", "erklaervideo", "werbung", "dokumentation", "minimalistisch"] as const;
+export type SchnittFormat = (typeof SCHNITT_FORMATE)[number];
+
+/**
+ * Ein wählbares Schnittprofil je Format. Es liegt über dem Schnittprofil der Marke (die Textlängen der Marke bleiben) und gilt für einen Inhalt,
+ * den ein Mensch dafür gewählt hat; **es ist nie der Standard**. Ein schnelles Profil (`tempo: "schnell"`) wird nur mit ausdrücklichem Wunsch (`--schnell`) angewendet.
+ * Die Werte sind Vorschläge ohne Messung (Quelle: docs/inspiration/editing.md); ein Mensch prüft sie am ersten Reel.
+ */
+export const SchnittprofilPreset = z
+  .object({
+    art: z.literal("schnittprofil"),
+    ...Kopf,
+    format: z.enum(SCHNITT_FORMATE),
+    tempo: z.enum(["ruhig", "schnell"]),
+    profil: SchnittprofilWerte,
+  })
+  .superRefine((p, ctx) => {
+    const abgeleitet = schnittTempo(p.profil);
+    if (abgeleitet !== p.tempo) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["tempo"], message: `«tempo» muss zu den Werten passen: Sie ergeben «${abgeleitet}», angegeben ist «${p.tempo}»` });
+    }
+  });
+export type SchnittprofilPreset = z.infer<typeof SchnittprofilPreset>;
+
+export const PRESET_ARTEN = ["export", "audio", "untertitel", "grafik", "schnittprofil"] as const;
 export type PresetArt = (typeof PRESET_ARTEN)[number];
 
-export const SCHEMAS = { export: ExportPreset, audio: AudioPreset, untertitel: UntertitelPreset, grafik: GrafikPreset } as const;
-export type Preset = ExportPreset | AudioPreset | UntertitelPreset | GrafikPreset;
+export const SCHEMAS = { export: ExportPreset, audio: AudioPreset, untertitel: UntertitelPreset, grafik: GrafikPreset, schnittprofil: SchnittprofilPreset } as const;
+export type Preset = ExportPreset | AudioPreset | UntertitelPreset | GrafikPreset | SchnittprofilPreset;

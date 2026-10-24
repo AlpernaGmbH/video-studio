@@ -39,7 +39,7 @@ export const VORLAUF = 0.08;
 export const NACHLAUF = 0.22;
 
 export interface PlanbauOptionen {
-  projekt: { name: string; inhalt?: string; marke: string; fps?: number; breite?: number; hoehe?: number };
+  projekt: { name: string; inhalt?: string; marke: string; schnittprofil?: { id: string; schnell?: boolean | undefined }; fps?: number; breite?: number; hoehe?: number };
   /** Die Quellen des Plans. Die Kennung jeder Quelle im Transkript muss hier vorkommen. */
   quellen: SchnittQuelle[];
   profil?: Schnittprofil;
@@ -257,7 +257,7 @@ export function bauePlan(z: Zuordnung, opt: PlanbauOptionen): Planbau {
 
   const plan = leseSchnittplan({
     version: 1,
-    projekt: { name: opt.projekt.name, ...(opt.projekt.inhalt ? { inhalt: opt.projekt.inhalt } : {}), marke: opt.projekt.marke, fps: opt.projekt.fps ?? 25, breite: opt.projekt.breite ?? 1080, hoehe: opt.projekt.hoehe ?? 1920 },
+    projekt: { name: opt.projekt.name, ...(opt.projekt.inhalt ? { inhalt: opt.projekt.inhalt } : {}), marke: opt.projekt.marke, ...(opt.projekt.schnittprofil ? { schnittprofil: { id: opt.projekt.schnittprofil.id, ...(opt.projekt.schnittprofil.schnell ? { schnell: true } : {}) } } : {}), fps: opt.projekt.fps ?? 25, breite: opt.projekt.breite ?? 1080, hoehe: opt.projekt.hoehe ?? 1920 },
     quellen: opt.quellen,
     clips,
     broll: [],

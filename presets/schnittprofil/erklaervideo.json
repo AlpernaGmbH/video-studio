@@ -1,0 +1,27 @@
+{
+  "art": "schnittprofil",
+  "id": "erklaervideo",
+  "name": "Erklärvideo",
+  "beschreibung": "Erklärung mit Grafiken und B-Roll. Kürzere Einstellungen, damit etwas Neues ins Bild kommt, aber ohne Hektik.",
+  "format": "erklaervideo",
+  "tempo": "ruhig",
+  "profil": {
+    "laengstePause": 0.5,
+    "laengsteEinstellung": 6,
+    "woerterJeUntertitel": {
+      "min": 2,
+      "max": 4
+    },
+    "hookMaxSekunden": 3,
+    "zoomTempo": "mittel",
+    "zoom": {
+      "modus": "betonung",
+      "maxProMinute": 3
+    },
+    "minClip": 0.8
+  },
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag nach docs/inspiration/editing.md (19 Schnittstile, M9). Kein Messwert: Ein Mensch prüft die Werte am ersten Reel."
+  }
+}

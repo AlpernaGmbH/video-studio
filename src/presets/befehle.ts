@@ -9,8 +9,8 @@ import { PRESET_ARTEN, type PresetArt } from "./schema";
 
 /** Befehle `studio presets …`. */
 
-export const PRESETS_HILFE = `Presets (Export, Ton, Untertitel, Grafik; Dateien unter presets/<art>/<id>.json)
-  presets liste [--art export|audio|untertitel|grafik]   Alle Presets mit Herkunft (entschieden, annahme, unbelegt)
+export const PRESETS_HILFE = `Presets (Export, Ton, Untertitel, Grafik, Schnittprofil; Dateien unter presets/<art>/<id>.json)
+  presets liste [--art export|audio|untertitel|grafik|schnittprofil]   Alle Presets mit Herkunft (entschieden, annahme, unbelegt)
   presets lint                        Dateien prüfen und Grafik-Presets gegen die Motion-Bibliothek halten; Presets ohne Stück stehen als Lücke
   presets zeigen <art> <id>           Ein Preset als JSON
   presets overlay <id> --t 1.2 [--dauer s] [--begruendung "…"] --set k=v …
@@ -32,7 +32,7 @@ export function presetsBefehl(sub: string, a: Args, env: Umgebung): number {
       for (const k of arten) {
         console.log(`${k}`);
         for (const p of lib[k] as { id: string; name: string; herkunft: { stand: string }; stueck?: string }[]) {
-          console.log(`  ${p.id.padEnd(16)} ${p.herkunft.stand.padEnd(11)} ${p.name}${k === "grafik" ? (p.stueck ? `  [Stück ${p.stueck}]` : "  [Stück fehlt]") : ""}`);
+          console.log(`  ${p.id.padEnd(16)} ${p.herkunft.stand.padEnd(11)} ${p.name}${k === "grafik" ? (p.stueck ? `  [Stück ${p.stueck}]` : "  [Stück fehlt]") : ""}${k === "schnittprofil" ? `  [${(p as { tempo?: string }).tempo}${(p as { tempo?: string }).tempo === "schnell" ? ", nur mit --schnell" : ""}]` : ""}`);
         }
       }
       return 0;
@@ -41,7 +41,7 @@ export function presetsBefehl(sub: string, a: Args, env: Umgebung): number {
       const b = [...lib.befunde, ...lintGrafikPresets(lib.grafik, stuecke)];
       for (const x of b) console.log(`${x.stufe === "fehler" ? "FEHLER " : "Lücke  "} ${x.preset ? `[${x.preset}] ` : ""}${x.code}: ${x.text}`);
       const fehler = b.filter((x) => x.stufe === "fehler").length;
-      console.log(`${lib.export.length + lib.audio.length + lib.untertitel.length + lib.grafik.length} Presets, ${fehler} Fehler, ${b.length - fehler} Lücken`);
+      console.log(`${lib.export.length + lib.audio.length + lib.untertitel.length + lib.grafik.length + lib.schnittprofil.length} Presets, ${fehler} Fehler, ${b.length - fehler} Lücken`);
       return fehler ? 1 : 0;
     }
     case "zeigen": {

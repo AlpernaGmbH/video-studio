@@ -1,0 +1,27 @@
+{
+  "art": "schnittprofil",
+  "id": "werbung",
+  "name": "Werbung",
+  "beschreibung": "Kurze Einstellungen, enge Pausen, Zoom auf Betonungen. Schnell: nur auf ausdrücklichen Wunsch (--schnell), nie als Standard.",
+  "format": "werbung",
+  "tempo": "schnell",
+  "profil": {
+    "laengstePause": 0.25,
+    "laengsteEinstellung": 3,
+    "woerterJeUntertitel": {
+      "min": 1,
+      "max": 3
+    },
+    "hookMaxSekunden": 1.5,
+    "zoomTempo": "schnell",
+    "zoom": {
+      "modus": "betonung",
+      "maxProMinute": 6
+    },
+    "minClip": 0.5
+  },
+  "herkunft": {
+    "stand": "annahme",
+    "quelle": "Eigener Vorschlag nach docs/inspiration/editing.md (19 Schnittstile, M9). Kein Messwert: Ein Mensch prüft die Werte am ersten Reel."
+  }
+}

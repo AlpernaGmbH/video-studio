@@ -21,6 +21,7 @@ import { pruefeSchnittplan } from "./pruefung";
 import { erzeugeUebergabe, loesePfad, relativierePfad } from "./uebergabe";
 import { leseTranskript } from "./transkript";
 import { STANDARD_MODELL, transkribiere } from "./whisper";
+import { ladeSchnittprofil, wahlAusOptionen } from "./schnittprofil";
 import { fuehreZuordnungAus } from "./zuordnen";
 
 /** Befehle `studio schnitt …`: Schnittplan prüfen, an Resolve übergeben, Quellen sondieren, fertigen Export prüfen. */
@@ -31,7 +32,7 @@ export const SCHNITT_HILFE = `Schnitt und Übergabe an DaVinci Resolve (docs/pla
   schnitt transkribiere <aufnahme> [--modell large-v3] [--sprache de] [-o transkript.json]
                                       Whisper lokal aufrufen (openai-whisper, STUDIO_WHISPER_BIN ersetzt das Programm) und das JSON mit Wortzeiten ablegen,
                                       Standard <Datenordner>/transkripte/<Name>.json. Das Modell «large-v3» ist eine Annahme, Test T2 entscheidet.
-  schnitt zuordnen --skript skript.md --transkript <quelle>=<whisper.json>[,…] --quellen quellen.json --marke key -o plan.json
+  schnitt zuordnen --skript skript.md --transkript <quelle>=<whisper.json>[,…] --quellen quellen.json --marke key [--schnittprofil id [--schnell]] -o plan.json
                                       [--name "Titel"] [--inhalt c-0007] [--gesprochen 3,5] [--ohne-pegel] [--bericht bericht.json]
                                       Skript und Whisper-Transkript zu einem Schnittplan: pro Zeile der beste Take (Bauplan v2, Kap. 3.3), Pausen, Füllwörter und Bildwechsel
                                       nach dem Schnittprofil der Marke (Kap. 3.4). Die Quelle im Transkript ist die Kennung aus quellen.json (Ausgabe von «./studio schnitt sondiere»).
@@ -141,8 +142,11 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       const gesprochen = typeof a.opt["gesprochen"] === "string" ? (a.opt["gesprochen"] as string).split(",").map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x > 0) : [];
       const name = typeof a.opt["name"] === "string" ? (a.opt["name"] as string) : path.basename(skriptDatei, path.extname(skriptDatei));
       const inhalt = typeof a.opt["inhalt"] === "string" ? (a.opt["inhalt"] as string) : undefined;
+      const wahl = wahlAusOptionen(a.opt);
+      const profil = ladeSchnittprofil(env, marke, wahl);
       const { plan, zuordnung, markierungen, pegelNotiz } = await fuehreZuordnungAus({
         marke,
+        ...(wahl && profil ? { schnittprofil: { wahl, profil } } : {}),
         skriptText: fs.readFileSync(skriptDatei, "utf8"),
         skriptQuelle: skriptDatei,
         quellen,
@@ -160,7 +164,8 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
 
       for (const l of zuordnungBericht(zuordnung, markierungen)) console.log(l);
       if (pegelNotiz) console.log(`\n${pegelNotiz}`);
-      const befunde = pruefeSchnittplan(plan, { profil: marke.schnittprofil });
+      const befunde = pruefeSchnittplan(plan, { profil });
+      if (wahl) console.log(`\nSchnittprofil: ${wahl.id}${wahl.schnell ? " (schnell, auf Wunsch)" : ""} statt dem der Marke`);
       if (befunde.length) {
         console.log("\nPrüfung des Plans:");
         zeige(befunde);
@@ -194,7 +199,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       else if (!plan.woerter.length) notiz = "ohne Untertitel (der Plan hat keine Wörter)";
       else if (!(await kannUntertitel())) notiz = "ohne Untertitel: dieses ffmpeg hat keinen Filter «subtitles» (libass)";
       else {
-        const profil = ladeMarke(env, plan.projekt.marke).schnittprofil ?? STANDARD_SCHNITTPROFIL;
+        const profil = ladeSchnittprofil(env, ladeMarke(env, plan.projekt.marke), plan.projekt.schnittprofil) ?? STANDARD_SCHNITTPROFIL;
         srt = path.join(path.dirname(ziel), `.vorschau-${process.pid}.srt`);
         fs.writeFileSync(srt, schreibeSrt(gruppiere(woerterAufTimeline(plan, platziere(plan)), profil), plan.projekt.fps));
       }
@@ -226,7 +231,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
       const marke = typeof a.opt["marke"] === "string" ? ladeMarke(env, a.opt["marke"]) : ladeMarke(env, plan.projekt.marke);
       const stuecke = ladeBibliothek(env.bibliothek).stuecke.map((g) => g.stueck);
-      const b = pruefeSchnittplan(plan, { profil: marke.schnittprofil, stuecke, nurAktive: a.opt["entwurf"] !== true });
+      const b = pruefeSchnittplan(plan, { profil: ladeSchnittprofil(env, marke, plan.projekt.schnittprofil), stuecke, nurAktive: a.opt["entwurf"] !== true });
       zeige(b);
       const fehler = b.filter((x) => x.stufe === "fehler").length;
       console.log(`${fehler} Fehler, ${b.length - fehler} Hinweise`);
@@ -243,7 +248,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         plan,
         home,
         aus: typeof a.opt["aus"] === "string" ? a.opt["aus"] : undefined,
-        profil: marke.schnittprofil,
+        profil: ladeSchnittprofil(env, marke, plan.projekt.schnittprofil),
         stuecke,
         nurAktive: a.opt["entwurf"] !== true,
         export: findePreset(lib, "export", opt(a, "preset", "reel")),

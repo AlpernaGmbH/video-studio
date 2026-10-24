@@ -43,33 +43,47 @@ export type KatalogEintrag = z.infer<typeof KatalogEintrag>;
  * Ein Schnitt darf schnell sein, wenn er hochwertig aussieht; billig wirkt Hektik ohne Gestaltung. Darum gibt es keinen Zoom-Automatismus mehr:
  * Zooms setzt das Storyboard am Schluss, nur auf betonten Wörtern (`zoom`).
  */
-export const Schnittprofil = z
-  .object({
-    /** Längste Pause zwischen zwei Wörtern im Schnitt, in Sekunden. */
-    laengstePause: z.number().positive(),
-    /** Längste Einstellung ohne Bildwechsel, in Sekunden. */
-    laengsteEinstellung: z.number().positive(),
-    woerterJeUntertitel: z.object({ min: z.number().int().min(1), max: z.number().int().min(1) }),
-    /** Höchstens so viele Sekunden bis zur ersten Aussage. */
-    hookMaxSekunden: z.number().positive(),
-    /** Stärke eines Zooms, den das Storyboard setzt: mittel = 1,1-fach, schnell = 1,15-fach. «langsam» heisst: keine Zooms. */
-    zoomTempo: z.enum(["langsam", "mittel", "schnell"]),
-    /** Zoom nur nach dem Storyboard («betonung») oder nie («aus»), höchstens so viele je Minute. */
-    zoom: z.object({ modus: z.enum(["aus", "betonung"]), maxProMinute: z.number().min(0) }).default({ modus: "aus", maxProMinute: 4 }),
-    /** Kürzeste Einstellung in Sekunden. Kürzere Stücke werden mit dem Nachbarn verschmolzen, statt als Mikro-Schnitt zu flackern. */
-    minClip: z.number().min(0).default(0.7),
-    /** Textlängen je Format (Zeichen), zum Beispiel {"linkedin-post": {"min": 400, "max": 1300}}. */
-    textlaengen: z.record(z.object({ min: z.number().int().min(0), max: z.number().int().positive() })).default({}),
-  })
-  .superRefine((p, ctx) => {
-    if (p.woerterJeUntertitel.max < p.woerterJeUntertitel.min) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["woerterJeUntertitel"], message: "max darf nicht kleiner als min sein" });
-    }
-    for (const [format, l] of Object.entries(p.textlaengen)) {
-      if (l.max < l.min) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["textlaengen", format], message: "max darf nicht kleiner als min sein" });
-    }
-  });
+const SchnittprofilFelder = z.object({
+  /** Längste Pause zwischen zwei Wörtern im Schnitt, in Sekunden. */
+  laengstePause: z.number().positive(),
+  /** Längste Einstellung ohne Bildwechsel, in Sekunden. */
+  laengsteEinstellung: z.number().positive(),
+  woerterJeUntertitel: z.object({ min: z.number().int().min(1), max: z.number().int().min(1) }),
+  /** Höchstens so viele Sekunden bis zur ersten Aussage. */
+  hookMaxSekunden: z.number().positive(),
+  /** Stärke eines Zooms, den das Storyboard setzt: mittel = 1,1-fach, schnell = 1,15-fach. «langsam» heisst: keine Zooms. */
+  zoomTempo: z.enum(["langsam", "mittel", "schnell"]),
+  /** Zoom nur nach dem Storyboard («betonung») oder nie («aus»), höchstens so viele je Minute. */
+  zoom: z.object({ modus: z.enum(["aus", "betonung"]), maxProMinute: z.number().min(0) }).default({ modus: "aus", maxProMinute: 4 }),
+  /** Kürzeste Einstellung in Sekunden. Kürzere Stücke werden mit dem Nachbarn verschmolzen, statt als Mikro-Schnitt zu flackern. */
+  minClip: z.number().min(0).default(0.7),
+  /** Textlängen je Format (Zeichen), zum Beispiel {"linkedin-post": {"min": 400, "max": 1300}}. */
+  textlaengen: z.record(z.object({ min: z.number().int().min(0), max: z.number().int().positive() })).default({}),
+});
+
+function pruefeSchnittprofil(p: { woerterJeUntertitel: { min: number; max: number }; textlaengen?: Record<string, { min: number; max: number }> }, ctx: z.RefinementCtx): void {
+  if (p.woerterJeUntertitel.max < p.woerterJeUntertitel.min) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["woerterJeUntertitel"], message: "max darf nicht kleiner als min sein" });
+  }
+  for (const [format, l] of Object.entries(p.textlaengen ?? {})) {
+    if (l.max < l.min) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["textlaengen", format], message: "max darf nicht kleiner als min sein" });
+  }
+}
+
+export const Schnittprofil = SchnittprofilFelder.superRefine(pruefeSchnittprofil);
+/** Die Tempo-Werte allein, ohne die Textlängen der Marke: So steht ein Schnittprofil-Preset (M9), das über das Profil der Marke gelegt wird. */
+export const SchnittprofilWerte = SchnittprofilFelder.omit({ textlaengen: true }).superRefine(pruefeSchnittprofil);
+export type SchnittprofilWerte = z.infer<typeof SchnittprofilWerte>;
 export type Schnittprofil = z.infer<typeof Schnittprofil>;
+
+/**
+ * «schnell», wenn eine Einstellung unter 4 s bleiben muss, die Pause unter 0,3 s liegt, der Zoom «schnell» ist oder Stücke unter 0,6 s erlaubt sind.
+ * Die Schwellen sind unsere Annahmen (docs/inspiration/editing.md), keine gemessenen. Das Profil der Marke Alperna (5 s, 0,4 s, mittel, 0,7 s) ist «ruhig».
+ * Ein schnelles Profil wird nie von selbst gewählt, sondern nur auf ausdrücklichen Wunsch (`--schnell`).
+ */
+export function schnittTempo(p: Pick<SchnittprofilWerte, "laengsteEinstellung" | "laengstePause" | "zoomTempo" | "minClip">): "ruhig" | "schnell" {
+  return p.laengsteEinstellung < 4 || p.laengstePause < 0.3 || p.zoomTempo === "schnell" || p.minClip < 0.6 ? "schnell" : "ruhig";
+}
 
 /** Aussehen der Untertitel (Wort für Wort). Gehört zum Markenprofil, die Presets in presets/untertitel/ sind Vorschläge dafür. */
 export const CaptionPreset = z.object({
