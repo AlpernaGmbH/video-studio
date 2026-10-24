@@ -673,7 +673,7 @@ async function vorbereiten(a: Args, env: Umgebung, g: ReturnType<typeof standard
   if (ergebnis.pegelNotiz) console.log(`\n${ergebnis.pegelNotiz}`);
   if (stilleNotiz) console.log(stilleNotiz);
   if (wahl) console.log(`\nSchnittprofil: ${wahl.id}${wahl.schnell ? " (schnell, auf Wunsch)" : ""} statt dem der Marke`);
-  const befunde = pruefeSchnittplan(ergebnis.plan, { profil: gewaehltesProfil });
+  const befunde = pruefeSchnittplan(ergebnis.plan, { profil: gewaehltesProfil, ton: marke.ton });
   if (befunde.length) {
     console.log("\nPrüfung des Plans:");
     for (const b of befunde) console.log(`${b.stufe === "fehler" ? "FEHLER " : "Hinweis"} ${b.code}: ${b.text}`);

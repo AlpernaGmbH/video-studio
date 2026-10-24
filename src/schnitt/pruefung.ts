@@ -1,4 +1,6 @@
-import type { KatalogEintrag, Schnittprofil } from "../core/schemas";
+import type { KatalogEintrag, Markenprofil, Schnittprofil } from "../core/schemas";
+import { klangGrund } from "../katalog/katalog";
+import { hoechstensKlaenge, KLAENGE_JE_SEKUNDE, zuDichteStellen } from "./klang";
 import type { Stueck } from "../motion/stueck";
 import { fpsBruch, inFrames } from "./raster";
 import { externerTon, PlanFehler, platziere, quelleNach, sekunden, type Schnittplan } from "./plan";
@@ -18,6 +20,8 @@ export interface Befund {
 
 export interface PruefKontext {
   profil?: Schnittprofil;
+  /** Ton der Marke (M8): Wenn bekannt, prüft die Prüfung auch, ob die Marke Klänge will und wie viele. */
+  ton?: Markenprofil["ton"];
   /** Wenn bekannt: Katalog-Schlüssel und Effekte werden dagegen geprüft (Regel 3 des Repos). */
   katalog?: KatalogEintrag[];
   stuecke?: Stueck[];
@@ -147,6 +151,33 @@ export function pruefeSchnittplan(plan: Schnittplan, ctx: PruefKontext = {}): Be
     const q = quellen.get(plan.musik.quelle);
     if (!q) fehler("quelle-fehlt", `Musik: Quelle «${plan.musik.quelle}» ist nicht definiert`);
     else if (q.art !== "audio") fehler("quelle-art", `Musik: «${plan.musik.quelle}» ist keine Audioquelle`);
+  }
+
+  // Klänge (M8): Quelle, Zeit, Lizenz im Katalog, Dichte
+  for (const k of plan.sounds) {
+    const q = quellen.get(k.quelle);
+    if (!q) {
+      fehler("quelle-fehlt", `Klang «${k.katalog}»: Quelle «${k.quelle}» ist nicht definiert`);
+      continue;
+    }
+    if (q.art !== "audio") {
+      fehler("quelle-art", `Klang «${k.katalog}»: «${k.quelle}» ist keine Audioquelle`);
+      continue;
+    }
+    if (k.t > gesamt + eineFrame) fehler("klang-ausserhalb", `Klang «${k.katalog}» beginnt bei ${s1(k.t)} s, das Video ist ${s1(gesamt)} s lang`);
+    else if (k.t + (k.dauer ?? q.dauer) > gesamt + 0.05) hinweis("klang-ueber-ende", `Klang «${k.katalog}» läuft über das Ende des Videos (${s1(k.t)} s + ${s1(k.dauer ?? q.dauer)} s, Video ${s1(gesamt)} s) und wird dort abgeschnitten`);
+    if (ctx.katalog) {
+      const grund = klangGrund(katalogNach.get(k.katalog), k.katalog);
+      if (grund) fehler("klang-nicht-verwendbar", `Klang: ${grund}`);
+    }
+  }
+  if (plan.sounds.length) {
+    for (const t of zuDichteStellen(plan.sounds.map((k) => k.t))) hinweis("klang-dichte", `Bei ${s1(t)} s liegen mehr als ${KLAENGE_JE_SEKUNDE} Klänge in einer Sekunde`);
+    if (ctx.ton) {
+      const erlaubt = hoechstensKlaenge(ctx.ton, gesamt);
+      if (!erlaubt) fehler("klang-marke-aus", `Der Plan hat ${plan.sounds.length} Klänge, die Marke will keine Soundeffekte (Markenprofil ton.sfxDichte 0)`);
+      else if (plan.sounds.length > erlaubt) hinweis("klang-zu-viele", `${plan.sounds.length} Klänge in ${s1(gesamt)} s, die Marke erlaubt höchstens ${erlaubt} (ton.sfxDichte ${ctx.ton.sfxDichte} je Sekunde)`);
+    }
   }
 
   // Wörter

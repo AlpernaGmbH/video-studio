@@ -7,7 +7,9 @@ import type { Umgebung } from "../motion/werkstatt";
 import { studioHome } from "../setup";
 import { relativierePfad } from "../schnitt/uebergabe";
 import { leseSchnittplan } from "../schnitt/plan";
-import { fuegeBeschreibungenEin, ladeKatalog, ladeOffen, markiereGenutzt, naechsterSchluessel, projektKennung, speichereKatalog, speichereOffen, sucheKatalog } from "./katalog";
+import { fuegeBeschreibungenEin, ladeKatalog, ladeOffen, markiereGenutzt, naechsterSchluessel, projektKennung, setzeKlang, speichereKatalog, speichereOffen, sucheKatalog } from "./katalog";
+import { messeKlangpegel } from "../presets/messen";
+import { loesePfad } from "../schnitt/uebergabe";
 import { scanne, artVonDatei, type ScanWerkzeuge } from "./scan";
 import { erzeugeBoegen } from "./bogen";
 import { spawnSync } from "node:child_process";
@@ -26,6 +28,9 @@ export const KATALOG_HILFE = `Katalog der Fotos, B-Roll und Sounds (Bauplan v2, 
                                       Beschreibungen übernehmen: [{"schluessel","titel","beschreibung","tags","sicherheit","besteSekunden"?,"personen"?,"log"?}].
                                       --zwischenablage liest die Liste aus der Zwischenablage (macOS: JSON im Chat kopieren, dann diesen Befehl), «--json -» aus der Eingabe.
                                       Text drumherum und Codezäune stören nicht. Ein vorhandener Eintrag wird überschrieben (Korrektur). Ungültiges bleibt mit Grund liegen.
+  katalog klang <schluessel> --art klick|schlag|whoosh|flaeche|glocke --lizenz "…" --quelle "…" [--ohne-messen]
+                                      Trägt bei einem Sound Art, Lizenz und Quelle ein (M8) und misst Spitze und Lautheit der Datei. Das macht ein Mensch: Claude erfindet keine Lizenz.
+                                      Ohne Lizenz und Quelle darf das Storyboard den Sound nicht benutzen. Es gibt keine Klänge im Repo und kein Herunterladen aus dem Netz.
   katalog genutzt --plan plan.json [--datum JJJJ-MM-TT]
                                       Trägt ein, dass die B-Roll des Plans in diesem Video vorkam (Feld «zuletzt genutzt», Kennung «Name [marke]»).
                                       Erst aufrufen, wenn das Video fertig ist: Danach gilt die B-Roll im nächsten Video derselben Marke als «lief schon».
@@ -167,6 +172,38 @@ export async function katalogBefehl(sub: string, a: Args, env: Umgebung, werkzeu
       if (e.offen.length) console.log(`Noch offen: ${e.offen.map((o) => o.schluessel).join(", ")}`);
       return e.fehler.length ? 1 : 0;
     }
+    case "klang": {
+      const key = a.pos[2];
+      if (!key) throw new Error("Aufruf: katalog klang <schluessel> --art … --lizenz \"…\" --quelle \"…\"");
+      const feld = (n: string): string | undefined => (typeof a.opt[n] === "string" ? (a.opt[n] as string) : undefined);
+      const alle = ladeKatalog(dd);
+      const eintrag = alle.find((x) => x.schluessel === key);
+      let gemessen: { spitzeDb?: number; lufs?: number } = {};
+      let notiz = "";
+      if (eintrag?.art === "sound" && a.opt["ohne-messen"] !== true) {
+        const home = studioHome();
+        const abs = home ? loesePfad(home, eintrag.pfad) : undefined;
+        if (!abs || !fs.existsSync(abs)) notiz = "nicht gemessen: Die Datei liegt nicht auf diesem Rechner";
+        else {
+          try {
+            const m = await messeKlangpegel(abs);
+            gemessen = { ...(m.truePeak !== undefined ? { spitzeDb: Math.round(m.truePeak * 10) / 10 } : {}), ...(m.lufs !== undefined ? { lufs: Math.round(m.lufs * 10) / 10 } : {}) };
+            if (!Object.keys(gemessen).length) notiz = "nicht gemessen: Die Datei ist stumm";
+            else if (m.lufs === undefined) notiz = "Lautheit nicht messbar: Der Klang ist kürzer als 0,4 s";
+          } catch (e) {
+            notiz = `nicht gemessen: ${(e as Error).message}`;
+          }
+        }
+      }
+      const r = setzeKlang(alle, key, { art: feld("art"), lizenz: feld("lizenz"), quelle: feld("quelle"), ...gemessen });
+      if ("fehler" in r) {
+        console.log(`FEHLER ${r.fehler}`);
+        return 1;
+      }
+      speichereKatalog(dd, r.katalog);
+      console.log(`${key}: ${r.klang.art}, Lizenz ${r.klang.lizenz}, Quelle ${r.klang.quelle}${r.klang.spitzeDb !== undefined ? `, Spitze ${sek(r.klang.spitzeDb)} dBTP` : ""}${r.klang.lufs !== undefined ? `, ${sek(r.klang.lufs)} LUFS` : ""}${notiz ? ` (${notiz})` : ""}`);
+      return 0;
+    }
     case "genutzt": {
       const planDatei = a.opt["plan"];
       if (typeof planDatei !== "string") throw new Error("Aufruf: katalog genutzt --plan plan.json");
@@ -196,7 +233,8 @@ export async function katalogBefehl(sub: string, a: Args, env: Umgebung, werkzeu
       const treffer = typeof a.opt["suche"] === "string" ? sucheKatalog(alle, a.opt["suche"] as string, { art }) : art ? alle.filter((k) => k.art === art) : alle;
       for (const k of treffer) {
         const laenge = k.art === "video" ? (k.besteSekunden ? `${sek(k.besteSekunden.bis - k.besteSekunden.von)} s nutzbar` : k.dauer ? `${sek(k.dauer)} s` : "") : "";
-        console.log(`${k.schluessel}  ${k.art}${k.orientierung ? `  ${k.orientierung}` : ""}${laenge ? `  ${laenge}` : ""}  ${k.titel}  [${k.tags.join(", ")}]`);
+        const klang = k.art === "sound" ? (k.klang ? `  ${k.klang.art}, Lizenz ${k.klang.lizenz}` : "  OHNE Lizenz (im Storyboard nicht verwendbar)") : "";
+        console.log(`${k.schluessel}  ${k.art}${k.orientierung ? `  ${k.orientierung}` : ""}${laenge ? `  ${laenge}` : ""}${klang}  ${k.titel}  [${k.tags.join(", ")}]`);
       }
       console.log(`${treffer.length} von ${alle.length} Einträgen`);
       return 0;

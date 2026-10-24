@@ -79,5 +79,5 @@ Fotos beschreibst du genauso (ohne `besteSekunden`); sie sind keine B-Roll, sond
 
 - Whisper ist mit echtem Dialekt noch nicht gemessen (T2); Schwellen und Füllwortliste sind Annahmen.
 - Resolve hat die Dateien noch nie geöffnet (T9). Sag es dem Menschen beim Übergeben.
-- Musik, Soundeffekte und Untertitel-Hervorhebung sind nicht im Plan. Fotos sind keine B-Roll. Betonte Wörter stehen in `LIESMICH.md`.
+- Musik und Untertitel-Hervorhebung sind nicht im Plan. **Soundeffekte (M8)** setzt du nur, wenn die Marke sie will (`ton.sfxDichte` über 0; Alperna und alle Kundenmarken haben 0) und der Auftrag eine Klangliste enthält: nur Katalog-Schlüssel mit Lizenz, bis 0,5 s **vor** dem Bildereignis, nicht mehr als der Auftrag erlaubt. **Du hörst keinen Klang**: Sag dem Menschen, dass er die Klangwahl mit Kopfhörer prüft (Tor P). Lizenz und Quelle eines Sounds trägst du nie selbst ein und erfindest sie nicht (`./studio katalog klang` macht ein Mensch). Fotos sind keine B-Roll. Betonte Wörter stehen in `LIESMICH.md`.
 - Der Katalog liegt nicht in Notion, nur als `katalog.json` im Datenordner.

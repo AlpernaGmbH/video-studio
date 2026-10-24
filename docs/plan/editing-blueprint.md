@@ -156,7 +156,7 @@ Nach der Zuordnung hat der Plan Clips und Wörter, aber keine B-Roll, keine Graf
 
 **Freigabe.** Das Ergebnis ist ein Entwurf. Freigegeben ist ein Storyboard, wenn ein Mensch es bestätigt oder per Satz ändert («Hook kürzer»); Änderungen setzen die Freigabe zurück (Plan Kap. 3.5). Diese Freigabe gibt es im Code noch nicht, sie läuft im Gespräch. Der Befehl schreibt nie eine Freigabe.
 
-**Nicht umgesetzt:** Soundeffekte und Musik-Beats (Plan Kap. 3.8), Fotos mit Kamerabewegung. Die Zahl der Overlays pro Sekunde ist nicht begrenzt; die Regeln im Auftrag und das Schnittprofil tragen das.
+**Nicht umgesetzt:** Musik-Beats (Plan Kap. 3.8), Fotos mit Kamerabewegung. Soundeffekte gibt es seit 24.10.2026 (M8, `docs/inspiration/sound.md`), aber nur für Marken mit `ton.sfxDichte` über 0. Die Zahl der Overlays pro Sekunde ist nicht begrenzt; die Regeln im Auftrag und das Schnittprofil tragen das.
 
 **Geprüft:** mit künstlichen Daten und Mutationsproben je Regel, im Container mit einem echten HyperFrames-Render des Stücks `zahl-zaehler` (27 s, Prüfung bestanden) und dem anschliessenden `schnitt resolve` (WebM nach ProRes 4444, FCPXML gegen Apples DTD 1.8 gültig, betonte Wörter in `LIESMICH.md`). Nicht geprüft: B-Roll aus echtem Katalogmaterial, ein Storyboard, das Claude aus einem echten Auftrag geschrieben hat.
 

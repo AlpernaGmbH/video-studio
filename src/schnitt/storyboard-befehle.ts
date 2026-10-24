@@ -11,7 +11,7 @@ import { studioHome } from "../setup";
 import { leseSchnittplan, platziere, type SchnittQuelle } from "./plan";
 import { pruefeSchnittplan } from "./pruefung";
 import { ladeSchnittprofil } from "./schnittprofil";
-import { bauAuftrag, brollQuelleAusKatalog, wendeStoryboardAn, type RenderAuftrag } from "./storyboard";
+import { bauAuftrag, brollQuelleAusKatalog, soundQuelleAusKatalog, wendeStoryboardAn, type RenderAuftrag } from "./storyboard";
 import { loesePfad } from "./uebergabe";
 
 /** Befehle `studio schnitt auftrag` und `studio schnitt storyboard` (Bauplan v2, Kap. 3.5). Logik in storyboard.ts. */
@@ -48,7 +48,7 @@ export async function auftragBefehl(a: Args, env: Umgebung): Promise<number> {
   const regeln = typeof a.opt["regeln"] === "string" ? z.array(Regel).parse(lesJson(a.opt["regeln"] as string)) : [];
   const stuecke = ladeBibliothek(env.bibliothek).stuecke.map((g) => g.stueck);
   const profil = ladeSchnittprofil(env, marke, plan.projekt.schnittprofil);
-  const text = `${bauAuftrag(plan, { stuecke, katalog, regeln, ...(profil ? { profil } : {}) }).join("\n")}\n`;
+  const text = `${bauAuftrag(plan, { stuecke, katalog, regeln, ton: marke.ton, ...(profil ? { profil } : {}) }).join("\n")}\n`;
   if (typeof a.opt["o"] === "string") {
     fs.writeFileSync(a.opt["o"] as string, text);
     console.log(`Auftrag geschrieben: ${a.opt["o"]}`);
@@ -86,17 +86,35 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
     brollQuellen.set(key, brollQuelleAusKatalog(k, await sondiere(abs), plan));
   }
 
+  // Klänge (M8): nur Sounds mit Lizenz, deren Datei auf diesem Rechner liegt; die Regeln prüft wendeStoryboardAn
+  const soundQuellen = new Map<string, SchnittQuelle>();
+  const klangNichtDa: string[] = [];
+  const roheKlaenge = Array.isArray((roh as { sounds?: unknown }).sounds) ? ((roh as { sounds: unknown[] }).sounds as Record<string, unknown>[]) : [];
+  for (const key of new Set(roheKlaenge.map((s) => s?.["katalog"]).filter((x): x is string => typeof x === "string"))) {
+    const k = katalog.find((x) => x.schluessel === key);
+    if (!k || k.art !== "sound" || !k.klang) continue;
+    const abs = home ? loesePfad(home, k.pfad) : undefined;
+    if (!abs || !fs.existsSync(abs)) {
+      klangNichtDa.push(k.pfad);
+      continue;
+    }
+    soundQuellen.set(key, soundQuelleAusKatalog(k, await sondiere(abs)));
+  }
   const profil = ladeSchnittprofil(env, marke, plan.projekt.schnittprofil);
-  const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive, ...(profil ? { profil } : {}) });
+  const r = wendeStoryboardAn(plan, roh, { stuecke, katalog, brollQuellen, nurAktive, ton: marke.ton, soundQuellen, ...(profil ? { profil } : {}) });
   fs.writeFileSync(ausDatei, `${JSON.stringify(r.plan, null, 2)}\n`);
 
   console.log(`Hook: ${r.storyboard.hook}`);
-  console.log(`Übernommen: ${r.plan.overlays.length} Grafiken, ${r.plan.broll.length} B-Roll, ${r.betont.length} betonte Wörter, ${r.zooms.length} Zooms`);
-  if (r.verworfen.length || r.verworfeneZooms.length) {
+  console.log(`Übernommen: ${r.plan.overlays.length} Grafiken, ${r.plan.broll.length} B-Roll, ${r.betont.length} betonte Wörter, ${r.zooms.length} Zooms${r.sounds.length || r.verworfeneSounds.length ? `, ${r.sounds.length} Klänge` : ""}`);
+  if (r.verworfen.length || r.verworfeneZooms.length || r.verworfeneSounds.length) {
     console.log("\nVerworfen:");
     for (const v of r.verworfen) console.log(`  Eintrag ${v.index + 1}: ${v.grund}`);
     for (const v of r.verworfeneZooms) console.log(`  Zoom ${v.index + 1}: ${v.grund}`);
+    for (const v of r.verworfeneSounds) console.log(`  Klang ${v.index + 1}: ${v.grund}`);
   }
+  for (const k of r.sounds) console.log(`Klang ${k.katalog} (${k.art}) bei ${k.t.toFixed(1).replace(".", ",")} s, ${k.dauer.toFixed(1).replace(".", ",")} s lang, ${k.pegelDb} dB`);
+  if (r.sounds.length) console.log("Hinweis: Die Klangwahl hört und gibt ein Mensch frei (Tor P). Claude hat nichts gehört.");
+  if (klangNichtDa.length) console.log(`Hinweis: Klang-Dateien nicht auf diesem Rechner: ${klangNichtDa.join(", ")}`);
   for (const zz of r.zooms) console.log(`Zoom auf «${zz.text}» bei ${zz.t.toFixed(1).replace(".", ",")} s, ${zz.dauer.toFixed(1).replace(".", ",")} s lang, ${zz.stufe.toFixed(2).replace(".", ",")}-fach`);
   for (const w of r.warnungen) console.log(`Hinweis: ${w}`);
   if (notiz) console.log(`Hinweis: ${notiz}`);
@@ -123,7 +141,7 @@ export async function storyboardBefehl(a: Args, env: Umgebung): Promise<number> 
     }
   }
 
-  const befunde = pruefeSchnittplan(r.plan, { profil, katalog, stuecke, nurAktive });
+  const befunde = pruefeSchnittplan(r.plan, { profil, ton: marke.ton, katalog, stuecke, nurAktive });
   if (befunde.length) {
     console.log("\nPrüfung des Plans:");
     for (const b of befunde) console.log(`${b.stufe === "fehler" ? "FEHLER " : "Hinweis"} ${b.code}: ${b.text}`);

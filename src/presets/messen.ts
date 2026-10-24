@@ -74,6 +74,26 @@ export function lautheitAusEbur128(stderr: string): { lufs: number; truePeak: nu
   return { lufs: Number(i[1]), truePeak: p[1] === "-inf" ? Number.NEGATIVE_INFINITY : Number(p[1]) };
 }
 
+/**
+ * Wie `lautheitAusEbur128`, liefert aber auch dann die Spitze, wenn die Lautheit fehlt. Klänge unter 0,4 s haben keine messbare Lautheit: ffmpeg meldet dann
+ * den Boden des Messtors (−70,0 LUFS), und der gilt hier als «nicht gemessen».
+ */
+export function pegelAusEbur128(stderr: string): { lufs?: number; truePeak?: number } {
+  const teil = stderr.slice(stderr.lastIndexOf("Summary:"));
+  const i = /^\s*I:\s+(-?\d+(?:\.\d+)?|-inf)\s+LUFS/m.exec(teil);
+  const p = /^\s*Peak:\s+(-?\d+(?:\.\d+)?|-inf)\s+dBFS/m.exec(teil);
+  const lufs = i && i[1] !== "-inf" ? Number(i[1]) : undefined;
+  return { ...(lufs !== undefined && lufs > -69.9 ? { lufs } : {}), ...(p && p[1] !== "-inf" ? { truePeak: Number(p[1]) } : {}) };
+}
+
+/** Lautheit und True Peak einer Audiodatei (auch ohne Bild). Fehlt ffmpeg oder die Datei, steht der Grund im Fehler. */
+export async function messeKlangpegel(datei: string): Promise<{ lufs?: number; truePeak?: number }> {
+  if (!fs.existsSync(datei)) throw new Error(`Datei fehlt: ${datei}`);
+  const e = await lauf("ffmpeg", ["-nostats", "-hide_banner", "-i", datei, "-vn", "-filter:a", "ebur128=peak=true", "-f", "null", "-"]);
+  if (e.code !== 0) throw new Error(`ffmpeg schlug fehl: ${e.stderr.trim().split("\n").pop()}`);
+  return pegelAusEbur128(e.stderr);
+}
+
 export function lauf(cmd: string, args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const c = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });

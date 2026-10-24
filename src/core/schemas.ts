@@ -16,6 +16,29 @@ export type Akteur = z.infer<typeof Akteur>;
 
 /* ---------- Katalog (Bauplan 3.7) ---------- */
 
+/**
+ * Art eines Klangs (M8). Musik ist kein Klang in diesem Sinn: Sie hat ihre eigene Spur im Plan (`musik`).
+ * Das Storyboard setzt Klänge nur auf sichtbare Ereignisse (Klick, Schlag, Whoosh, Glocke) oder als Fläche (Raum, Wind).
+ */
+export const KLANG_ARTEN = ["klick", "schlag", "whoosh", "flaeche", "glocke"] as const;
+export type KlangArt = (typeof KLANG_ARTEN)[number];
+
+/**
+ * Was ein Sound im Katalog braucht, damit das Storyboard ihn benutzen darf: eine Art, eine Lizenz und eine Quelle. **Ohne diese Angaben ist er nicht verwendbar.**
+ * Lizenz und Quelle trägt ein Mensch ein (`katalog klang`), Claude erfindet sie nie: Es gibt keine Klänge im Repo, kein Scraping, keine fremden Pakete ohne Nachweis.
+ */
+export const Klang = z.object({
+  art: z.enum(KLANG_ARTEN),
+  /** Unter welchen Bedingungen der Klang in Videos für Kunden laufen darf (zum Beispiel «CC0» oder «Kauf, Pro-Lizenz»). */
+  lizenz: z.string().trim().min(3),
+  /** Woher er stammt (Anbieter, Paket, Link): Nachweis für die Lizenz. */
+  quelle: z.string().trim().min(3),
+  /** Gemessene Spitze der Datei in dBTP und Lautheit in LUFS, wenn der Befehl sie messen konnte. */
+  spitzeDb: z.number().optional(),
+  lufs: z.number().optional(),
+});
+export type Klang = z.infer<typeof Klang>;
+
 export const KatalogEintrag = z.object({
   schluessel: z.string().regex(/^k-\d{4,}$/, "Schlüssel wie k-0142"),
   art: z.enum(["video", "foto", "sound"]),
@@ -33,6 +56,8 @@ export const KatalogEintrag = z.object({
   freigabe: z.string().default("alles erlaubt"),
   sicherheit: z.enum(["hoch", "mittel", "niedrig"]),
   zuletztGenutzt: z.object({ datum: z.string(), projekt: z.string() }).optional(),
+  /** Nur bei Sounds (M8): Art, Lizenz und Quelle. Fehlt es, ist der Sound im Storyboard nicht verwendbar. */
+  klang: Klang.optional(),
 });
 export type KatalogEintrag = z.infer<typeof KatalogEintrag>;
 
@@ -299,6 +324,18 @@ export const Zoom = z.object({
 });
 export type Zoom = z.infer<typeof Zoom>;
 
+/** Ein Klang im Storyboard (M8): Katalog-Schlüssel eines Sounds mit Lizenz, Zeit auf der Timeline, Begründung. */
+export const SoundEintrag = z.object({
+  katalog: z.string().regex(/^k-\d{4,}$/, "Katalog-Schlüssel wie k-0142"),
+  /** Beginn auf der Timeline in Sekunden. Der Ton kommt knapp vor dem Bild: bis 0,5 s vor dem Ereignis. */
+  t: z.number().min(0),
+  /** Pegel relativ zur Datei in dB (höchstens 0). Fehlt er, gilt −12 dB, damit Effekte unter der Stimme bleiben. */
+  pegelDb: z.number().max(0).optional(),
+  /** Kein Klang ohne Begründung. */
+  begruendung: z.string().min(5),
+});
+export type SoundEintrag = z.infer<typeof SoundEintrag>;
+
 export const Storyboard = z.object({
   hook: z.string().min(1),
   overlays: z.array(Overlay),
@@ -306,6 +343,8 @@ export const Storyboard = z.object({
   betonung: z.array(z.number().int().min(0)).default([]),
   /** Zooms, nur auf betonten Wörtern. Einzeln geprüft: ein ungültiger Eintrag kippt das Storyboard nicht. */
   zooms: z.array(z.unknown()).default([]),
+  /** Klänge (M8), nur wenn die Marke Soundeffekte erlaubt (`ton.sfxDichte` über 0). Einzeln geprüft wie die Zooms. */
+  sounds: z.array(z.unknown()).default([]),
   notiz: z.string().default(""),
 });
 export type Storyboard = z.infer<typeof Storyboard>;

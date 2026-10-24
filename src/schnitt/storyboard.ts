@@ -1,11 +1,12 @@
-import { Zoom, type KatalogEintrag, type Regel, type Schnittprofil, type Storyboard } from "../core/schemas";
+import { SoundEintrag, Zoom, type KatalogEintrag, type KlangArt, type Markenprofil, type Regel, type Schnittprofil, type Storyboard } from "../core/schemas";
 import { pruefeStoryboard, StoryboardFehler, type VerworfenesOverlay } from "../core/storyboard";
 import { kompakterIndex } from "../motion/bibliothek";
 import type { Stueck } from "../motion/stueck";
+import { hoechstensKlaenge, KLAENGE_JE_SEKUNDE, KLANG_PEGEL_STANDARD } from "./klang";
 import { STANDARD_SCHNITTPROFIL, ZOOM_STUFE } from "./planbau";
 import { leseSchnittplan, platziere, sekunden, SchnittQuelle, type Schnittplan } from "./plan";
 import { wendeZoomsAn, type ZoomEinsatz } from "./zoom";
-import { projektKennung } from "../katalog/katalog";
+import { klangGrund, projektKennung } from "../katalog/katalog";
 import { woerterMitHerkunft } from "./untertitel";
 
 /**
@@ -41,6 +42,11 @@ export function imLetztenVideo(katalog: KatalogEintrag[], aktuellesProjekt: stri
  * Die Quelle einer B-Roll aus dem Katalog. Steht im Katalog `log` (flaches Material aus der Kamera), trägt die Quelle die Farbart «log» und bekommt so die LUT «log» statt des Angleichs.
  * Hat ein Mensch für den Inhalt den Datenbereich festgelegt, gilt er auch für diese Quelle (derselbe Kamera-Modus).
  */
+/** Die Audioquelle eines Klangs aus dem Katalog (M8), mit der Kennung «sound-<Schlüssel>». */
+export function soundQuelleAusKatalog(k: Pick<KatalogEintrag, "schluessel" | "pfad">, sondiert: object): SchnittQuelle {
+  return SchnittQuelle.parse({ id: `sound-${k.schluessel}`, pfad: k.pfad, ...sondiert });
+}
+
 export function brollQuelleAusKatalog(k: Pick<KatalogEintrag, "schluessel" | "pfad" | "log">, sondiert: object, plan: Pick<Schnittplan, "quellen">): SchnittQuelle {
   const bereich = plan.quellen.find((q) => q.farbe === "log" && q.bereich)?.bereich;
   return SchnittQuelle.parse({ id: `broll-${k.schluessel}`, pfad: k.pfad, ...sondiert, ...(k.log ? { farbe: "log", ...(bereich ? { bereich } : {}) } : {}) });
@@ -49,6 +55,8 @@ export function brollQuelleAusKatalog(k: Pick<KatalogEintrag, "schluessel" | "pf
 /* ---------- 1. Auftrag an Claude ---------- */
 
 export interface AuftragKontext {
+  /** Ton der Marke (M8): Nur wenn `sfxDichte` über 0 liegt, steht eine Klangliste im Auftrag. Ohne Angabe sind Klänge aus. */
+  ton?: Markenprofil["ton"];
   /** Stücke der Bibliothek; im Auftrag stehen nur die aktiven. */
   stuecke: Stueck[];
   katalog: KatalogEintrag[];
@@ -117,6 +125,21 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
   if (bilder.length - frei.length > 0) aus.push("", `${bilder.length - frei.length} Einträge fehlen, weil sie im letzten Video der Marke liefen.`);
   aus.push("", "B-Roll nur mit Katalog-Schlüssel, höchstens einmal pro Video, mindestens so lang wie das Overlay. Fotos und Sounds stehen nicht in der Liste: Fotos sind keine B-Roll.", "");
 
+  // Klänge (M8): nur für Marken, die Soundeffekte wollen; nur Sounds mit Lizenz und Quelle
+  const klangMax = hoechstensKlaenge(ctx.ton, gesamt);
+  const klaenge = ctx.katalog.filter((k) => k.art === "sound" && k.klang);
+  aus.push("## Klänge (Katalog)", "");
+  if (!klangMax) aus.push("Keine Soundeffekte (Marke: `ton.sfxDichte` 0). Schreib kein `sounds`.", "");
+  else if (!klaenge.length) aus.push("(Der Katalog hat keinen Sound mit Lizenz und Quelle. Ohne ihn gibt es keine Klänge: Schreib kein `sounds`.)", "");
+  else {
+    for (const k of klaenge) aus.push(`- ${k.schluessel} · ${k.klang!.art}${k.dauer ? `, ${s1(k.dauer)} s` : ""} · ${k.titel} · ${k.beschreibung} · ${k.tags.join(", ")}`);
+    aus.push(
+      "",
+      `Höchstens ${klangMax} Klänge in diesem Video (Marke: ${ctx.ton!.sfxDichte} je Sekunde), nie mehr als ${KLAENGE_JE_SEKUNDE} in einer Sekunde. Ein Klang gehört auf ein sichtbares Ereignis (Grafik, Zahl, Schnitt, Wort): Setz \`t\` bis 0,5 s **vor** das Bildereignis, nie danach. Nur Schlüssel aus dieser Liste. Ein Mensch hört die Wahl und gibt sie frei; du hörst nichts.`,
+      "",
+    );
+  }
+
   const regeln = (ctx.regeln ?? []).filter((r) => r.status === "aktiv" && (r.typ === "handwerk" || r.marke === plan.projekt.marke));
   aus.push("## Aktive Regeln", "");
   aus.push(...(regeln.length ? regeln.map((r) => `- ${r.id} (${r.typ}): ${r.text}`) : ["(Keine aktiven Regeln.)"]), "");
@@ -133,6 +156,7 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
         ],
         betonung: [12, 40],
         zooms: [{ wort: 12, dauer: 1.2, begruendung: "Betontes Wort, die Zahl soll hängen bleiben" }],
+        ...(klangMax && klaenge.length ? { sounds: [{ katalog: klaenge[0]!.schluessel, t: 6.2, pegelDb: -12, begruendung: "Schlag knapp vor der Zahl, hebt sie hervor" }] } : {}),
         notiz: "Ein Satz zur Gesamtidee",
       },
       null,
@@ -141,7 +165,7 @@ export function bauAuftrag(plan: Schnittplan, ctx: AuftragKontext): string[] {
     "```",
     "",
   );
-  aus.push("- `betonung`: Nummern aus der Wortliste oben.", "- `zooms`: nur auf Wörtern aus `betonung` (`wort` ist dieselbe Nummer); `stufe` ist optional.", "- Kein Eintrag ohne Begründung (mindestens ein kurzer Satz).", "- Der Plan ist ein Entwurf. Ein Mensch bestätigt ihn oder ändert ihn per Satz («Hook kürzer»).");
+  aus.push("- `betonung`: Nummern aus der Wortliste oben.", "- `zooms`: nur auf Wörtern aus `betonung` (`wort` ist dieselbe Nummer); `stufe` ist optional.", ...(klangMax && klaenge.length ? ["- `sounds`: Katalog-Schlüssel aus der Klangliste, `t` in Sekunden der Timeline, `pegelDb` optional (Standard −12)."] : []), "- Kein Eintrag ohne Begründung (mindestens ein kurzer Satz).", "- Der Plan ist ein Entwurf. Ein Mensch bestätigt ihn oder ändert ihn per Satz («Hook kürzer»).");
   return aus;
 }
 
@@ -159,6 +183,10 @@ export interface AnwendenKontext {
   renderOrdner?: string;
   /** Schnittprofil der Marke: bestimmt, ob und wie oft gezoomt werden darf. Ohne Profil gelten die Startwerte (kein Zoom). */
   profil?: Schnittprofil;
+  /** Ton der Marke (M8): `sfxDichte` bestimmt, ob und wie viele Klänge erlaubt sind. Ohne Angabe sind Klänge aus. */
+  ton?: Markenprofil["ton"];
+  /** Sondierte Dateien der Klänge, nach Katalog-Schlüssel. Ohne Eintrag kann der Klang nicht in den Plan. */
+  soundQuellen?: ReadonlyMap<string, SchnittQuelle>;
 }
 
 export interface RenderAuftrag {
@@ -180,6 +208,8 @@ export interface Angewandt {
   betont: { index: number; text: string; t: number }[];
   zooms: { wort: number; text: string; t: number; dauer: number; stufe: number }[];
   verworfeneZooms: { index: number; zoom: unknown; grund: string }[];
+  sounds: { katalog: string; art: KlangArt; t: number; dauer: number; pegelDb: number }[];
+  verworfeneSounds: { index: number; sound: unknown; grund: string }[];
 }
 
 export function wendeStoryboardAn(plan: Schnittplan, roh: unknown, ctx: AnwendenKontext): Angewandt {
@@ -196,7 +226,7 @@ export function wendeStoryboardAn(plan: Schnittplan, roh: unknown, ctx: Anwenden
   const warnungen = [...geprueft.warnungen];
 
   // Frühere Ergebnisse eines Storyboards fallen weg: das Storyboard ist massgebend, nicht die Summe aller Läufe
-  const quellen = plan.quellen.filter((q) => !q.id.startsWith("broll-"));
+  const quellen = plan.quellen.filter((q) => !q.id.startsWith("broll-") && !q.id.startsWith("sound-"));
   const broll: Schnittplan["broll"] = [];
   const overlays: Schnittplan["overlays"] = [];
   const renderListe: RenderAuftrag[] = [];
@@ -274,9 +304,58 @@ export function wendeStoryboardAn(plan: Schnittplan, roh: unknown, ctx: Anwenden
     zooms.push({ wort: z.wort, text: b.text, t, dauer, stufe });
   });
 
-  const ohneZoom = leseSchnittplan({ ...plan, quellen, broll, overlays, woerter: neueWoerter });
+  // Klänge (M8): nur wenn die Marke Soundeffekte will, nur Sounds mit Lizenz und Quelle, höchstens so viele wie `sfxDichte` und `KLAENGE_JE_SEKUNDE` erlauben.
+  // Jeder Eintrag wird einzeln geprüft, in der Reihenfolge der Zeit, damit die Obergrenze die späteren trifft und nicht die ersten.
+  const klangMax = hoechstensKlaenge(ctx.ton, gesamt);
+  const sounds: Angewandt["sounds"] = [];
+  const verworfeneSounds: Angewandt["verworfeneSounds"] = [];
+  const planSounds: Schnittplan["sounds"] = [];
+  const klangQuellen = [...quellen];
+  const roheKlaenge = (geprueft.plan.sounds as unknown[]).map((roh, index) => ({ roh, index, p: SoundEintrag.safeParse(roh) }));
+  for (const x of roheKlaenge) {
+    if (!x.p.success) verworfeneSounds.push({ index: x.index, sound: x.roh, grund: `Klang ungültig: ${x.p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}` });
+  }
+  const gueltigeKlaenge = roheKlaenge.filter((x): x is typeof x & { p: { success: true; data: SoundEintrag } } => x.p.success).sort((a, b) => a.p.data.t - b.p.data.t || a.index - b.index);
+  for (const { roh, index, p } of gueltigeKlaenge) {
+    const z = p.data;
+    const nein = (grund: string) => verworfeneSounds.push({ index, sound: roh, grund });
+    if (!klangMax) {
+      nein("Soundeffekte sind für diese Marke aus (Markenprofil ton.sfxDichte 0)");
+      continue;
+    }
+    const eintrag = katalogNach.get(z.katalog);
+    const grund = klangGrund(eintrag, z.katalog);
+    if (grund) {
+      nein(grund);
+      continue;
+    }
+    const q = ctx.soundQuellen?.get(z.katalog);
+    if (!q) {
+      nein(`«${z.katalog}»: Die Datei ${eintrag!.pfad} wurde nicht sondiert (liegt sie auf diesem Rechner?)`);
+      continue;
+    }
+    if (z.t > gesamt - 0.05) {
+      nein(`Klang bei ${s1(z.t)} s liegt nicht im Video (${s1(gesamt)} s lang)`);
+      continue;
+    }
+    if (sounds.length >= klangMax) {
+      nein(`Mehr als ${klangMax} Klänge in ${s1(gesamt)} s (Marke: ton.sfxDichte ${ctx.ton!.sfxDichte} je Sekunde)`);
+      continue;
+    }
+    if (sounds.filter((o) => o.t > z.t - 1 && o.t <= z.t).length >= KLAENGE_JE_SEKUNDE) {
+      nein(`Mehr als ${KLAENGE_JE_SEKUNDE} Klänge in einer Sekunde bei ${s1(z.t)} s`);
+      continue;
+    }
+    if (!klangQuellen.some((o) => o.id === q.id)) klangQuellen.push(q);
+    const dauer = Math.min(q.dauer, gesamt - z.t);
+    const pegelDb = z.pegelDb ?? KLANG_PEGEL_STANDARD;
+    sounds.push({ katalog: z.katalog, art: eintrag!.klang!.art, t: z.t, dauer, pegelDb });
+    planSounds.push({ quelle: q.id, katalog: z.katalog, art: eintrag!.klang!.art, t: z.t, dauer, pegelDb, begruendung: z.begruendung });
+  }
+
+  const ohneZoom = leseSchnittplan({ ...plan, quellen: klangQuellen, broll, overlays, sounds: planSounds, woerter: neueWoerter });
   const neu = wendeZoomsAn(ohneZoom, einsaetze);
-  return { plan: neu, storyboard: geprueft.plan, verworfen, warnungen, renderListe, betont, zooms, verworfeneZooms };
+  return { plan: neu, storyboard: geprueft.plan, verworfen, warnungen, renderListe, betont, zooms, verworfeneZooms, sounds, verworfeneSounds };
 }
 
 export { StoryboardFehler };

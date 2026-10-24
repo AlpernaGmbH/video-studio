@@ -1,5 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { addiere, alsZahl, fcpZeit, frameZeit, inFrames, type Bruch } from "./raster";
+import { verteileAufSpuren } from "./klang";
 import { externerTon, platziere, quelleNach, type PlatzierterClip, type Schnittplan, type SchnittQuelle } from "./plan";
 
 /**
@@ -212,6 +213,32 @@ export function schreibeFcpxml(plan: Schnittplan, loese: PfadLoeser): string {
       });
     }
   }
+
+  // Klänge (M8): eigene Lanes unter der Musik. Was sich überlappt, liegt auf verschiedenen Lanes (in einer Lane liegen verbundene Clips nacheinander)
+  const klaenge = plan.sounds.flatMap((k) => {
+    const q = quellen.get(k.quelle);
+    if (!q || q.art !== "audio") return [];
+    const frame = inFrames(k.t, fps);
+    const bis = Math.min(inFrames(k.t + (k.dauer ?? q.dauer), fps), zeit.gesamtFrames);
+    return [{ k, q, frame, frames: Math.max(1, bis - frame) }];
+  });
+  const klangBasis = (plan.musik ? (hatExternenTon ? -2 : -1) : hatExternenTon ? -1 : 0) - 1;
+  const klangSpur = verteileAufSpuren(klaenge.map((x) => ({ start: x.frame, frames: x.frames })));
+  klaenge.forEach((x, i) => {
+    const lane = klangBasis - klangSpur[i]!;
+    const ref = quellAsset(x.q);
+    verbunden.push({
+      lane,
+      frame: x.frame,
+      xml: (eltern) =>
+        el(
+          "asset-clip",
+          { ref, lane: String(lane), offset: fcpZeit(imEltern(eltern, x.frame)), name: `klang-${x.k.katalog}`, start: fcpZeit({ n: Math.round(x.q.start * x.q.audioRate), d: x.q.audioRate }), duration: fcpZeit(frameZeit(x.frames, fps)), audioRole: "effects" },
+          [el("adjust-volume", { amount: `${x.k.pegelDb}dB` }, [], 5)],
+          4,
+        ),
+    });
+  });
 
   // Spine: die Sprache
   const spineXml = zeit.clips.map((p) => {

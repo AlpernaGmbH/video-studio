@@ -44,6 +44,73 @@ const legeMaterialAn = () => {
   ff("-f", "lavfi", "-i", "sine=duration=1", path.join(bib(), "whoosh.wav"));
 };
 
+describe("katalog klang (M8)", () => {
+  const schreibeKatalog = (eintraege: unknown[]) => {
+    fs.mkdirSync(env.datenDir, { recursive: true });
+    fs.writeFileSync(path.join(env.datenDir, "katalog.json"), JSON.stringify(eintraege));
+  };
+  const sound = (schluessel = "k-0301", pfad = "rohmaterial/bib/whoosh.wav") => ({ schluessel, art: "sound", pfad, titel: `Whoosh_${schluessel}`, beschreibung: "Kurzer Whoosh", tags: ["Whoosh"], dauer: 1, sicherheit: "hoch" });
+  const video = { schluessel: "k-0142", art: "video", pfad: "rohmaterial/bib/x.mov", titel: "Intern_Video", beschreibung: "Ein Video", tags: ["Test"], dauer: 6, sicherheit: "hoch" };
+  const klangArgs = ["katalog", "klang", "k-0301", "--art", "whoosh", "--lizenz", "CC0", "--quelle", "freesound.org/s/42"];
+
+  it("trägt Art, Lizenz und Quelle ein; ohne Messung, wenn die Datei auf diesem Rechner fehlt", async () => {
+    schreibeKatalog([sound()]);
+    expect(await lauf(...klangArgs)).toBe(0);
+    expect(ladeKatalog(env.datenDir)[0]!.klang).toEqual({ art: "whoosh", lizenz: "CC0", quelle: "freesound.org/s/42" });
+    expect(ausgabe.join("\n")).toContain("whoosh, Lizenz CC0, Quelle freesound.org/s/42");
+    expect(ausgabe.join("\n")).toContain("Die Datei liegt nicht auf diesem Rechner");
+  });
+
+  it.skipIf(!hatFfmpeg)("misst Spitze und Lautheit der Datei und speichert sie", async () => {
+    fs.mkdirSync(bib(), { recursive: true });
+    ff("-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-af", "volume=-6dB", path.join(bib(), "whoosh.wav"));
+    schreibeKatalog([sound()]);
+    expect(await lauf(...klangArgs)).toBe(0);
+    const k = ladeKatalog(env.datenDir)[0]!.klang!;
+    expect(k.spitzeDb).toBeLessThan(0);
+    expect(k.spitzeDb).toBeGreaterThan(-30);
+    expect(k.lufs).toBeLessThan(0);
+    expect(ausgabe.join("\n")).toMatch(/Spitze -?\d+,\d dBTP, -?\d+,\d LUFS/);
+    // --ohne-messen lässt die Datei in Ruhe und behält die alten Werte
+    expect(await lauf(...klangArgs, "--ohne-messen")).toBe(0);
+    expect(ladeKatalog(env.datenDir)[0]!.klang!.spitzeDb).toBe(k.spitzeDb);
+  }, 60_000);
+
+  it("lehnt Videos, unbekannte Schlüssel, fehlende Angaben und falsche Arten ab und ändert dabei nichts", async () => {
+    schreibeKatalog([sound(), video]);
+    const vorher = fs.readFileSync(path.join(env.datenDir, "katalog.json"), "utf8");
+    expect(await lauf("katalog", "klang", "k-0142", "--art", "klick", "--lizenz", "CC0", "--quelle", "x.org")).toBe(1);
+    expect(await lauf("katalog", "klang", "k-9999", "--art", "klick", "--lizenz", "CC0", "--quelle", "x.org")).toBe(1);
+    expect(await lauf("katalog", "klang", "k-0301", "--art", "klick", "--quelle", "x.org")).toBe(1);
+    expect(await lauf("katalog", "klang", "k-0301", "--art", "klick", "--lizenz", "CC0")).toBe(1);
+    expect(await lauf("katalog", "klang", "k-0301", "--art", "musik", "--lizenz", "CC0", "--quelle", "x.org")).toBe(1);
+    expect(fs.readFileSync(path.join(env.datenDir, "katalog.json"), "utf8")).toBe(vorher);
+    expect(ausgabe.join("\n")).toMatch(/ist kein Sound/);
+    await expect(lauf("katalog", "klang")).rejects.toThrow(/Aufruf: katalog klang/);
+  });
+
+  it("liste zeigt, welche Sounds eine Lizenz haben und welche nicht verwendbar sind", async () => {
+    schreibeKatalog([sound(), sound("k-0302", "rohmaterial/bib/zwei.wav")]);
+    await lauf(...klangArgs, "--ohne-messen");
+    ausgabe.length = 0;
+    expect(await lauf("katalog", "liste", "--art", "sound")).toBe(0);
+    const text = ausgabe.join("\n");
+    expect(text).toMatch(/k-0301 .*whoosh, Lizenz CC0/);
+    expect(text).toMatch(/k-0302 .*OHNE Lizenz \(im Storyboard nicht verwendbar\)/);
+  });
+
+  it("eine neue Beschreibung desselben Sounds behält Lizenz und Quelle", async () => {
+    schreibeKatalog([sound()]);
+    await lauf(...klangArgs, "--ohne-messen");
+    const beschreibung = path.join(tmp, "b.json");
+    fs.writeFileSync(beschreibung, JSON.stringify([{ schluessel: "k-0301", titel: "Whoosh_neu_betitelt", beschreibung: "Kurzer Whoosh", tags: ["Whoosh"], sicherheit: "hoch" }]));
+    expect(await lauf("katalog", "beschreibe", "--json", beschreibung)).toBe(0);
+    const k = ladeKatalog(env.datenDir)[0]!;
+    expect(k.titel).toBe("Whoosh_neu_betitelt");
+    expect(k.klang).toMatchObject({ art: "whoosh", lizenz: "CC0" });
+  });
+});
+
 describe("katalog genutzt", () => {
   const eintrag = (schluessel: string) => ({ schluessel, art: "video", pfad: `rohmaterial/bib/${schluessel}.mov`, titel: `Intern_${schluessel}`, beschreibung: "Testmaterial", tags: ["Test"], dauer: 6, sicherheit: "hoch" });
   const plan = (broll: unknown[]) => ({

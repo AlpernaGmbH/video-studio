@@ -336,6 +336,91 @@ describe("Schnittprofil je Format (M9)", () => {
   });
 });
 
+/* ---------- Klänge im Storyboard (M8) ---------- */
+
+describe("Klänge im Storyboard (M8)", () => {
+  const Zeilen = [Z1, Z2, Z3, "Dafür brauchte er nur drei Wochen."];
+  const basisPlan = () =>
+    bauePlan(ordneZu(Zeilen, [{ quelle: "sprache", segmente: [testSatz(20, Zeilen[0]!), testSatz(3, Zeilen[1]!), testSatz(30, Zeilen[2]!), testSatz(40, Zeilen[3]!)] }]), {
+      projekt: { name: "Küche Gossau", inhalt: "c-0007", marke: "alperna" },
+      quellen: [videoQuelle("sprache") as never],
+    }).plan;
+  const klangEintrag = (extra: Record<string, unknown> = {}) => ({ schluessel: "k-0301", art: "sound", pfad: "rohmaterial/klaenge/schlag.wav", titel: "Schlag_kurz", beschreibung: "Kurzer tiefer Schlag", tags: ["Schlag"], dauer: 0.5, sicherheit: "hoch", klang: { art: "schlag", lizenz: "CC0", quelle: "freesound.org/s/1" }, ...extra });
+  /** Eine Marke, die Soundeffekte will (Alperna will keine: ton.sfxDichte 0). */
+  const markeMitKlaengen = () => {
+    const markenDir = path.join(tmp, "marken");
+    fs.mkdirSync(markenDir, { recursive: true });
+    fs.writeFileSync(path.join(markenDir, "klang.json"), JSON.stringify({ ...alperna, schluessel: "klang", ton: { sfxDichte: 0.3, musik: false } }));
+    env = { ...env, markenDir };
+  };
+  const sb = (sounds: unknown[]) => schreibe("sb.json", { hook: "Warum die Küche anders aussieht", overlays: [], betonung: [], sounds });
+  const klang = (t: number, extra: Record<string, unknown> = {}) => ({ katalog: "k-0301", t, begruendung: "Schlag knapp vor der Zahl, hebt sie hervor", ...extra });
+
+  it("auftrag: Alperna (sfxDichte 0) bekommt keine Klangliste, eine Marke mit Soundeffekten die Liste mit Lizenz", async () => {
+    const katalog = schreibe("katalog.json", [klangEintrag(), klangEintrag({ schluessel: "k-0399", klang: undefined })]);
+    expect(await lauf("schnitt", "auftrag", "--plan", schreibe("plan.json", basisPlan()), "--katalog", katalog)).toBe(0);
+    expect(ausgabe.join("\n")).toContain("Keine Soundeffekte (Marke");
+    expect(ausgabe.join("\n")).not.toContain("k-0301");
+    ausgabe.length = 0;
+    markeMitKlaengen();
+    expect(await lauf("schnitt", "auftrag", "--plan", schreibe("plan.json", basisPlan()), "--katalog", katalog, "--marke", "klang")).toBe(0);
+    const text = ausgabe.join("\n");
+    expect(text).toContain("k-0301 · schlag");
+    expect(text).not.toContain("k-0399");
+    expect(text).toMatch(/Höchstens \d+ Klänge/);
+  });
+
+  it.skipIf(!hatFfmpeg)("storyboard: übernimmt einen Klang mit Lizenz, sondiert die Datei und sagt, dass ein Mensch die Wahl hört", async () => {
+    markeMitKlaengen();
+    const dir = path.join(tmp, "Medien", "rohmaterial", "klaenge");
+    fs.mkdirSync(dir, { recursive: true });
+    expect(spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=100:duration=0.5", path.join(dir, "schlag.wav")]).status).toBe(0);
+    const katalog = schreibe("katalog.json", [klangEintrag()]);
+    const aus = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", schreibe("plan.json", basisPlan()), "--storyboard", sb([klang(2)]), "--katalog", katalog, "--marke", "klang", "-o", aus)).toBe(0);
+    const p2 = leseSchnittplan(JSON.parse(fs.readFileSync(aus, "utf8")));
+    expect(p2.sounds).toEqual([expect.objectContaining({ quelle: "sound-k-0301", katalog: "k-0301", art: "schlag", t: 2, pegelDb: -12 })]);
+    expect(p2.quellen.find((q) => q.id === "sound-k-0301")).toMatchObject({ art: "audio", pfad: "rohmaterial/klaenge/schlag.wav", hatAudio: true });
+    const text = ausgabe.join("\n");
+    expect(text).toContain("1 Klänge");
+    expect(text).toMatch(/Klang k-0301 \(schlag\) bei 2,0 s/);
+    expect(text).toContain("Claude hat nichts gehört");
+  }, 60_000);
+
+  it.skipIf(!hatFfmpeg)("storyboard: bei Alperna (sfxDichte 0) fällt der Klang mit Grund heraus, und der Plan bleibt ohne Klänge", async () => {
+    const dir = path.join(tmp, "Medien", "rohmaterial", "klaenge");
+    fs.mkdirSync(dir, { recursive: true });
+    spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=100:duration=0.5", path.join(dir, "schlag.wav")]);
+    const katalog = schreibe("katalog.json", [klangEintrag()]);
+    const aus = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", schreibe("plan.json", basisPlan()), "--storyboard", sb([klang(2)]), "--katalog", katalog, "--marke", "alperna", "-o", aus)).toBe(0);
+    expect(leseSchnittplan(JSON.parse(fs.readFileSync(aus, "utf8"))).sounds).toEqual([]);
+    expect(ausgabe.join("\n")).toMatch(/Klang 1: Soundeffekte sind für diese Marke aus/);
+  }, 60_000);
+
+  it("storyboard: ein Sound ohne Lizenz und eine Datei, die nicht da ist, werden mit Grund verworfen", async () => {
+    markeMitKlaengen();
+    const katalog = schreibe("katalog.json", [klangEintrag({ klang: undefined }), klangEintrag({ schluessel: "k-0302", pfad: "rohmaterial/klaenge/fehlt.wav" })]);
+    const aus = path.join(tmp, "plan2.json");
+    expect(await lauf("schnitt", "storyboard", "--plan", schreibe("plan.json", basisPlan()), "--storyboard", sb([klang(2), klang(3, { katalog: "k-0302" })]), "--katalog", katalog, "--marke", "klang", "-o", aus)).toBe(0);
+    expect(leseSchnittplan(JSON.parse(fs.readFileSync(aus, "utf8"))).sounds).toEqual([]);
+    const text = ausgabe.join("\n");
+    expect(text).toMatch(/Klang 1: .*keine Lizenz und keine Quelle/);
+    expect(text).toMatch(/Klang 2: .*nicht sondiert/);
+    expect(text).toContain("Klang-Dateien nicht auf diesem Rechner: rohmaterial/klaenge/fehlt.wav");
+  });
+
+  it("pruefe: eine Marke ohne Soundeffekte bekommt bei einem Plan mit Klängen den Fehler «klang-marke-aus»", async () => {
+    const plan = {
+      ...basisPlan(),
+      quellen: [...basisPlan().quellen, { id: "sound-k-0301", pfad: "rohmaterial/klaenge/schlag.wav", art: "audio", dauer: 0.5, hatAudio: true }],
+      sounds: [{ quelle: "sound-k-0301", katalog: "k-0301", art: "schlag", t: 2, pegelDb: -12, begruendung: "Schlag knapp vor der Zahl" }],
+    };
+    expect(await lauf("schnitt", "pruefe", "--plan", schreibe("plan.json", plan), "--entwurf")).toBe(1);
+    expect(ausgabe.join("\n")).toContain("klang-marke-aus");
+  });
+});
+
 /* ---------- schnitt auftrag und schnitt storyboard ---------- */
 
 describe("schnitt auftrag und schnitt storyboard", () => {

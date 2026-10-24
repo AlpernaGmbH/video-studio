@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 import { alsZahl, fpsBruch, inFrames } from "./raster";
 import { externerTon, platziere, quelleNach, sekunden, type Schnittplan, type SchnittQuelle } from "./plan";
 import type { PfadLoeser } from "./fcpxml";
+import { verteileAufSpuren } from "./klang";
 
 /**
  * OpenTimelineIO (JSON) aus dem Schnittplan, als Gegenstück zur FCPXML-Datei. Resolve liest OTIO ebenfalls als Timeline.
@@ -108,6 +109,28 @@ export function schreibeOtio(plan: Schnittplan, loese: PfadLoeser): string {
 
   const spuren = [spur("V1", "Video", v1), spur("V2", "Video", v2), spur("V3", "Video", v3), spur("A1", "Audio", a1)];
   if (a2.length) spuren.push(spur("A2", "Audio", a2));
+
+  // Klänge (M8): eigene Audiospuren nach der Musik. Was sich überlappt, liegt auf verschiedenen Spuren (OTIO kennt keine Überlappung in einer Spur)
+  const klaenge = plan.sounds.flatMap((k) => {
+    const q = quellen.get(k.quelle);
+    if (!q || q.art !== "audio") return [];
+    const start = inFrames(k.t, fps);
+    const bis = Math.min(inFrames(k.t + (k.dauer ?? q.dauer), fps), zeit.gesamtFrames);
+    return [{ k, q, start, frames: Math.max(1, bis - start) }];
+  });
+  const klangSpur = verteileAufSpuren(klaenge.map((x) => ({ start: x.start, frames: x.frames })));
+  const klangInhalt: { pos: number; teile: unknown[] }[] = [];
+  klaenge
+    .map((x, i) => ({ x, spur: klangSpur[i]! }))
+    .sort((a, b) => a.x.start - b.x.start)
+    .forEach(({ x, spur: nr }) => {
+      const s = (klangInhalt[nr] ??= { pos: 0, teile: [] });
+      s.pos = luecke(s.teile, s.pos, x.start, rateVon(fps));
+      s.teile.push(clip(`klang-${x.k.katalog}`, quellRef(x.q), roh(x.q, 0), inFrames(sekunden(x.frames, fps), x.q.audioRate), x.q.audioRate, { studio: { katalog: x.k.katalog, art: x.k.art, pegelDb: x.k.pegelDb, begruendung: x.k.begruendung } }));
+      s.pos = x.start + x.frames;
+    });
+  let audioNr = a2.length ? 3 : 2;
+  klangInhalt.forEach((s) => spuren.push(spur(`A${audioNr++}`, "Audio", s.teile)));
   const rate = rateVon(fps);
   const timeline = {
     OTIO_SCHEMA: "Timeline.1",

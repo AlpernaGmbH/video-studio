@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { KatalogEintrag } from "../core/schemas";
+import { Klang, KatalogEintrag } from "../core/schemas";
 import { RelPathSchema } from "../core/paths";
 
 /**
@@ -128,6 +128,28 @@ export function fuegeBeschreibungenEin(offen: OffenerEintrag[], katalog: Katalog
     (alt ? ueberschrieben : neu).push(b.schluessel);
   });
   return { katalog: k, offen: restOffen, neu, ueberschrieben, fehler };
+}
+
+/**
+ * Trägt Art, Lizenz und Quelle eines Sounds ein (M8). Nur ein Mensch bestimmt sie, Claude erfindet keine Lizenz.
+ * Ein Sound ohne diese Angaben ist im Storyboard nicht verwendbar. Gemessene Werte (Spitze, Lautheit) bleiben beim Ändern erhalten, wenn keine neuen kommen.
+ */
+export function setzeKlang(katalog: KatalogEintrag[], schluessel: string, roh: unknown): { katalog: KatalogEintrag[]; klang: Klang } | { fehler: string } {
+  const e = katalog.find((x) => x.schluessel === schluessel);
+  if (!e) return { fehler: `Der Schlüssel «${schluessel}» steht nicht im Katalog (erst beschreiben: ./studio katalog beschreibe)` };
+  if (e.art !== "sound") return { fehler: `«${schluessel}» ist kein Sound, sondern ${e.art === "video" ? "ein Video" : "ein Foto"}` };
+  const p = Klang.safeParse(roh);
+  if (!p.success) return { fehler: p.error.issues.map((i) => `${i.path.join(".") || "(Klang)"}: ${i.message}`).join("; ") };
+  const klang = { ...(e.klang?.spitzeDb !== undefined ? { spitzeDb: e.klang.spitzeDb } : {}), ...(e.klang?.lufs !== undefined ? { lufs: e.klang.lufs } : {}), ...p.data };
+  return { katalog: katalog.map((x) => (x.schluessel === schluessel ? { ...x, klang } : x)), klang };
+}
+
+/** Ob das Storyboard den Sound benutzen darf: ein Sound mit Art, Lizenz und Quelle. Der Grund ist leer, wenn ja. */
+export function klangGrund(e: KatalogEintrag | undefined, schluessel: string): string {
+  if (!e) return `Katalog-Schlüssel «${schluessel}» existiert nicht`;
+  if (e.art !== "sound") return `«${schluessel}» ist kein Sound`;
+  if (!e.klang) return `«${schluessel}» hat keine Lizenz und keine Quelle im Katalog (./studio katalog klang ${schluessel} --art … --lizenz … --quelle …)`;
+  return "";
 }
 
 /** Einfache Suche über Titel, Beschreibung und Tags: alle Begriffe müssen vorkommen, Gross- und Kleinschreibung zählt nicht. */

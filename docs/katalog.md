@@ -39,7 +39,15 @@ Pfade sind relativ zum Studio-Ordner, Dateien unter `rohmaterial/`, `renders/` u
 - **Fotos:** GPS und Aufnahmezeit aus EXIF liest der Scan nicht (ffprobe liefert sie bei Fotos kaum), HEIC geht nur, wenn die ffmpeg-Version es kann. Fotos als B-Roll sind ausdrücklich nicht vorgesehen.
 - **Regel «Korrektur merken»** (Plan Kap. 3.7, Schritt 5): Eine Korrektur überschreibt den Eintrag, wird aber nicht als Regel gemerkt.
 - **Tokenkosten:** Der Plan schätzt grob eine halbe Million Token für 300 Clips und will sie an 20 Dateien messen. Das ist nicht gemessen.
-- **Sounds:** Sie bekommen keine Vorschaubilder; Claude beschreibt sie nach Dateiname und Ordner. Soundeffekte im Schnitt (Plan Kap. 3.8) sind nicht gebaut.
+- **Sounds:** Sie bekommen keine Vorschaubilder; Claude beschreibt sie nach Dateiname und Ordner. **Soundeffekte im Schnitt (M8, seit 24.10.2026):** Ein Sound ist im Storyboard nur verwendbar, wenn er **Art, Lizenz und Quelle** trägt. Das trägt ein Mensch ein, Claude erfindet keine Lizenz:
+
+  ```
+  ./studio katalog klang k-0301 --art schlag --lizenz "CC0" --quelle "freesound.org/s/1234"
+  ```
+
+  Arten: `klick`, `schlag`, `whoosh`, `flaeche`, `glocke` (Musik hat ihre eigene Spur im Plan). Der Befehl misst Spitze (dBTP) und Lautheit der Datei (bei Klängen unter 0,4 s nur die Spitze; `--ohne-messen` lässt es). `katalog liste --art sound` zeigt Sounds ohne Lizenz als «OHNE Lizenz». Eine neue Beschreibung (`katalog beschreibe`) lässt Lizenz und Quelle stehen. Es gibt keine Klänge im Repo und kein Herunterladen aus dem Netz: Lizenzierte Klänge legst du selbst in den Medien-Ordner und scannst sie.
+
+  Im Storyboard stehen Klänge im Feld `sounds` (`katalog`, `t`, `pegelDb` optional, `begruendung`). Sie zählen nur für eine Marke mit `ton.sfxDichte` über 0, höchstens `sfxDichte` mal Videolänge, nie mehr als vier in einer Sekunde. Die Klangwahl hört ein Mensch (Tor P); der Export legt sie auf eigene Spuren unter der Musik (FCPXML: Lanes, OTIO: ab A3). `./studio reel messe` meldet nach dem Export den Anteil der Energie unter 200 Hz (Hinweis ab 40 Prozent, unsere Annahme) neben Lautheit und True Peak.
 
 ## Geprüft
 

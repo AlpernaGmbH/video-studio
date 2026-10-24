@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { RelPathSchema } from "../core/paths";
-import { Slug } from "../core/schemas";
+import { KLANG_ARTEN, Slug } from "../core/schemas";
 import { frameZeit, fpsBruch, inFrames, type Bruch } from "./raster";
 
 /**
@@ -111,6 +111,25 @@ export const SchnittMusik = z.object({
 });
 export type SchnittMusik = z.infer<typeof SchnittMusik>;
 
+/**
+ * Ein Klang (M8): kurzer Effekt oder Fläche aus dem Katalog, auf der Timeline an einer Zeit. Nur mit Lizenz im Katalog; ob die Marke Klänge will, hat das Storyboard geprüft.
+ * Er liegt auf eigenen Spuren unter der Musik (FCPXML ab Lane -3, OTIO A3).
+ */
+export const SchnittSound = z.object({
+  quelle: KennId,
+  /** Katalog-Schlüssel, aus dem der Klang stammt. */
+  katalog: z.string().regex(/^k-\d{4,}$/),
+  art: z.enum(KLANG_ARTEN),
+  /** Timeline-Zeit, ab der der Klang läuft. */
+  t: z.number().min(0),
+  /** Länge in Sekunden (höchstens bis zum Ende der Datei und des Videos). Fehlt sie, spielt die Datei bis zum Ende. */
+  dauer: z.number().positive().optional(),
+  /** Pegel relativ zur Datei. */
+  pegelDb: z.number().max(0).default(-12),
+  begruendung: z.string().min(5),
+});
+export type SchnittSound = z.infer<typeof SchnittSound>;
+
 /** Ein gesprochenes Wort in Quellzeit. Der Text stammt aus dem Skript, nur das Timing aus Whisper (Bauplan v2, Entscheidungsprotokoll). */
 export const SchnittWort = z
   .object({
@@ -143,6 +162,8 @@ export const Schnittplan = z.object({
   broll: z.array(SchnittBroll).default([]),
   overlays: z.array(SchnittOverlay).default([]),
   musik: SchnittMusik.optional(),
+  /** Klänge (M8). Leer, solange die Marke keine Soundeffekte will (Alperna: `ton.sfxDichte` 0). */
+  sounds: z.array(SchnittSound).default([]),
   woerter: z.array(SchnittWort).default([]),
 });
 export type Schnittplan = z.infer<typeof Schnittplan>;

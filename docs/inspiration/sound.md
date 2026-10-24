@@ -17,7 +17,9 @@ Quelle: DctTp5ay2Pa (Motion-Spielerei mit Ton), DeOk9mNExld (sechs Aufnahmen vor
 
 Fast alle Beispiele liegen bei −14 bis −15 LUFS, vermutlich wegen der Normalisierung der Plattform an den Kopien. **Das sagt nichts über die Mischung der Autoren.** Unser Ziel bleibt −14 LUFS beim Master und True Peak höchstens −1 dBFS. Vier Beispiele überschreiten 0 dBFS (bis +2,4); nach der Kompression der Plattform nicht ungewöhnlich, bei uns aber ein Prüfpunkt vor dem Export.
 
-## Folgerung für das Studio (M8)
+## Folgerung für das Studio (M8, gebaut am 24.10.2026)
+
+**Gebaut:** Katalogfeld `klang` (Art, Lizenz, Quelle, Spitze, Lautheit; `./studio katalog klang`), Storyboard-Feld `sounds`, Plan-Feld `sounds`, Auftrag mit Klangliste nur für Marken mit `ton.sfxDichte` über 0, Prüfung (Quelle, Zeit, Lizenz, Dichte), Mischung in der Vorschau, eigene Spuren in FCPXML und OTIO, Abschnitt «Klänge» in `LIESMICH.md`, Messung des Tiefenanteils nach dem Export. **Nicht gebaut:** automatische Wahl von Klängen nach Bildereignissen, Musik-Beats, ein Klangpaket. Alperna und alle Kundenmarken haben `sfxDichte` 0: Ohne Entscheid der Marke ändert sich kein Reel. Die Schwellen (vier je Sekunde, 40 Prozent unter 200 Hz) sind unsere Annahmen, nicht aus den Beispielen gemessen. Die ursprüngliche Planung:
 
 - Storyboard-Feld `sounds[]`: Zeit (auf das Bildereignis, mit Vorlauf bis 0,5 s), Art (Klick, Schlag, Whoosh, Fläche, Glocke), Klang aus dem Katalog, Pegel.
 - Katalog: neue Art **Klang** mit Lizenz, Quelle, Dauer, Pegel. **Nur lizenzierte Klänge**, kein Scraping, kein Nachbau fremder Pakete (die Pakete der Autoren sind nicht prüfbar).

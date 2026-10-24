@@ -164,7 +164,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
 
       for (const l of zuordnungBericht(zuordnung, markierungen)) console.log(l);
       if (pegelNotiz) console.log(`\n${pegelNotiz}`);
-      const befunde = pruefeSchnittplan(plan, { profil });
+      const befunde = pruefeSchnittplan(plan, { profil, ton: marke.ton });
       if (wahl) console.log(`\nSchnittprofil: ${wahl.id}${wahl.schnell ? " (schnell, auf Wunsch)" : ""} statt dem der Marke`);
       if (befunde.length) {
         console.log("\nPrüfung des Plans:");
@@ -231,7 +231,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
       const plan = leseSchnittplan(lesJson(pflicht(a, "plan", "Schnittplan als JSON")));
       const marke = typeof a.opt["marke"] === "string" ? ladeMarke(env, a.opt["marke"]) : ladeMarke(env, plan.projekt.marke);
       const stuecke = ladeBibliothek(env.bibliothek).stuecke.map((g) => g.stueck);
-      const b = pruefeSchnittplan(plan, { profil: ladeSchnittprofil(env, marke, plan.projekt.schnittprofil), stuecke, nurAktive: a.opt["entwurf"] !== true });
+      const b = pruefeSchnittplan(plan, { profil: ladeSchnittprofil(env, marke, plan.projekt.schnittprofil), ton: marke.ton, stuecke, nurAktive: a.opt["entwurf"] !== true });
       zeige(b);
       const fehler = b.filter((x) => x.stufe === "fehler").length;
       console.log(`${fehler} Fehler, ${b.length - fehler} Hinweise`);
@@ -249,6 +249,7 @@ export async function schnittBefehl(sub: string, a: Args, env: Umgebung): Promis
         home,
         aus: typeof a.opt["aus"] === "string" ? a.opt["aus"] : undefined,
         profil: ladeSchnittprofil(env, marke, plan.projekt.schnittprofil),
+        ton: marke.ton,
         stuecke,
         nurAktive: a.opt["entwurf"] !== true,
         export: findePreset(lib, "export", opt(a, "preset", "reel")),

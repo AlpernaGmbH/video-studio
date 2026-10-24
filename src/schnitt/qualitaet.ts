@@ -5,6 +5,7 @@ import { lauf, messeDatei } from "../presets/messen";
 import { FLACH_SAETTIGUNG, FLACH_SPANNE, messeBilder } from "./farbe";
 import { platziere, sekunden, type Schnittplan } from "./plan";
 import { findeStille, type Stille } from "./stille";
+import { TIEFENANTEIL_MAX } from "./klang";
 import { woerterAufTimeline } from "./untertitel";
 
 /**
@@ -25,6 +26,8 @@ export interface Qualitaet {
   videoMbit?: number;
   lufs?: number;
   truePeak?: number;
+  /** Anteil der Energie unter 200 Hz am ganzen Ton (0 bis 1), wenn die Messung gelang (M8). */
+  tiefenanteil?: number;
   schnitte: { anzahl: number; proMinute: number; quelle: "plan" | "bild" };
   /** Wenn ein Plan gegeben war und nicht zur Datei passte (die Länge weicht um mehr als eine halbe Sekunde ab, zum Beispiel weil in Resolve geschnitten wurde): warum er nicht benutzt wurde. */
   planHinweis?: string;
@@ -47,6 +50,31 @@ export interface QualitaetsBefund {
 
 const f1 = (n: number): string => n.toFixed(1).replace(".", ",");
 const f2 = (n: number): string => n.toFixed(2).replace(".", ",");
+
+/** Liest «RMS level dB» des Abschnitts «Overall» aus der Ausgabe von ffmpeg `astats`. */
+export function rmsAusAstats(stderr: string): number | undefined {
+  const teil = stderr.slice(stderr.lastIndexOf("Overall"));
+  const m = /RMS level dB:\s+(-?\d+(?:\.\d+)?|-inf)/.exec(teil);
+  if (!m || m[1] === "-inf") return undefined;
+  return Number(m[1]);
+}
+
+/** Aus dem Pegel des ganzen Tons und des Tons unter 200 Hz der Anteil der Energie unter 200 Hz (Energie = Quadrat des Pegels, daher /10 statt /20). */
+export function tiefenanteilAusPegeln(vollDb: number, tiefDb: number): number {
+  return Math.min(1, Math.pow(10, (tiefDb - vollDb) / 10));
+}
+
+/** Misst den Anteil der Energie unter 200 Hz im Ton einer Datei (M8). Gibt `undefined`, wenn sich nichts messen lässt (kein Ton, Stille, kein ffmpeg). */
+export async function messeTiefenanteil(datei: string): Promise<number | undefined> {
+  try {
+    const messe = async (filter: string): Promise<number | undefined> => rmsAusAstats((await lauf("ffmpeg", ["-nostats", "-hide_banner", "-i", datei, "-vn", "-af", filter, "-f", "null", "-"])).stderr);
+    const voll = await messe("astats=metadata=0");
+    const tief = await messe("lowpass=f=200,astats=metadata=0");
+    return voll === undefined || tief === undefined ? undefined : tiefenanteilAusPegeln(voll, tief);
+  } catch {
+    return undefined;
+  }
+}
 
 /** Zählt die Szenenwechsel aus der Ausgabe von `select='gt(scene,x)',metadata=print`. */
 export function zaehleSzenenwechsel(text: string): number {
@@ -112,6 +140,7 @@ export interface MessEingabe {
   messeSchnitte?: typeof messeSchnitte;
   messeBilder?: typeof messeBilder;
   findeStille?: typeof findeStille;
+  messeTiefen?: typeof messeTiefenanteil;
   jetzt?: () => Date;
 }
 
@@ -129,6 +158,7 @@ export async function messeQualitaet(e: MessEingabe): Promise<Qualitaet> {
   const farbe = await (e.messeBilder ?? messeBilder)(e.datei, dauer, 8);
   if (!farbe) throw new Error("Aus dem Video liessen sich keine Bilder lesen");
   const stille = m.audioCodec ? stilleKennzahlen(await (e.findeStille ?? findeStille)(e.datei, { mindestdauer: 0.3, dauer }), dauer) : { anteil: 1, laengste: dauer, anfang: dauer };
+  const tiefen = m.audioCodec ? await (e.messeTiefen ?? messeTiefenanteil)(e.datei) : undefined;
   const q: Qualitaet = {
     datei: e.datei,
     gemessen: (e.jetzt?.() ?? new Date()).toISOString(),
@@ -141,6 +171,7 @@ export async function messeQualitaet(e: MessEingabe): Promise<Qualitaet> {
     ...(m.videoMbit !== undefined ? { videoMbit: m.videoMbit } : {}),
     ...(m.lufs !== undefined ? { lufs: m.lufs } : {}),
     ...(m.truePeak !== undefined ? { truePeak: m.truePeak } : {}),
+    ...(tiefen !== undefined ? { tiefenanteil: tiefen } : {}),
     schnitte: { anzahl: schnitteAnzahl, proMinute: schnitteAnzahl / minuten, quelle: plan ? "plan" : "bild" },
     ...(plan ? { zooms: { anzahl: plan.zooms, proMinute: plan.zooms / minuten }, grafikAnteil: plan.grafikAnteil, brollAnteil: plan.brollAnteil } : {}),
     farbe: { saettigung: farbe.saettigung, yLow: farbe.yLow, yHigh: farbe.yHigh, spanne: farbe.yHigh - farbe.yLow },
@@ -158,6 +189,9 @@ export function bewerteQualitaet(q: Qualitaet, profil?: Schnittprofil, exportPre
   const hinweise: QualitaetsBefund[] = [];
   const h = (code: string, text: string): number => hinweise.push({ stufe: "hinweis", code, text });
   if (q.farbe.saettigung < FLACH_SAETTIGUNG && q.farbe.spanne < FLACH_SPANNE) h("bild-flach", `Das Bild wirkt flach: Sättigung ${f2(q.farbe.saettigung)}, Helligkeitsspanne ${f2(q.farbe.spanne)}. Es sieht aus wie Material ohne Look. [Vermutung] Der Look ist nicht angewendet`);
+  if (q.tiefenanteil !== undefined && q.tiefenanteil > TIEFENANTEIL_MAX) {
+    h("ton-tiefen", `${Math.round(q.tiefenanteil * 100)} Prozent der Energie liegen unter 200 Hz (Hinweis ab ${Math.round(TIEFENANTEIL_MAX * 100)} Prozent). [Vermutung] Der Ton wirkt dumpf oder dröhnend: Klänge und Musik mit Kopfhörer prüfen. Die Schwelle ist unsere Annahme`);
+  }
   if (profil) {
     if (q.zooms && profil.zoom.modus === "aus" && q.zooms.anzahl > 0) h("zoom-trotz-aus", `${q.zooms.anzahl} Zooms, obwohl das Schnittprofil keine will`);
     if (q.zooms && profil.zoom.modus === "betonung" && q.zooms.proMinute > profil.zoom.maxProMinute + 0.5) h("zu-viele-zooms", `${f1(q.zooms.proMinute)} Zooms je Minute, das Schnittprofil erlaubt ${profil.zoom.maxProMinute}`);
@@ -178,7 +212,7 @@ export function qualitaetZeilen(q: Qualitaet): string[] {
   if (q.zooms) z.push(`Zooms: ${q.zooms.anzahl} (${f1(q.zooms.proMinute)} je Minute)`);
   if (q.grafikAnteil !== undefined) z.push(`Grafiken im Bild: ${Math.round(q.grafikAnteil * 100)} Prozent der Zeit, B-Roll: ${Math.round((q.brollAnteil ?? 0) * 100)} Prozent`);
   z.push(`Bild: Sättigung ${f2(q.farbe.saettigung)}, Helligkeitsspanne ${f2(q.farbe.spanne)}`);
-  if (q.lufs !== undefined) z.push(`Ton: ${f1(q.lufs)} LUFS, Spitze ${q.truePeak !== undefined ? f1(q.truePeak) : "?"} dBTP`);
+  if (q.lufs !== undefined) z.push(`Ton: ${f1(q.lufs)} LUFS, Spitze ${q.truePeak !== undefined ? f1(q.truePeak) : "?"} dBTP${q.tiefenanteil !== undefined ? `, ${Math.round(q.tiefenanteil * 100)} Prozent der Energie unter 200 Hz` : ""}`);
   z.push(`Stille: ${Math.round(q.stille.anteil * 100)} Prozent, längste Pause ${f1(q.stille.laengste)} s`);
   z.push(`Erste Aussage nach ${f1(q.ersteAussage.sekunden)} s (${q.ersteAussage.quelle === "plan" ? "aus dem Plan" : "aus dem Ton"})`);
   return z;

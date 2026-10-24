@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { KatalogEintrag, Schnittprofil } from "../core/schemas";
+import type { KatalogEintrag, Markenprofil, Schnittprofil } from "../core/schemas";
 import { relPath, resolveInRoot } from "../core/paths";
 import type { Stueck } from "../motion/stueck";
 import type { AudioPreset, ExportPreset } from "../presets/schema";
@@ -62,6 +62,8 @@ export interface UebergabeOptionen {
   nurAktive?: boolean;
   export: ExportPreset;
   audio: AudioPreset;
+  /** Ton der Marke (M8): Die Prüfung meldet Klänge, die die Marke nicht will. */
+  ton?: Markenprofil["ton"];
   /** Fehlende Quelldateien sind ein Fehler (Standard) oder nur ein Hinweis. */
   strikt?: boolean;
   /** Ersetzt ffmpeg in Tests. */
@@ -88,7 +90,7 @@ function konvertiereMitFfmpeg(ein: string, aus: string): void {
 
 export function erzeugeUebergabe(o: UebergabeOptionen): UebergabeErgebnis {
   const { plan, home } = o;
-  const befunde = pruefeSchnittplan(plan, { profil: o.profil, katalog: o.katalog, stuecke: o.stuecke, nurAktive: o.nurAktive, maxSekunden: o.export.maxSekunden });
+  const befunde = pruefeSchnittplan(plan, { profil: o.profil, ...(o.ton ? { ton: o.ton } : {}), katalog: o.katalog, stuecke: o.stuecke, nurAktive: o.nurAktive, maxSekunden: o.export.maxSekunden });
   verlangeGueltig(befunde);
 
   const basis = o.aus ? path.resolve(o.aus) : plan.projekt.inhalt ? path.join(home.pfad, "inhalte", plan.projekt.inhalt, "ergebnis", "resolve") : undefined;
@@ -193,6 +195,21 @@ Der Versatz ist aus der Lautstärkekurve gemessen (auf 10 Millisekunden), ein Bi
 `;
 }
 
+/** Abschnitt für `LIESMICH.md`: die Klänge des Storyboards mit Zeit, Art und Pegel. Leer, wenn es keine gibt. */
+function klaengeAbschnitt(plan: Schnittplan): string {
+  if (!plan.sounds.length) return "";
+  const sortiert = [...plan.sounds].sort((a, b) => a.t - b.t);
+  return `## Klänge
+
+Das Storyboard setzt diese Klänge. Sie liegen auf eigenen Audiospuren unter der Musik (FCPXML: Lanes unter der Musik, OTIO: ab A3), jeder Klang ist \`klang-<Schlüssel>\` benannt. **Claude hat sie nicht gehört**: Hör sie mit Kopfhörer an, tausch einzelne aus oder lösch sie. Die Auswahl gehört einem Menschen (Tor P).
+
+${sortiert.map((k) => `- ${s1(k.t)} s: ${k.katalog} (${k.art}), ${k.pegelDb} dB${k.dauer !== undefined ? `, ${s1(k.dauer)} s` : ""}: ${k.begruendung}`).join("\n")}
+
+Der Ton soll knapp vor dem Bild liegen (bis 0,5 s). Nach dem Export prüft \`./studio reel messe\` Spitze und Tiefenanteil.
+
+`;
+}
+
 /** Ob die LUT «log» die V-Log-Umrechnung ist (der Titel in der .cube-Datei sagt es, `baueVlogCube`). */
 export function istVlogLut(datei: string): boolean {
   try {
@@ -270,7 +287,7 @@ Danach die fertige Datei prüfen lassen:
 ./studio schnitt export-pruefen <datei.mp4> --preset ${e.id} --audio ${audio.id}
 \`\`\`
 
-${betonteWoerter(plan)}${tonAbschnitt(plan)}## Stellen, die Claude beim Schnitt auffielen
+${betonteWoerter(plan)}${tonAbschnitt(plan)}${klaengeAbschnitt(plan)}## Stellen, die Claude beim Schnitt auffielen
 
 ${hinweise.length ? hinweise.map((h) => `- ${h.text}`).join("\n") : "Keine."}
 `;

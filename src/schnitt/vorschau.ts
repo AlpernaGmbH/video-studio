@@ -134,8 +134,9 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
   }
   filter.push(`[${aktuell}]format=yuv420p[vout]`);
 
-  // A2: Musik
+  // A2: Musik, danach die Klänge (M8): alles wird mit der Sprache gemischt
   let ton = "abasis";
+  const stimmen = ["abasis"];
   if (plan.musik) {
     const m = plan.musik;
     const q = quellen.get(m.quelle);
@@ -144,9 +145,21 @@ export function vorschauArgs(o: VorschauOptionen): string[] {
       const ms = Math.round((inFrames(m.t, fps) / fps) * 1000);
       const laenge = Math.max(0.1, Math.min(m.dauer ?? gesamt, gesamt - m.t));
       filter.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${m.pegelDb}dB,atrim=duration=${zahl(laenge)},adelay=${ms}|${ms}[musik]`);
-      filter.push(`[abasis][musik]amix=inputs=2:duration=first:normalize=0[amix]`);
-      ton = "amix";
+      stimmen.push("musik");
     }
+  }
+  plan.sounds.forEach((k, j) => {
+    const q = quellen.get(k.quelle);
+    if (!q || q.art !== "audio") return;
+    const i = eingang(["-i", o.loese(q.pfad, "quelle")]);
+    const ms = Math.round((inFrames(k.t, fps) / fps) * 1000);
+    const laenge = Math.max(0.05, Math.min(k.dauer ?? q.dauer, gesamt - k.t));
+    filter.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${k.pegelDb}dB,atrim=duration=${zahl(laenge)},asetpts=PTS-STARTPTS,adelay=${ms}|${ms}[klang${j}]`);
+    stimmen.push(`klang${j}`);
+  });
+  if (stimmen.length > 1) {
+    filter.push(`${stimmen.map((l) => `[${l}]`).join("")}amix=inputs=${stimmen.length}:duration=first:normalize=0[amix]`);
+    ton = "amix";
   }
   filter.push(`[${ton}]alimiter=limit=0.95[aout]`);
 
@@ -162,7 +175,7 @@ export async function erzeugeVorschau(o: VorschauOptionen): Promise<{ datei: str
 /** Dateien, die die Vorschau braucht und die auf diesem Rechner fehlen (Quellen der Clips und der B-Roll, Musik, Grafiken). */
 export function fehlendeDateien(plan: Schnittplan, loese: VorschauOptionen["loese"]): string[] {
   const quellen = quelleNach(plan);
-  const benutzt = new Set<string>([...plan.clips.map((c) => c.quelle), ...plan.broll.map((b) => b.quelle), ...(plan.musik ? [plan.musik.quelle] : [])]);
+  const benutzt = new Set<string>([...plan.clips.map((c) => c.quelle), ...plan.broll.map((b) => b.quelle), ...(plan.musik ? [plan.musik.quelle] : []), ...plan.sounds.map((k) => k.quelle)]);
   for (const c of plan.clips) {
     const t = quellen.get(c.quelle)?.ton;
     if (t) benutzt.add(t.quelle);
